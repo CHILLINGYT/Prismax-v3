@@ -1,0 +1,135 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/water/water_zone.gd" id="1_zone"]
+[ext_resource type="Shader" path="res://personaje/transformaciones/acuatica/water/water_surface.gdshader" id="2_water"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_water"]
+shader = ExtResource("2_water")
+shader_parameter/shallow_color = Color(0.1, 0.34, 0.4, 1)
+shader_parameter/deep_color = Color(0.004, 0.026, 0.085, 1)
+shader_parameter/foam_color = Color(0.88, 0.96, 1, 1)
+shader_parameter/depth_scale = 3.0
+shader_parameter/max_opacity = 0.95
+shader_parameter/wave_height = 0.08
+shader_parameter/wave_speed = 0.9
+shader_parameter/refraction_strength = 0.25
+shader_parameter/fresnel_power = 5.5
+shader_parameter/normal_strength = 2.1
+shader_parameter/foam_width = 0.5
+shader_parameter/specular_shine = 0.55
+shader_parameter/ambient_occlusion = 0.45
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_surface"]
+size = Vector2(24, 20)
+subdivide_width = 48
+subdivide_depth = 40
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_water"]
+size = Vector3(24, 3.7, 20)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sand"]
+albedo_color = Color(0.58, 0.5, 0.35, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stone"]
+albedo_color = Color(0.42, 0.4, 0.36, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_bed"]
+material = SubResource("StandardMaterial3D_sand")
+size = Vector3(25, 1, 13)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bed"]
+size = Vector3(25, 1, 13)
+
+[sub_resource type="BoxMesh" id="BoxMesh_beach"]
+material = SubResource("StandardMaterial3D_sand")
+size = Vector3(24, 1, 8.94427191)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_beach"]
+size = Vector3(24, 1, 8.94427191)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ewall"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(0.5, 4, 21)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ewall"]
+size = Vector3(0.5, 4, 21)
+
+[sub_resource type="BoxMesh" id="BoxMesh_nwall"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(25, 4, 0.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_nwall"]
+size = Vector3(25, 4, 0.5)
+
+[node name="Lake" type="Node3D"]
+
+[node name="WaterZone" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 0)
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+script = ExtResource("1_zone")
+extent = Vector2(12, 10)
+depth = 3.7
+edge_margin = 0.6
+wave_height = 0.08
+wave_speed = 0.9
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WaterZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.85, 0)
+shape = SubResource("BoxShape3D_water")
+
+[node name="Superficie" type="MeshInstance3D" parent="WaterZone"]
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_surface")
+material_override = SubResource("ShaderMaterial_water")
+
+[node name="Cuenca" type="Node3D" parent="."]
+
+[node name="Fondo" type="StaticBody3D" parent="Cuenca"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.5, 4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cuenca/Fondo"]
+mesh = SubResource("BoxMesh_bed")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cuenca/Fondo"]
+shape = SubResource("BoxShape3D_bed")
+
+[node name="Playa" type="StaticBody3D" parent="Cuenca"]
+transform = Transform3D(1, 0, 0, 0, 0.8944272, -0.4472136, 0, 0.4472136, 0.8944272, 0, -2.4472136, -6.2236068)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cuenca/Playa"]
+mesh = SubResource("BoxMesh_beach")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cuenca/Playa"]
+shape = SubResource("BoxShape3D_beach")
+
+[node name="MuroOeste" type="StaticBody3D" parent="Cuenca"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.25, -2, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cuenca/MuroOeste"]
+mesh = SubResource("BoxMesh_ewall")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cuenca/MuroOeste"]
+shape = SubResource("BoxShape3D_ewall")
+
+[node name="MuroEste" type="StaticBody3D" parent="Cuenca"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.25, -2, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cuenca/MuroEste"]
+mesh = SubResource("BoxMesh_ewall")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cuenca/MuroEste"]
+shape = SubResource("BoxShape3D_ewall")
+
+[node name="MuroNorte" type="StaticBody3D" parent="Cuenca"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 10.25)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cuenca/MuroNorte"]
+mesh = SubResource("BoxMesh_nwall")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cuenca/MuroNorte"]
+shape = SubResource("BoxShape3D_nwall")

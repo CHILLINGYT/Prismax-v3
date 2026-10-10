@@ -1,0 +1,116 @@
+[gd_scene load_steps=29 format=3]
+
+[ext_resource type="Script" path="res://velocidad/scripts/controlador_velocidad.gd" id="1_ctrl"]
+[ext_resource type="Script" path="res://velocidad/scripts/camara_velocidad.gd" id="2_cam"]
+[ext_resource type="Script" path="res://velocidad/scripts/trazador.gd" id="3_traz"]
+[ext_resource type="Script" path="res://velocidad/scripts/efectos_velocidad.gd" id="4_efec"]
+[ext_resource type="Script" path="res://velocidad/scripts/combate.gd" id="5_comb"]
+[ext_resource type="Script" path="res://velocidad/scripts/capa_velocidad.gd" id="6_capa"]
+[ext_resource type="Script" path="res://velocidad/scripts/efecto_transformacion.gd" id="26_transf"]
+[ext_resource type="Shader" path="res://velocidad/shaders/distorsion_velocidad.gdshader" id="7_shader"]
+[ext_resource type="PackedScene" path="res://velocidad/modelos/Standing W_Briefcase Idle.fbx" id="8_leofbx"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/leo_animations.tres" id="9_leoanims"]
+[ext_resource type="PackedScene" path="res://velocidad/modelos/modelo_velocidad.fbx" id="10_vfbx"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/calentamiento_ataque.tres" id="11_calentamiento"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/caminar_hacia_adelante.tres" id="12_caminar_adelante"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/caminar_hacia_atras.tres" id="13_caminar_atras"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/cargar_poder.tres" id="14_carga"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/combo_1.tres" id="15_combo1"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/combo_2.tres" id="16_combo2"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/combo_3.tres" id="17_combo3"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/combo_4.tres" id="18_combo4"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/dash.tres" id="19_dash"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/inactivo.tres" id="20_inactivo"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/inactivo_velocidad.tres" id="21_inactivo_vel"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/inactivo_modo_ataque.tres" id="22_modo_ataque"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/salto_aire.tres" id="23_salto_aire"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/saltar.tres" id="24_saltar"]
+[ext_resource type="AnimationLibrary" path="res://velocidad/animaciones/superduper_velocidad.tres" id="25_super"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
+radius = 0.4
+height = 1.9
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_distorsion"]
+shader = ExtResource("7_shader")
+shader_parameter/intensidad = 0.0
+shader_parameter/tiempo = 0.0
+
+[node name="Velocidad" type="CharacterBody3D"]
+script = ExtResource("1_ctrl")
+
+[node name="Humano" type="Node3D" parent="."]
+
+[node name="Modelo" parent="Humano" instance=ExtResource("8_leofbx")]
+transform = Transform3D(-200, 0, 0, 0, 200, 0, 0, 0, -200, 0, 0, 0)
+
+[node name="Animador" type="AnimationPlayer" parent="Humano"]
+libraries/ = ExtResource("9_leoanims")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Pose" type="Node3D" parent="Visual"]
+
+[node name="Volteo" type="Node3D" parent="Visual/Pose"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Modelo" parent="Visual/Pose/Volteo" instance=ExtResource("10_vfbx")]
+
+[node name="AnimadorVelocista" type="AnimationPlayer" parent="Visual/Pose/Volteo/Modelo"]
+libraries/calentamiento_ataque = ExtResource("11_calentamiento")
+libraries/caminar_hacia_adelante = ExtResource("12_caminar_adelante")
+libraries/caminar_hacia_atras = ExtResource("13_caminar_atras")
+libraries/cargar_poder_click-derecho = ExtResource("14_carga")
+libraries/combo-1 = ExtResource("15_combo1")
+libraries/combo-2 = ExtResource("16_combo2")
+libraries/combo-3 = ExtResource("17_combo3")
+libraries/combo-4 = ExtResource("18_combo4")
+libraries/dash-con-shift = ExtResource("19_dash")
+libraries/inactivo = ExtResource("20_inactivo")
+libraries/inactivo_despues-despues-de-30s-velocidad = ExtResource("21_inactivo_vel")
+libraries/inactivo_modo_ataque = ExtResource("22_modo_ataque")
+"libraries/jumping up(1)" = ExtResource("23_salto_aire")
+libraries/saltar = ExtResource("24_saltar")
+libraries/superduper_velocidad = ExtResource("25_super")
+
+[node name="Colision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+shape = SubResource("CapsuleShape3D_jugador")
+
+[node name="PivoteCamara" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+script = ExtResource("2_cam")
+
+[node name="Brazo" type="SpringArm3D" parent="PivoteCamara"]
+spring_length = 2.6
+
+[node name="Camara" type="Camera3D" parent="PivoteCamara/Brazo"]
+fov = 70.0
+
+[node name="Trazador" type="Node3D" parent="."]
+script = ExtResource("3_traz")
+
+[node name="Efectos" type="Node3D" parent="."]
+script = ExtResource("4_efec")
+
+[node name="Combate" type="Node" parent="."]
+script = ExtResource("5_comb")
+
+[node name="CapaVelocidad" type="CanvasLayer" parent="."]
+visible = false
+script = ExtResource("6_capa")
+
+[node name="Distorsion" type="ColorRect" parent="CapaVelocidad"]
+material = SubResource("ShaderMaterial_distorsion")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="EfectoTransformacion" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+script = ExtResource("26_transf")
+color = Color(0.6, 0.1, 1, 1)
+tiempo_bajada = 0.3

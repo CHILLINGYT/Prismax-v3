@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://dg1mwwfdvi8ru"]
+
+[ext_resource type="Script" uid="uid://bqyycmilwt20i" path="res://personaje/transformaciones/velocidad/prototipos/velocista.gd" id="1_sl02e"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_36kf6"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_x5ok8"]
+height = 1.7528262
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_x5ok8"]
+
+[node name="CharacterBody3D" type="CharacterBody3D" unique_id=1227051126]
+script = ExtResource("1_sl02e")
+
+[node name="FormaHumana" type="MeshInstance3D" parent="." unique_id=2108270584]
+transform = Transform3D(0.335, 0, 0, 0, 1, 0, 0, 0, 0.36, 0, 0.49266106, 0)
+mesh = SubResource("BoxMesh_36kf6")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1672327661]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0996213, 0)
+shape = SubResource("CapsuleShape3D_x5ok8")
+
+[node name="pivote" type="Node3D" parent="." unique_id=596328960]
+transform = Transform3D(1, 0, 0, 0, 0.99993926, 0.011018711, 0, -0.011018711, 0.99993926, 0, 1.2775627, 1.0640938)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="pivote" unique_id=995545164]
+
+[node name="Camera3D" type="Camera3D" parent="pivote/SpringArm3D" unique_id=766001650]
+transform = Transform3D(1, 0, 0, 0, 0.934485, 0.35600263, 0, -0.35600263, 0.934485, 0, 1.7379097, -2.453467)
+
+[node name="PlaceholderVelocidad" type="MeshInstance3D" parent="." unique_id=1909802185]
+mesh = SubResource("CapsuleMesh_x5ok8")

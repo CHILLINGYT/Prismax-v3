@@ -1,0 +1,115 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/character/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/character/character_model.gd" id="2_model"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/character/player_animation.gd" id="3_anim"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/character/camera_rig.gd" id="4_camera"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/models/futuristic_armor_character.tscn" id="5_model"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/acuatica/animations/player_animations.tres" id="6_library"]
+[ext_resource type="AnimationNodeBlendTree" path="res://personaje/transformaciones/acuatica/animations/player_animation_tree.tres" id="7_tree"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/water/water_detection.gd" id="8_water"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/abilities/water_ability_manager.gd" id="9_abilities"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/vfx/water_effects.gd" id="10_effects"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/vfx/underwater_view.gd" id="11_underwater"]
+[ext_resource type="Script" path="res://personaje/transformaciones/acuatica/ui/aim_reticle.gd" id="12_reticle"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.32
+height = 1.72
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_arm"]
+radius = 0.25
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_water"]
+size = Vector3(0.8, 2.1, 0.8)
+
+[node name="Player" type="CharacterBody3D"]
+floor_snap_length = 0.3
+floor_max_angle = 0.872665
+script = ExtResource("1_player")
+model = NodePath("Visual")
+animation_controller = NodePath("AnimationController")
+camera_rig = NodePath("CameraPivot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.86, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="Visual" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0005, 0)
+script = ExtResource("2_model")
+bone_name_map = {
+"Head": "mixamorig_Head",
+"Hips": "mixamorig_Hips",
+"LeftFoot": "mixamorig_LeftFoot",
+"LeftHand": "mixamorig_LeftHand",
+"LeftLowerArm": "mixamorig_LeftForeArm",
+"LeftLowerLeg": "mixamorig_LeftLeg",
+"LeftShoulder": "mixamorig_LeftShoulder",
+"LeftToes": "mixamorig_LeftToeBase",
+"LeftUpperArm": "mixamorig_LeftArm",
+"LeftUpperLeg": "mixamorig_LeftUpLeg",
+"Neck": "mixamorig_Neck",
+"RightFoot": "mixamorig_RightFoot",
+"RightHand": "mixamorig_RightHand",
+"RightLowerArm": "mixamorig_RightForeArm",
+"RightLowerLeg": "mixamorig_RightLeg",
+"RightShoulder": "mixamorig_RightShoulder",
+"RightToes": "mixamorig_RightToeBase",
+"RightUpperArm": "mixamorig_RightArm",
+"RightUpperLeg": "mixamorig_RightUpLeg",
+"Spine": "mixamorig_Spine",
+"Chest": "mixamorig_Spine1",
+"UpperChest": "mixamorig_Spine2"
+}
+
+[node name="CharacterModel" parent="Visual" instance=ExtResource("5_model")]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries/ = ExtResource("6_library")
+
+[node name="AnimationTree" type="AnimationTree" parent="."]
+tree_root = ExtResource("7_tree")
+anim_player = NodePath("../AnimationPlayer")
+callback_mode_process = 0
+
+[node name="AnimationController" type="Node" parent="."]
+script = ExtResource("3_anim")
+animation_player = NodePath("../AnimationPlayer")
+animation_tree = NodePath("../AnimationTree")
+model = NodePath("../Visual")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+top_level = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)
+script = ExtResource("4_camera")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
+shape = SubResource("SphereShape3D_arm")
+spring_length = 3.6
+margin = 0.15
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
+current = true
+fov = 70.0
+
+[node name="WaterDetection" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 8
+script = ExtResource("8_water")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WaterDetection"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("BoxShape3D_water")
+
+[node name="AbilityManager" type="Node" parent="."]
+script = ExtResource("9_abilities")
+
+[node name="WaterEffects" type="Node3D" parent="."]
+script = ExtResource("10_effects")
+
+[node name="UnderwaterView" type="Node3D" parent="."]
+script = ExtResource("11_underwater")
+
+[node name="AimReticle" type="CanvasLayer" parent="."]
+script = ExtResource("12_reticle")

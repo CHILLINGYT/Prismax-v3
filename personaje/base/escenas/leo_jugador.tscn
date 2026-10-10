@@ -1,0 +1,156 @@
+[gd_scene format=3 uid="uid://caueivavcv3mb"]
+
+[ext_resource type="Script" uid="uid://cwkp6e1corn4m" path="res://personaje/base/scripts/controlador_leo.gd" id="1_ctrl"]
+[ext_resource type="Script" uid="uid://cfj32j2gsqan1" path="res://personaje/base/camara/camara_jugador.gd" id="2_cam"]
+[ext_resource type="Script" uid="uid://s5mfw4svlbht" path="res://personaje/transformaciones/velocidad/scripts/trazador.gd" id="3_traz"]
+[ext_resource type="Script" uid="uid://bxv4o62344ela" path="res://personaje/transformaciones/velocidad/scripts/efectos_velocidad.gd" id="4_efec"]
+[ext_resource type="Script" uid="uid://cjonxadwqi3ag" path="res://personaje/transformaciones/velocidad/scripts/combate.gd" id="5_comb"]
+[ext_resource type="Script" uid="uid://cq5blgtfiti8t" path="res://personaje/transformaciones/velocidad/scripts/capa_velocidad.gd" id="6_capa"]
+[ext_resource type="Shader" uid="uid://bwulkkuba71mw" path="res://personaje/transformaciones/velocidad/shaders/distorsion_velocidad.gdshader" id="7_shader"]
+[ext_resource type="PackedScene" uid="uid://dtm4csncmfx8y" path="res://personaje/transformaciones/humano/models/Standing W_Briefcase Idle.fbx" id="8_leofbx"]
+[ext_resource type="AnimationLibrary" uid="uid://irn1qan22vls" path="res://personaje/transformaciones/humano/animations/leo_animations.tres" id="9_leoanims"]
+[ext_resource type="PackedScene" uid="uid://upwbuhn5j0h2" path="res://personaje/transformaciones/velocidad/modelo/modelo_velocidad.fbx" id="10_vfbx"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_adelante.tres" id="11_caminar_adelante"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_atras.tres" id="12_caminar_atras"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/cargar_poder.tres" id="13_carga"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_1.tres" id="14_combo1"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_2.tres" id="15_combo2"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_3.tres" id="16_combo3"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_4.tres" id="17_combo4"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/dash.tres" id="18_dash"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo.tres" id="19_inactivo"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_velocidad.tres" id="20_inactivo_vel"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_modo_ataque.tres" id="21_modo_ataque"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/salto_aire.tres" id="22_jumping"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/saltar.tres" id="23_saltar"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/superduper_velocidad.tres" id="24_super"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/calentamiento_ataque.tres" id="25_calentamiento"]
+[ext_resource type="Script" uid="uid://cgdy25a3isao3" path="res://personaje/base/efectos/efecto_transformacion.gd" id="26_transf"]
+[ext_resource type="PackedScene" path="res://personaje/ui_transformacion/escenas/MenuTransformaciones.tscn" id="27_menu"]
+[ext_resource type="Script" uid="uid://cb47m3mkx71jn" path="res://personaje/hud_transformacion/scripts/estadisticas_jugador.gd" id="28_stats"]
+[ext_resource type="PackedScene" path="res://personaje/hud_transformacion/escenas/HUDCircular.tscn" id="29_hud"]
+[ext_resource type="Script" uid="uid://d4mv6m74yncd5" path="res://personaje/transformaciones/acuatica/character/character_model.gd" id="30_model_slot"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/models/futuristic_armor_character.tscn" id="31_aquatic"]
+[ext_resource type="AnimationLibrary" uid="uid://chvk7ak2d0aqa" path="res://personaje/transformaciones/acuatica/animations/player_animations.tres" id="32_aquatic_anims"]
+[ext_resource type="Script" uid="uid://cljq6sirlwe4t" path="res://personaje/base/scripts/receptor_acuatico.gd" id="33_receptor_acuatico"]
+[ext_resource type="PackedScene" uid="uid://gorwfjfql5ie" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="34_fuerza_model"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/fuerza/animations (1)/libraries/FuerzaUniversal.tres" id="35_fuerza_anims"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
+radius = 0.4
+height = 1.9
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_distorsion"]
+shader = ExtResource("7_shader")
+shader_parameter/intensidad = 0.0
+shader_parameter/tiempo = 0.0
+
+[node name="LeoJugador" type="CharacterBody3D" unique_id=1523380384]
+script = ExtResource("1_ctrl")
+
+[node name="Humano" type="Node3D" parent="." unique_id=1240323414]
+
+[node name="Modelo" parent="Humano" unique_id=445787447 instance=ExtResource("8_leofbx")]
+transform = Transform3D(-200, 0, 0, 0, 200, 0, 0, 0, -200, 0, 0, 0)
+
+[node name="Animador" type="AnimationPlayer" parent="Humano" unique_id=369143317]
+libraries/ = ExtResource("9_leoanims")
+
+[node name="Visual" type="Node3D" parent="." unique_id=445122354]
+
+[node name="Pose" type="Node3D" parent="Visual" unique_id=1642416821]
+
+[node name="Volteo" type="Node3D" parent="Visual/Pose" unique_id=1889189844]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Modelo" parent="Visual/Pose/Volteo" unique_id=575471977 instance=ExtResource("10_vfbx")]
+
+[node name="AnimadorVelocista" type="AnimationPlayer" parent="Visual/Pose/Volteo/Modelo" unique_id=227226216]
+libraries/calentamiento_ataque = ExtResource("25_calentamiento")
+libraries/caminar_hacia_adelante = ExtResource("11_caminar_adelante")
+libraries/caminar_hacia_atras = ExtResource("12_caminar_atras")
+libraries/cargar_poder_click-derecho = ExtResource("13_carga")
+libraries/combo-1 = ExtResource("14_combo1")
+libraries/combo-2 = ExtResource("15_combo2")
+libraries/combo-3 = ExtResource("16_combo3")
+libraries/combo-4 = ExtResource("17_combo4")
+libraries/dash-con-shift = ExtResource("18_dash")
+libraries/inactivo = ExtResource("19_inactivo")
+libraries/inactivo_despues-despues-de-30s-velocidad = ExtResource("20_inactivo_vel")
+libraries/inactivo_modo_ataque = ExtResource("21_modo_ataque")
+"libraries/jumping up(1)" = ExtResource("22_jumping")
+libraries/saltar = ExtResource("23_saltar")
+libraries/superduper_velocidad = ExtResource("24_super")
+
+[node name="Colision" type="CollisionShape3D" parent="." unique_id=173065853]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+shape = SubResource("CapsuleShape3D_jugador")
+
+[node name="PivoteCamara" type="Node3D" parent="." unique_id=1355070108]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+script = ExtResource("2_cam")
+
+[node name="Brazo" type="SpringArm3D" parent="PivoteCamara" unique_id=1153169666]
+spring_length = 2.6
+
+[node name="Camara" type="Camera3D" parent="PivoteCamara/Brazo" unique_id=1095934494]
+fov = 70.0
+
+[node name="Trazador" type="Node3D" parent="." unique_id=1890999846]
+script = ExtResource("3_traz")
+
+[node name="Efectos" type="Node3D" parent="." unique_id=1169161065]
+script = ExtResource("4_efec")
+
+[node name="Combate" type="Node" parent="." unique_id=2108940745]
+script = ExtResource("5_comb")
+
+[node name="CapaVelocidad" type="CanvasLayer" parent="." unique_id=1379529396]
+visible = false
+script = ExtResource("6_capa")
+
+[node name="Distorsion" type="ColorRect" parent="CapaVelocidad" unique_id=89004942]
+material = SubResource("ShaderMaterial_distorsion")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="EfectoTransformacion" type="Node3D" parent="." unique_id=1003709836]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+script = ExtResource("26_transf")
+color = Color(0.6, 0.1, 1, 1)
+tiempo_bajada = 0.3
+
+[node name="MenuTransformaciones" parent="." unique_id=364961598 instance=ExtResource("27_menu")]
+
+[node name="Estadisticas" type="Node" parent="." unique_id=984732758]
+script = ExtResource("28_stats")
+
+[node name="HUD" parent="." unique_id=2008386120 instance=ExtResource("29_hud")]
+
+[node name="Acuatico" type="Node3D" parent="." unique_id=321920416]
+script = ExtResource("33_receptor_acuatico")
+
+[node name="Visual" type="Node3D" parent="Acuatico" unique_id=770060105]
+script = ExtResource("30_model_slot")
+
+[node name="CharacterModel" parent="Acuatico/Visual" unique_id=91546317 instance=ExtResource("31_aquatic")]
+
+[node name="AnimadorAcuatico" type="AnimationPlayer" parent="Acuatico" unique_id=1053498957]
+libraries/ = ExtResource("32_aquatic_anims")
+
+[node name="Fuerza" type="Node3D" parent="." unique_id=539067988]
+
+[node name="Model" type="Node3D" parent="Fuerza"]
+
+[node name="CharacterModel" type="Node3D" parent="Fuerza/Model"]
+transform = Transform3D(-1.98, 0, 0, 0, 1.98, 0, 0, 0, -1.98, 0, 0, 0)
+
+[node name="FuerzaModel" parent="Fuerza/Model/CharacterModel" instance=ExtResource("34_fuerza_model")]
+
+[node name="AnimadorFuerza" type="AnimationPlayer" parent="Fuerza"]
+root_node = NodePath("..")
+libraries/ = ExtResource("35_fuerza_anims")

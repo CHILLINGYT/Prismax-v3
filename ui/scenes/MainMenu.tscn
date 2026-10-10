@@ -1,0 +1,171 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://ui/scenes/VideoBackground.tscn" id="1_bg"]
+[ext_resource type="PackedScene" path="res://ui/scenes/GameLogo.tscn" id="2_logo"]
+[ext_resource type="Script" path="res://ui/scripts/main_menu.gd" id="3_menu"]
+[ext_resource type="Script" path="res://ui/scripts/menu_option.gd" id="4_option"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_menu")
+
+[node name="VideoBackground" parent="." instance=ExtResource("1_bg")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuPanel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = 139.0
+offset_right = 509.0
+grow_horizontal = 1
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelBG" type="ColorRect" parent="MenuPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.031, 0.035, 0.047, 0.62)
+
+[node name="Content" type="Control" parent="MenuPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="MenuPanel/Content"]
+layout_mode = 0
+offset_left = 35.0
+offset_top = 16.0
+offset_right = 230.0
+offset_bottom = 44.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
+theme_override_font_sizes/font_size = 20
+text = "MAIN MENU"
+
+[node name="TitleLine" type="ColorRect" parent="MenuPanel/Content"]
+layout_mode = 0
+offset_left = 35.0
+offset_top = 52.0
+offset_right = 245.0
+offset_bottom = 53.0
+mouse_filter = 2
+color = Color(0.45, 0.47, 0.52, 0.8)
+
+[node name="OptionsList" type="Control" parent="MenuPanel/Content"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 48.0
+offset_top = 72.0
+offset_right = 348.0
+offset_bottom = 179.0
+mouse_filter = 2
+
+[node name="Indicator" type="ColorRect" parent="MenuPanel/Content/OptionsList"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 34.0
+mouse_filter = 2
+color = Color(0.8, 0.8, 0.82, 0.45)
+
+[node name="Items" type="VBoxContainer" parent="MenuPanel/Content/OptionsList"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 107.0
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="ContinueOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 0
+description = "CONTINUE: Continue your current game."
+
+[node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/ContinueOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "CONTINUE"
+vertical_alignment = 1
+
+[node name="NewGameOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 1
+description = "NEW GAME: Begin a new game."
+
+[node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/NewGameOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "NEW GAME"
+vertical_alignment = 1
+
+[node name="QuitOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 2
+description = "QUIT GAME: Exit the game."
+
+[node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/QuitOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "QUIT GAME"
+vertical_alignment = 1
+
+[node name="Description" type="Label" parent="MenuPanel/Content"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 35.0
+offset_top = 344.0
+offset_right = 365.0
+offset_bottom = 368.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.62, 0.64, 0.68, 1)
+theme_override_font_sizes/font_size = 15
+text = "CONTINUE: Continue your current game."
+
+[node name="GameLogo" parent="MenuPanel/Content" instance=ExtResource("2_logo")]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -300.0
+offset_bottom = -165.0
+grow_horizontal = 2
+grow_vertical = 0
