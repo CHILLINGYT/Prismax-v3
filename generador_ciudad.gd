@@ -80,6 +80,11 @@ extends Node3D
 ##     de 90° para formar el perímetro del edificio).
 ## =============================================================================
 
+## Emitida por generar_ciudad_por_etapas() conforme avanza el trabajo: 'valor' es
+## el avance normalizado (0..1) y 'etapa' el nombre de la etapa en curso. El valor
+## es una ESTIMACIÓN por etapas y unidades completadas, no una medida de tiempo.
+signal progreso_generacion(valor: float, etapa: String)
+
 # --- Medidas del kit (metros) -------------------------------------------------
 const MODULO_ANCHO := 2.0      ## ancho de un módulo de fachada
 const PLANTA_ALTO := 3.0       ## altura de una planta / de un módulo de muro
@@ -314,6 +319,156 @@ func generar_ciudad() -> void:
 	_informe(ms)
 
 
+## Igual que generar_ciudad(), pero reparte el trabajo entre fotogramas para que
+## la interfaz siga respondiendo durante la carga: hace await get_tree().process_frame
+## entre etapas y entre lotes de cada etapa pesada. Es una corrutina, hay que
+## await-earla; devuelve true si la ciudad quedó generada y false si hubo un error.
+##
+## El avance que emite por progreso_generacion es una ESTIMACIÓN por etapas y por
+## unidades de trabajo completadas, NO una medida de tiempo. A cada etapa se le
+## asigna un tramo del recorrido 0..1 según su coste aproximado:
+##   escaneo de modelos       0.00 - 0.24
+##   listas y texturas        0.24 - 0.29
+##   trazado y contenedores   0.29 - 0.32
+##   suelo                    0.32 - 0.34
+##   calles y cruces          0.34 - 0.52
+##   manzanas y edificios     0.52 - 0.74
+##   mobiliario y vegetación  0.74 - 0.90
+##   multimesh de vegetación  0.90 - 0.93
+##   multimesh de piezas      0.93 - 1.00
+func generar_ciudad_por_etapas() -> bool:
+	var t0 := Time.get_ticks_msec()
+	limpiar_ciudad()
+
+	_rng = RandomNumberGenerator.new()
+	_rng.seed = semilla if semilla != 0 else randi()
+	prueba_portales.clear()
+	prueba_portales_dir.clear()
+	prueba_esquinas.clear()
+	prueba_esquinas_dir.clear()
+
+	# --- 1) Localizar la carpeta y escanear los modelos (lote por archivo) ---
+	_carpeta = _resolver_carpeta()
+	if _carpeta == "":
+		push_error("[GeneradorCiudad] No se encontró ninguna carpeta con modelos .gltf/.glb.")
+		return false
+	_modelos.clear()
+	_categorias.clear()
+	_con_decal.clear()
+	_mallas_limpias.clear()
+	var carpeta_dir := DirAccess.open(_carpeta)
+	if carpeta_dir == null:
+		push_error("[GeneradorCiudad] No se pudo abrir la carpeta %s." % _carpeta)
+		return false
+	var nombres: Array[String] = []
+	for f in carpeta_dir.get_files():
+		if f.get_extension().to_lower() in ["gltf", "glb"]:
+			nombres.append(f)
+	nombres.sort()
+	var total_modelos := nombres.size()
+	for k in total_modelos:
+		_escanear_archivo(_carpeta, nombres[k])
+		if (k % 12) == 11 or k == total_modelos - 1:
+			progreso_generacion.emit(0.24 * float(k + 1) / float(maxi(total_modelos, 1)), "escaneo de modelos")
+			await get_tree().process_frame
+	if _modelos.is_empty():
+		push_error("[GeneradorCiudad] La carpeta %s no contiene modelos utilizables." % _carpeta)
+		return false
+
+	# --- 2) Listas de trabajo y texturas extra ------------------------------
+	progreso_generacion.emit(0.26, "clasificación de modelos")
+	await get_tree().process_frame
+	_construir_listas()
+	_cargar_vegetacion_extra()
+
+	# --- 3) Trazado, contenedores y entorno --------------------------------
+	progreso_generacion.emit(0.29, "trazado urbano")
+	await get_tree().process_frame
+	_preparar_trazado()
+	_crear_contenedores()
+	_est = {"prefabs": 0, "modulares": 0, "props": 0, "vegetacion": 0, "arboles": 0,
+			"parques": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
+	_configurar_escena()
+
+	# --- 4) Suelo -----------------------------------------------------------
+	progreso_generacion.emit(0.32, "terreno")
+	await get_tree().process_frame
+	_generar_suelo()
+
+	# --- 5) Calles, aceras y cruces (un tramo por lote) --------------------
+	progreso_generacion.emit(0.34, "calles y aceras")
+	await get_tree().process_frame
+	var off: Vector2 = _trazado.off
+	var ext: Vector2 = _trazado.ext
+	var paso: float = _trazado.paso
+	var unidades := (manzanas_x + 1) + (manzanas_z + 1) + (manzanas_x + 1) * (manzanas_z + 1)
+	var hechas := 0
+	for i in manzanas_x + 1:
+		_corredor(true, off.x + i * paso, off.y, off.y + ext.y)
+		hechas += 1
+		if hechas % 4 == 0:
+			progreso_generacion.emit(0.34 + 0.18 * float(hechas) / float(unidades), "calles y aceras")
+			await get_tree().process_frame
+	for j in manzanas_z + 1:
+		_corredor(false, off.y + j * paso, off.x, off.x + ext.x)
+		hechas += 1
+		if hechas % 4 == 0:
+			progreso_generacion.emit(0.34 + 0.18 * float(hechas) / float(unidades), "calles y aceras")
+			await get_tree().process_frame
+	for i in manzanas_x + 1:
+		for j in manzanas_z + 1:
+			_interseccion(off.x + i * paso, off.y + j * paso, i, j)
+			hechas += 1
+			if hechas % 8 == 0:
+				progreso_generacion.emit(0.34 + 0.18 * float(hechas) / float(unidades), "cruces")
+				await get_tree().process_frame
+
+	# --- 6) Manzanas y edificios (una manzana por lote) --------------------
+	progreso_generacion.emit(0.52, "manzanas y edificios")
+	await get_tree().process_frame
+	var parques := _elegir_parques()
+	var total_manzanas := manzanas_x * manzanas_z
+	var manzanas_hechas := 0
+	for i in manzanas_x:
+		for j in manzanas_z:
+			_generar_manzana(i, j, parques)
+			manzanas_hechas += 1
+			if manzanas_hechas % 2 == 0:
+				progreso_generacion.emit(0.52 + 0.22 * float(manzanas_hechas) / float(maxi(total_manzanas, 1)), "manzanas y edificios")
+				await get_tree().process_frame
+
+	# --- 7) Mobiliario y vegetación (un eje por lote) ----------------------
+	progreso_generacion.emit(0.74, "mobiliario urbano")
+	await get_tree().process_frame
+	if generar_props or generar_vegetacion:
+		_generar_mobiliario_ejes([true])
+		progreso_generacion.emit(0.82, "vegetación")
+		await get_tree().process_frame
+		_generar_mobiliario_ejes([false])
+
+	# --- 8) Multimesh de vegetación ---------------------------------------
+	progreso_generacion.emit(0.90, "vegetación (mallas)")
+	await get_tree().process_frame
+	_volcar_vegetacion()
+
+	# --- 9) Multimesh de las piezas agrupadas (un lote por paso) ----------
+	progreso_generacion.emit(0.93, "cerrando la ciudad")
+	await get_tree().process_frame
+	var claves := _lotes.keys()
+	var total_lotes := claves.size()
+	for idx in total_lotes:
+		_volcar_lote(String(claves[idx]))
+		if (idx % 8) == 7 or idx == total_lotes - 1:
+			progreso_generacion.emit(0.93 + 0.07 * float(idx + 1) / float(maxi(total_lotes, 1)), "cerrando la ciudad")
+			await get_tree().process_frame
+	_lotes.clear()
+	_lote_padre.clear()
+
+	_informe(Time.get_ticks_msec() - t0)
+	progreso_generacion.emit(1.0, "listo")
+	return true
+
+
 ## Elimina los nodos de la ciudad generada y limpia las cachés.
 func limpiar_ciudad() -> void:
 	var anterior := get_node_or_null(NODO_CIUDAD)
@@ -456,25 +611,31 @@ func _escanear(carpeta: String) -> void:
 	nombres.sort()
 
 	for archivo in nombres:
-		var ruta := carpeta.path_join(archivo)
-		var recurso := ResourceLoader.load(ruta)
-		if not (recurso is PackedScene):
-			push_warning("[GeneradorCiudad] No se pudo cargar %s" % ruta)
-			continue
-		var escena := recurso as PackedScene
-		var plantilla := escena.instantiate() as Node3D
-		if plantilla == null:
-			continue
-		var caja := _aabb_vertices(plantilla)
-		var decal := _tiene_capa_decal(plantilla)
-		plantilla.free()
-		var nombre := archivo.get_basename()
-		var categoria := _clasificar(nombre)
-		_modelos[nombre] = {"escena": escena, "caja": caja, "categoria": categoria}
-		_con_decal[nombre] = decal
-		if not _categorias.has(categoria):
-			_categorias[categoria] = []
-		(_categorias[categoria] as Array).append(nombre)
+		_escanear_archivo(carpeta, archivo)
+
+
+## Carga, mide y clasifica UN archivo de modelo. Es la unidad de trabajo del
+## escaneo, para poder repartirlo entre fotogramas en la carga por etapas.
+func _escanear_archivo(carpeta: String, archivo: String) -> void:
+	var ruta := carpeta.path_join(archivo)
+	var recurso := ResourceLoader.load(ruta)
+	if not (recurso is PackedScene):
+		push_warning("[GeneradorCiudad] No se pudo cargar %s" % ruta)
+		return
+	var escena := recurso as PackedScene
+	var plantilla := escena.instantiate() as Node3D
+	if plantilla == null:
+		return
+	var caja := _aabb_vertices(plantilla)
+	var decal := _tiene_capa_decal(plantilla)
+	plantilla.free()
+	var nombre := archivo.get_basename()
+	var categoria := _clasificar(nombre)
+	_modelos[nombre] = {"escena": escena, "caja": caja, "categoria": categoria}
+	_con_decal[nombre] = decal
+	if not _categorias.has(categoria):
+		_categorias[categoria] = []
+	(_categorias[categoria] as Array).append(nombre)
 
 
 ## Clasificación por nombre/función (las categorías que pidió el proyecto).
@@ -1333,27 +1494,32 @@ func _interseccion(px: float, pz: float, i: int, j: int) -> void:
 # =============================================================================
 
 func _generar_manzanas() -> void:
+	var parques := _elegir_parques()
+	for i in manzanas_x:
+		for j in manzanas_z:
+			_generar_manzana(i, j, parques)
+
+
+## Genera UNA manzana (unidad de trabajo de la etapa de manzanas y edificios).
+func _generar_manzana(i: int, j: int, parques: Array) -> void:
 	var off: Vector2 = _trazado.off
 	var paso: float = _trazado.paso
 	var manzana: float = _trazado.manzana
 	var hw: float = _trazado.hw
-	var parques := _elegir_parques()
-	for i in manzanas_x:
-		for j in manzanas_z:
-			var rect := Rect2(off.x + i * paso + hw, off.y + j * paso + hw, manzana, manzana)
-			# Manzana-parque: césped y jardines en lugar de solares edificados.
-			if parques.has(Vector2i(i, j)):
-				_parque(rect)
-				continue
-			# Losa de manzana: plataforma a cota de acera, 2 mm por debajo del
-			# pavimento del kit (así nunca queda un hueco a la vista y tampoco
-			# hay caras coplanares). Se retranquea 2 cm del borde.
-			var losa := rect.grow(-0.02)
-			_losa(losa, COLOR_LOSA, true, colisiones_suelo, _cont["Suelo"], "Manzana_%d_%d" % [i, j])
-			_est["suelos"] = int(_est.get("suelos", 0)) + 1
-			# El pavimento lo pone cada plaza: los solares edificados quedan
-			# tapados por el propio edificio, que ocupa la parcela entera.
-			_poblar_manzana(rect, i, j)
+	var rect := Rect2(off.x + i * paso + hw, off.y + j * paso + hw, manzana, manzana)
+	# Manzana-parque: césped y jardines en lugar de solares edificados.
+	if parques.has(Vector2i(i, j)):
+		_parque(rect)
+		return
+	# Losa de manzana: plataforma a cota de acera, 2 mm por debajo del
+	# pavimento del kit (así nunca queda un hueco a la vista y tampoco
+	# hay caras coplanares). Se retranquea 2 cm del borde.
+	var losa := rect.grow(-0.02)
+	_losa(losa, COLOR_LOSA, true, colisiones_suelo, _cont["Suelo"], "Manzana_%d_%d" % [i, j])
+	_est["suelos"] = int(_est.get("suelos", 0)) + 1
+	# El pavimento lo pone cada plaza: los solares edificados quedan
+	# tapados por el propio edificio, que ocupa la parcela entera.
+	_poblar_manzana(rect, i, j)
 
 
 ## Reparte la manzana en solares (1x1, 2x1, 1x2 o 2x2) y edifica cada uno.
@@ -2000,6 +2166,13 @@ func _crear_multi(malla: Mesh, pistas: Array, colores: Array,
 func _generar_mobiliario() -> void:
 	if not generar_props and not generar_vegetacion:
 		return
+	_generar_mobiliario_ejes([true, false])
+
+
+## Mobiliario y vegetación de los ejes indicados ('verticales'). Separar los dos
+## ejes permite generar por etapas (un eje por lote) sin bloquear la interfaz; la
+## lista define también el orden, así que el resultado es idéntico al de una vez.
+func _generar_mobiliario_ejes(verticales: Array) -> void:
 	var calzada: float = _trazado.calzada
 	var acera: float = _trazado.acera
 	var hw: float = _trazado.hw
@@ -2011,7 +2184,7 @@ func _generar_mobiliario() -> void:
 	if usar_vegetacion_propia and generar_vegetacion and arboles_calle > 0.0:
 		prob_arbol = clampf(6.0 / arboles_calle, 0.0, 1.0)
 
-	for vertical: bool in [true, false]:
+	for vertical: bool in verticales:
 		var n_lineas: int = (manzanas_x + 1) if vertical else (manzanas_z + 1)
 		var n_cruces: int = (manzanas_z + 1) if vertical else (manzanas_x + 1)
 		var d0: float = off.y if vertical else off.x
@@ -2087,32 +2260,36 @@ func _colocar_prop(pieza: String, pos: Vector3, en_acera: bool, escala: float) -
 ## Convierte cada lote en un MultiMeshInstance3D bajo su contenedor.
 func _volcar_lotes() -> void:
 	for clave in _lotes.keys():
-		var pieza := String(clave)
-		var lista: Array = _lotes[pieza]
-		if lista.is_empty():
-			continue
-		var padre: Node3D = _lote_padre[pieza]
-		var datos := _malla_unica(_modelos[pieza]["escena"])
-		if datos.is_empty():
-			# No agrupable (varias mallas): se instancian una a una.
-			for xf in lista:
-				_instanciar_pieza(pieza, xf, padre, pieza)
-			continue
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = datos["malla"]
-		mm.set_instance_count(lista.size())
-		var local: Transform3D = datos["local"]
-		for k in lista.size():
-			mm.set_instance_transform(k, (lista[k] as Transform3D) * local)
-		var mmi := MultiMeshInstance3D.new()
-		mmi.name = "%s_x%d" % [pieza, lista.size()]
-		mmi.multimesh = mm
-		if _es_plancha_techo(pieza):
-			mmi.material_override = _material_techo(pieza)
-		padre.add_child(mmi)
+		_volcar_lote(String(clave))
 	_lotes.clear()
 	_lote_padre.clear()
+
+
+## Convierte UN lote en su MultiMeshInstance3D (unidad de trabajo del cierre).
+func _volcar_lote(pieza: String) -> void:
+	var lista: Array = _lotes.get(pieza, [])
+	if lista.is_empty():
+		return
+	var padre: Node3D = _lote_padre[pieza]
+	var datos := _malla_unica(_modelos[pieza]["escena"])
+	if datos.is_empty():
+		# No agrupable (varias mallas): se instancian una a una.
+		for xf in lista:
+			_instanciar_pieza(pieza, xf, padre, pieza)
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = datos["malla"]
+	mm.set_instance_count(lista.size())
+	var local: Transform3D = datos["local"]
+	for k in lista.size():
+		mm.set_instance_transform(k, (lista[k] as Transform3D) * local)
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "%s_x%d" % [pieza, lista.size()]
+	mmi.multimesh = mm
+	if _es_plancha_techo(pieza):
+		mmi.material_override = _material_techo(pieza)
+	padre.add_child(mmi)
 
 
 ## En el editor, marca la propiedad "owner" para que los nodos se guarden.
