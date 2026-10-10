@@ -12,6 +12,11 @@ const MenuOptionRes := preload("res://ui/scripts/menu_option.gd")
 ## scene; the menu only decides WHEN it loads, never how the world is built.
 const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
 
+## Escena de carga intermedia: carga el mundo en segundo plano, lo instancia y
+## genera la ciudad por etapas, y solo entonces lo revela. El menu NO carga el
+## mundo directamente, para que exista un unico flujo responsable de iniciarlo.
+const ESCENA_CARGA := "res://ui/scenes/LoadingScreen.tscn"
+
 ## Emitted when the player chooses to resume an existing save.
 signal continue_requested
 ## Emitted when the player chooses to start a fresh game.
@@ -103,18 +108,21 @@ func _activate(index: int) -> void:
 			# host game connects this signal to its own load routine.
 		MenuOptionRes.Action.NEW_GAME:
 			new_game_requested.emit()
-			# Start the game: the menu scene ends and the existing world scene
-			# is loaded exactly as it was before (same scene, same generation).
-			# Deferred so the current input event finishes handling before the
-			# menu node is removed from the tree.
+			# Start the game through the loading screen: the world scene is
+			# loaded and prepared by LoadingScreen, which only reveals it once
+			# everything is ready. Deferred so the current input event finishes
+			# handling before the menu node is removed from the tree.
 			_ir_al_mundo.call_deferred()
 		MenuOptionRes.Action.QUIT:
 			get_tree().quit()
 
-## Loads the world scene. Called deferred from _activate so the menu is still
-## in the tree while the triggering input event is being handled.
+## Starts a new game through the single loading flow: fixes the destination and
+## switches to the loading screen, which loads and prepares the world before
+## revealing it. Called deferred from _activate so the menu is still in the tree
+## while the triggering input event is being handled.
 func _ir_al_mundo() -> void:
-	get_tree().change_scene_to_file(ESCENA_MUNDO)
+	LoadingScreen.destino = ESCENA_MUNDO
+	get_tree().change_scene_to_file(ESCENA_CARGA)
 
 func _on_row_hovered(index: int) -> void:
 	if index == _selected:
