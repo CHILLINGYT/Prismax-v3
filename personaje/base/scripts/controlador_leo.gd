@@ -281,6 +281,22 @@ var a_carga: Node3D = null
 # en ese instante y NO cambia aunque después se mueva la cámara.
 var a_dir_ataque: Vector3 = Vector3.ZERO
 
+# --- Mano de lanzamiento de las habilidades acuáticas ---
+# Las cuatro habilidades nacen en la MANO que sostiene el agua, no en el centro
+# del cuerpo. Se reutiliza el mismo sistema del módulo acuático original (hueso
+# del esqueleto + ligero desplazamiento), pero sobre el modelo integrado de Leo.
+# El hueso se busca por nombre en el esqueleto REALMENTE importado: en
+# models/futuristic_armor_character.tscn la mano derecha es "mixamorig_RightHand".
+const MANO_AGUA := &"RightHand"
+# Desplazamiento (m) del agua respecto a la muñeca, EN EL ESPACIO DEL HUESO (no del
+# mundo): la lleva a la palma y hace que acompañe al brazo mire donde mire.
+const DESPLAZAMIENTO_MANO_AGUA := Vector3(0.0, 0.03, 0.0)
+# Cuánto (m) por delante de la mano nace el efecto, en la dirección del ataque:
+# evita que la bola quede DENTRO de la mano o del brazo y la deja proyectada.
+const ADELANTE_MANO_AGUA := 0.30
+# Esqueleto del modelo acuático (cacheado: se pide en cada fotograma).
+var _esqueleto_agua: Skeleton3D = null
+
 # --- Estado Fuerza ---
 var f_salto_aire: bool = false
 var f_agachado: bool = false
@@ -1034,7 +1050,11 @@ func _liberar_habilidad_agua(idx: int) -> void:
 	if forward.length_squared() < 0.0001:
 		forward = _direccion_camara_horizontal()
 	forward = forward.normalized()
-	var origin := global_position + Vector3.UP * 1.25 + forward * 0.65
+	# ORIGEN: la mano que lanza, ligeramente por delante de ella y alineada con la
+	# dirección del ataque. Sigue la animación (si el clip sube o adelanta la mano,
+	# el efecto sube o se adelanta con ella). Si el modelo no tuviera el hueso, cae
+	# al plan B de siempre para no perder la habilidad.
+	var origin := _origen_ataque_agua(forward)
 	ability.damage = float(def["damage"])
 	ability.hit_radius = float(def["hit_radius"])
 	ability.speed = float(def["speed"])
@@ -1081,6 +1101,79 @@ func _cancelar_carga_agua() -> void:
 	if a_carga != null and is_instance_valid(a_carga):
 		a_carga.queue_free()
 	a_carga = null
+
+# --- Mano de lanzamiento (agua) --------------------------------------------
+# Esqueleto del modelo acuático (cacheado). Se busca dentro del nodo Visual, que
+# es el "slot" del modelo, para no depender de una ruta fija si el modelo cambia.
+func _skeleton_agua() -> Skeleton3D:
+	if _esqueleto_agua != null and is_instance_valid(_esqueleto_agua):
+		return _esqueleto_agua
+	var modelo := acuatico.get_node_or_null("Visual")
+	if modelo != null:
+		_esqueleto_agua = _buscar_esqueleto(modelo)
+	return _esqueleto_agua
+
+func _buscar_esqueleto(nodo: Node) -> Skeleton3D:
+	for hijo in nodo.get_children():
+		if hijo is Skeleton3D:
+			return hijo as Skeleton3D
+		var profundo := _buscar_esqueleto(hijo)
+		if profundo != null:
+			return profundo
+	return null
+
+# Índice del hueso de una mano, probando los nombres que usan los modelos
+# importados (Mixamo con "_" o ":"). -1 si no existe.
+func _hueso_mano_agua(esqueleto: Skeleton3D, mano: StringName) -> int:
+	if esqueleto == null:
+		return -1
+	var hueso := esqueleto.find_bone(mano)
+	if hueso < 0:
+		hueso = esqueleto.find_bone(StringName("mixamorig:" + String(mano)))
+	if hueso < 0:
+		hueso = esqueleto.find_bone(StringName("mixamorig_" + String(mano)))
+	return hueso
+
+# Posición de MUNDO del hueso de una mano. Vector3.INF si no hay esqueleto/hueso.
+func _posicion_mano_agua(mano: StringName) -> Vector3:
+	var esqueleto := _skeleton_agua()
+	var hueso := _hueso_mano_agua(esqueleto, mano)
+	if hueso < 0:
+		return Vector3.INF
+	return esqueleto.global_transform * esqueleto.get_bone_global_pose(hueso).origin
+
+# Sitio del agua que el personaje SOSTIENE en la mano: es el ancla del balón y de
+# las cargas de los hechizos. Lo pide water_charge.gd por este nombre.
+func get_water_ball_position() -> Vector3:
+	var esqueleto := _skeleton_agua()
+	var hueso := _hueso_mano_agua(esqueleto, MANO_AGUA)
+	if hueso < 0:
+		return get_hand_center()
+	var ancla: Transform3D = esqueleto.global_transform * esqueleto.get_bone_global_pose(hueso)
+	return ancla.origin + ancla.basis * DESPLAZAMIENTO_MANO_AGUA
+
+# Punto medio de las dos manos (plan B / compatibilidad con water_charge.gd).
+func get_hand_center() -> Vector3:
+	var der := _posicion_mano_agua(&"RightHand")
+	var izq := _posicion_mano_agua(&"LeftHand")
+	var ok_d := der.is_finite()
+	var ok_i := izq.is_finite()
+	if ok_d and ok_i:
+		return (der + izq) * 0.5
+	if ok_d:
+		return der
+	if ok_i:
+		return izq
+	return global_position + Vector3.UP * 1.25 + (-global_transform.basis.z) * 0.5
+
+# Origen del proyectil: la mano que lanza, un poco por delante de ella (en la
+# dirección del ataque). Si el modelo no tuviera el hueso, plan B: delante del
+# pecho, para no romper la habilidad.
+func _origen_ataque_agua(adelante: Vector3) -> Vector3:
+	var mano := get_water_ball_position()
+	if mano.is_finite():
+		return mano + adelante * ADELANTE_MANO_AGUA
+	return global_position + Vector3.UP * 1.25 + adelante * 0.5
 
 # ============================================================== FORMA FUERZA
 # Forma pesada: movimiento lento con inercia + 5 habilidades. Reutiliza los

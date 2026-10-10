@@ -43,6 +43,10 @@ func _physics_process(delta: float) -> void:
 		_hold += delta
 		if is_instance_valid(_caught) and _caught.is_inside_tree():
 			global_position = _center_of(_caught)
+		# Mantiene activa la detección de colisiones durante toda la fase de prisión.
+		# _impact() ya ignora impactos adicionales cuando _caught != null, así que
+		# esto no altera daño, captura ni efectos mientras el objetivo está atrapado.
+		_check_hits()
 		if _visual != null:
 			# La burbuja gira y se aprieta poco a poco: se esta cerrando.
 			var squeeze := clampf(1.0 - _hold / maxf(trap_duration, 0.1) * 0.3, 0.45, 1.0)
