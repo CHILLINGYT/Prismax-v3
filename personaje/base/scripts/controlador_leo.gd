@@ -904,11 +904,12 @@ func _procesar_acuatico(delta: float) -> void:
 		_iniciar_ataque_acuatico()
 
 	move_and_slide()
-	# Al retroceder (S sin W) el cuerpo NO gira hacia donde se desplaza: mantiene
-	# la mirada hacia delante y reproduce el clip de caminar hacia atrás, que es
-	# lo que representa un retroceso real. (Mismo criterio que la forma velocista.)
-	var retrocede := Input.is_action_pressed("mover_atras") and not Input.is_action_pressed("mover_adelante")
-	_orientar_acuatico(delta, -dir if retrocede else dir)
+	# Se orienta TODO el cuerpo hacia la dirección de desplazamiento, igual que la
+	# forma Fuerza: hacia atrás (S, S+A, S+D) se camina con el MISMO clip de caminar
+	# hacia adelante, girando el cuerpo; no hace falta un clip de retroceso ni se
+	# queda postura de guardia. El giro es sobre el nodo visual (Acuatico), así que
+	# ni la cámara, ni las colisiones, ni el movimiento general se ven afectados.
+	_orientar_acuatico(delta, dir)
 	_actualizar_anim_acuatico(delta)
 
 func _iniciar_ataque_acuatico() -> void:
@@ -956,8 +957,6 @@ func _actualizar_anim_acuatico(delta: float) -> void:
 	anim_acuatico.speed_scale = 1.0
 	if rapidez < H_UMBRAL_MOVIMIENTO:
 		_reproducir_acuatico(ANIM_A_IDLE)
-	elif Input.is_action_pressed("mover_atras") and not Input.is_action_pressed("mover_adelante"):
-		_reproducir_acuatico(ANIM_A_WALK_BACK)
 	elif Input.is_key_pressed(KEY_SHIFT):
 		_reproducir_acuatico(ANIM_A_RUN)
 	else:
