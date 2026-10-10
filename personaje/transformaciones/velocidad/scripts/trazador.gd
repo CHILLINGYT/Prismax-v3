@@ -13,6 +13,33 @@ var en_ejecucion: bool = false
 var puntos: Array[Vector3] = []
 var min_dist: float = 0.45
 
+# --- Consulta del suelo ---------------------------------------------------
+# La ruta ya no se apoya en un plano horizontal fijo (eso dejaba la línea
+# flotando o enterrada en cuanto el terreno subía o bajaba): cada punto se
+# posa sobre el suelo real sondeado con un rayo.
+## Capa de física del terreno transitable (mundo: ciudad + isla). Es una máscara
+## de consulta PROPIA del trazado; no cambia la collision_mask del personaje.
+var mascara_suelo: int = 1
+## Subida admitida sobre el punto anterior, sin contar el margen por distancia (m).
+## Cubre de sobra un bordillo de acera (0,15 m) y el ruido del terreno.
+const SALTO_ARRIBA_BASE := 1.0
+## Margen extra de subida por cada metro recorrido en horizontal: deja pasar una
+## cuesta muy empinada (≈50°) aunque el cursor se mueva deprisa.
+const SALTO_ARRIBA_POR_METRO := 1.2
+## Tope de subida (m). Un edificio tiene 5 m o más de alto, así que su AZOTEA
+## nunca entra: esto es lo que impide que la ruta se suba a los tejados.
+const SALTO_ARRIBA_MAX := 4.0
+## Bajada admitida respecto del punto anterior (m): una cuesta o un escalón bajan,
+## un precipicio o el borde de una azotea no.
+const SALTO_ABAJO := 4.0
+## Componente vertical mínima de la normal para dar una superficie por pisable:
+## 0,70 ≈ 45°. Una pared o un techo inclinado no lo pasan.
+const NORMAL_PISABLE := 0.70
+## Altura (m) a la que se comprueba si hay un muro que la ruta no puede cruzar.
+const ALTURA_OBSTRUCCION := 1.1
+## Por debajo de esta cota no hay suelo transitable a pie (nivel del océano).
+var nivel_agua: float = -2.0
+
 const MAX_HIST := 80
 const ANCHO_PLAN := 0.18
 const ANCHO_ESTELA := 0.32
@@ -27,8 +54,10 @@ var _trail_mesh: ImmediateMesh
 var _marca: MeshInstance3D
 var _historial: Array[Vector3] = []
 var _t: float = 0.0
+var _cuerpo: CollisionObject3D = null
 
 func _ready() -> void:
+	_cuerpo = get_parent() as CollisionObject3D
 	_plan_inst = _crear_instancia()
 	_plan_mesh = _plan_inst.mesh as ImmediateMesh
 	_trail_inst = _crear_instancia()
@@ -104,10 +133,73 @@ func _agregar_desde_cursor() -> void:
 	var t := (_plano_y - origen.y) / dir.y
 	if t <= 0.0:
 		return
-	var punto := origen + dir * t
+	# El plano horizontal sólo decide DÓNDE (x, z): la altura se toma del suelo
+	# real, así la ruta sigue las subidas y bajadas del terreno.
+	var plano := origen + dir * t
+	var previo := puntos[puntos.size() - 1] if not puntos.is_empty() else plano
+	var hueco := 0.0
+	if not puntos.is_empty():
+		hueco = Vector2(plano.x - previo.x, plano.z - previo.z).length()
+	var y := _altura_suelo(plano.x, plano.z, previo.y, hueco)
+	if is_nan(y):
+		return                                  # agua, muro o azotea: no hay ruta
+	var punto := Vector3(plano.x, y, plano.z)
+	if not puntos.is_empty() and not _paso_libre(previo, punto):
+		return                                  # un muro de verdad: la ruta no cruza
 	if puntos.is_empty() or (punto - puntos[puntos.size() - 1]).length() >= min_dist:
 		puntos.append(punto)
 		_reconstruir_plan()
+
+
+## Altura del suelo transitable en (x, z), o NAN si no hay apoyo (agua, vacío,
+## muro o azotea). Usa la geometría real del mundo (la ciudad y el terreno de la
+## isla están los dos en la capa 1) y excluye la colisión del propio personaje.
+##
+## El sondeo NO se lanza desde muy arriba: se hace dentro de una BANDA alrededor
+## de la altura del punto anterior ([param referencia]). Antes se lanzaba desde
+## 220 m y, dentro de la ciudad, el rayo acertaba primero la AZOTEA de un edificio
+## (24 m) en vez de la calle; la ruta se subía al tejado y el velocista se
+## estrellaba contra la pared. Con la banda, un bordillo o una cuesta pasan y una
+## azotea o un muro no.
+func _altura_suelo(x: float, z: float, referencia: float = NAN, hueco: float = 0.0) -> float:
+	var mundo := get_world_3d()
+	if mundo == null:
+		return NAN
+	var ref := _plano_y if is_nan(referencia) else referencia
+	var subida := clampf(SALTO_ARRIBA_BASE + SALTO_ARRIBA_POR_METRO * maxf(hueco, 0.0),
+			SALTO_ARRIBA_BASE, SALTO_ARRIBA_MAX)
+	var consulta := PhysicsRayQueryParameters3D.create(
+			Vector3(x, ref + subida, z), Vector3(x, ref - SALTO_ABAJO, z), mascara_suelo)
+	if _cuerpo != null:
+		consulta.exclude = [_cuerpo.get_rid()]
+	consulta.collide_with_areas = false
+	var golpe := mundo.direct_space_state.intersect_ray(consulta)
+	if golpe.is_empty():
+		return NAN
+	if (golpe["normal"] as Vector3).y < NORMAL_PISABLE:
+		return NAN                              # pared o techo: no es suelo
+	var y: float = (golpe["position"] as Vector3).y
+	if y < nivel_agua:
+		return NAN                              # bajo el agua no se corre a pie
+	return y
+
+
+## ¿Se puede ir a pie desde [param desde] hasta [param hasta]? Sondea a la altura
+## del pecho (por encima de un bordillo, por debajo de una ventana): así la ruta
+## se corta en un muro de verdad —un edificio— y no en un escalón de acera.
+func _paso_libre(desde: Vector3, hasta: Vector3) -> bool:
+	var mundo := get_world_3d()
+	if mundo == null:
+		return false
+	var a := desde + Vector3.UP * ALTURA_OBSTRUCCION
+	var b := hasta + Vector3.UP * ALTURA_OBSTRUCCION
+	if a.distance_to(b) < 0.05:
+		return true
+	var consulta := PhysicsRayQueryParameters3D.create(a, b, mascara_suelo)
+	if _cuerpo != null:
+		consulta.exclude = [_cuerpo.get_rid()]
+	consulta.collide_with_areas = false
+	return mundo.direct_space_state.intersect_ray(consulta).is_empty()
 
 func finalizar() -> Array[Vector3]:
 	activo = false
@@ -116,7 +208,24 @@ func finalizar() -> Array[Vector3]:
 	if puntos.size() < 2:
 		return []
 	var suave := _suavizar(puntos)
-	return _catmull(suave, 0.6)
+	var muestras := _catmull(suave, 0.6)
+	# La spline puede cortar una loma o salirse sobre el agua: se vuelve a posar
+	# cada punto muestreado sobre el suelo y la ruta se recorta donde el terreno
+	# transitable se acaba (por ejemplo, en la línea de costa).
+	var salida: Array[Vector3] = []
+	var ancla: Vector3 = puntos[0]
+	for p: Vector3 in muestras:
+		var hueco := Vector2(p.x - ancla.x, p.z - ancla.z).length()
+		var y := _altura_suelo(p.x, p.z, ancla.y, hueco)
+		if is_nan(y):
+			break
+		var apoyo := Vector3(p.x, y, p.z)
+		if not _paso_libre(ancla, apoyo):
+			break
+		salida.append(apoyo)
+		ancla = apoyo
+	print("[Ziba] puntos de recorrido apoyados en el suelo: ", salida.size())
+	return salida
 
 func _suavizar(pts: Array[Vector3]) -> Array[Vector3]:
 	var out: Array[Vector3] = []

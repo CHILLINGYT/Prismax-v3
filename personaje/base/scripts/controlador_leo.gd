@@ -238,6 +238,13 @@ const VENTANA_CONTINUACION := 0.5
 @export var vel_trayecto_max: float = 60.0
 @export var vel_trayecto_min: float = 34.0
 
+# --- Recorrido del poder (clic derecho) ---
+## Radio (m) con el que se da por alcanzado un punto de la ruta.
+const TRAYECTO_RADIO_PUNTO := 1.2
+## Altura (m) a la que se sondea si hay un muro real delante: a esa altura un
+## edificio bloquea, pero un bordillo o un desnivel pequeño no.
+const TRAYECTO_ALTURA_MURO := 1.4
+
 var forma: int = Forma.HUMANO
 var estado: int = Estado.NORMAL
 # Verdadero mientras corre la transición visual al cambiar de forma.
@@ -1822,6 +1829,14 @@ func _iniciar_recorrido() -> void:
 	pivote.vibracion = 0.6
 
 # ---------------- Ejecución de la trayectoria ----------------
+# El recorrido se apoya en el terreno REAL de la isla. Antes se hacía con un
+# avance horizontal puro (move_and_collide con la Y a cero) y se cancelaba la
+# habilidad ante CUALQUIER contacto: en cuanto el suelo subía un centímetro
+# dentro del paso del fotograma, la habilidad interpretaba la cuesta como un
+# muro y terminaba. Ahora se avanza con move_and_slide (que sube y baja por el
+# relieve respetando el límite de inclinación del cuerpo) y sólo se cancela ante
+# un obstáculo de verdad sondeado a la altura del pecho; los escalones los sigue
+# subiendo _resolver_escalon(), igual que al caminar.
 func _procesar_ejecucion(delta: float) -> void:
 	if _idx >= _puntos.size():
 		_terminar_ejecucion()
@@ -1829,38 +1844,83 @@ func _procesar_ejecucion(delta: float) -> void:
 	var objetivo := _puntos[_idx]
 	var to := objetivo - global_position
 	to.y = 0.0
-	if to.length() < 0.8:
+	# A 60 m/s se cruzan varios puntos por fotograma: si sólo se avanzase uno, el
+	# personaje acabaría persiguiendo un punto que ya tiene a su espalda (zigzag).
+	var guardas := 0
+	while _idx < _puntos.size() - 1 and to.length() < TRAYECTO_RADIO_PUNTO and guardas < 64:
 		_idx += 1
-		if _idx >= _puntos.size():
-			_terminar_ejecucion()
-			return
+		guardas += 1
 		objetivo = _puntos[_idx]
 		to = objetivo - global_position
 		to.y = 0.0
-	if to.length() < 0.001:
+	# Se llegó al final de la ruta: la habilidad termina de forma ordenada (antes
+	# se exigía una precisión de milímetros sobre el último punto y el personaje
+	# se quedaba girando a su alrededor sin acabar nunca).
+	if _idx >= _puntos.size() - 1 and to.length() < TRAYECTO_RADIO_PUNTO:
+		_terminar_ejecucion()
+		return
+	if to.length_squared() < 0.0001:
 		_idx += 1
 		return
 	var dir := to.normalized()
 	_vel_trayecto = move_toward(_vel_trayecto, vel_trayecto_max, 220.0 * delta)
 
-	velocity.x = 0.0
-	velocity.z = 0.0
+	velocity.x = dir.x * _vel_trayecto
+	velocity.z = dir.z * _vel_trayecto
 	if not is_on_floor():
 		velocity.y -= gravedad * delta
 	elif velocity.y < 0.0:
 		velocity.y = -0.1
+	var antes := global_position
 	move_and_slide()
-
-	var col := move_and_collide(dir * _vel_trayecto * delta)
 	_orientar_instant(dir)
-	velocity.x = dir.x * _vel_trayecto
-	velocity.z = dir.z * _vel_trayecto
-	if col != null:
-		_terminar_ejecucion()
-		return
+
+	var avance := global_position - antes
+	avance.y = 0.0
+	var paso := _vel_trayecto * delta
+	if paso > 0.001 and avance.length() < paso * 0.35:
+		if _muro_al_frente(dir):
+			_terminar_ejecucion()
+			return
+		# No es un muro: lo que frena es un escalón del suelo (el bordillo de una
+		# acera). A 34-60 m/s move_and_slide no lo resuelve por su cuenta, así que
+		# se sube aquí mismo, en el fotograma en que se detecta el bloqueo.
+		_salvar_escalon(dir)
 
 	efectos.actualizar_ejecucion(global_position, dir)
 	trazador.agregar_estela(global_position)
+
+## ¿Lo que frena el recorrido es un obstáculo real? Se sondea a la altura del
+## pecho con el propio cuerpo (misma collision_mask que al caminar): un edificio,
+## un muro o un acantilado bloquean ahí; una cuesta, un bordillo o un desnivel
+## transitable, no. _terminar_ejecucion() cierra la habilidad de forma ordenada.
+func _muro_al_frente(dir: Vector3) -> bool:
+	var pecho := global_transform
+	pecho.origin.y += TRAYECTO_ALTURA_MURO
+	return test_move(pecho, dir * (AVANCE_ESCALON * 2.0))
+
+
+## Sube a mano un escalón bajo (el bordillo de una acera, ~15 cm) cuando frena el
+## recorrido a gran velocidad: eleva el cuerpo ALTURA_ESCALON, avanza un poco y
+## vuelve a apoyarse. Sólo lo hace si hay hueco por encima, paso libre a esa altura
+## y suelo al otro lado; un muro de verdad ya lo ha descartado _muro_al_frente().
+## (Caminando esto lo hace _resolver_escalon(), pero a 34-60 m/s el contacto se
+## resuelve dentro del fotograma y move_and_slide no sube el escalón.)
+func _salvar_escalon(dir: Vector3) -> void:
+	if test_move(global_transform, Vector3.UP * ALTURA_ESCALON):
+		return
+	var elevado := global_transform
+	elevado.origin.y += ALTURA_ESCALON
+	var avance := dir * AVANCE_ESCALON
+	if test_move(elevado, avance):
+		return
+	var destino := elevado
+	destino.origin += avance
+	if not test_move(destino, Vector3.DOWN * (ALTURA_ESCALON + 0.1)):
+		return
+	global_position.y += ALTURA_ESCALON
+	move_and_collide(avance)
+	move_and_collide(Vector3.DOWN * (ALTURA_ESCALON + 0.1))
 
 func _terminar_ejecucion() -> void:
 	estado = Estado.NORMAL
