@@ -45,6 +45,12 @@ const H_MEZCLA_AGACHARSE := 0.25
 # controlador intenta subir y avance del sondeo de paso libre (metros).
 const ALTURA_ESCALON := 0.26
 const AVANCE_ESCALON := 0.40
+# Metro extra de avance sobre el radio de la cápsula: garantiza que el centro del
+# cuerpo quede claramente encima de la superficie de destino (no justo en el canto).
+const MARGEN_ESCALON := 0.12
+# Desnivel mínimo para considerar que hay un escalón real: un borde que sigue a la
+# misma cota (la propia calzada) NO es un escalón y no debe subirse.
+const DESNIVEL_MINIMO := 0.02
 
 # Clips de la librería de Leo (personaje/transformaciones/humano/animations/leo_animations.tres).
 const ANIM_H_IDLE := "idle"
@@ -500,36 +506,110 @@ func _congelar_por_menu(delta: float) -> void:
 
 ## Sube el bordillo de una acera (escalón bajo, ~15 cm) sin tocar move_and_slide
 ## ni la gravedad. Se llama una vez por frame, tras el movimiento de cada forma,
-## así que sirve igual a Humano, Velocista, Acuático y Fuerza. Sólo actúa si el
-## cuerpo está apoyado y empujando contra una pared que resulta ser un escalón
-## (hay hueco por encima, paso libre a esa altura y suelo al otro lado). Un muro
-## alto (un edificio) no supera el sondeo de avance y no se sube.
+## así que sirve igual a Humano, Velocista, Acuático y Fuerza.
+##
+## Clave: la dirección de ascenso NO se toma de 'velocity' después de
+## move_and_slide(), porque el deslizamiento proyecta esa velocidad A LO LARGO del
+## bordillo; sondear con ella hacía que el personaje avanzara en paralelo (el
+## deslizamiento lateral observado). En su lugar se usa la INTENCIÓN de movimiento
+## del jugador y, para el avance, la normal de la pared real (≈ perpendicular al
+## bordillo), de modo que el sondeo CRUZA el escalón.
+##
+## Sólo actúa contra una pared compatible con un escalón bajo: hay hueco por
+## encima, paso libre a esa altura y una superficie transitable más alta (dentro
+## del escalón) al otro lado. Un muro alto (un edificio) no supera el sondeo de
+## avance y no se sube; un borde que sigue a la misma cota (la propia calzada) se
+## rechaza, así que no se produce avance lateral.
 func _resolver_escalon() -> void:
 	if not is_on_floor() or not is_on_wall():
 		return
-	var empuje := Vector3(velocity.x, 0.0, velocity.z)
-	if empuje.length_squared() < 0.04:
+	# Intención de movimiento horizontal del jugador (no la velocidad tras slide).
+	var intencion := _direccion_entrada()
+	if intencion.length_squared() < 0.04:
 		return
-	var dir := empuje.normalized()
+	intencion = intencion.normalized()
+
+	# Dirección de avance: perpendicular a la pared si la conocemos; si no, la
+	# intención del jugador. La intención decide SI se sube (hay que empujar hacia
+	# la pared), no la dirección exacta del sondeo.
+	var normal := _normal_pared()
+	var dir := intencion
+	if normal != Vector3.ZERO:
+		if intencion.dot(normal) > -0.15:
+			return
+		dir = -normal
+
 	var altura := ALTURA_ESCALON
-	# ¿Cabe la subida? (si hay techo bajo, no)
+	# Avance suficiente para que el centro de la cápsula quede sobre el destino.
+	var avance_dist := maxf(AVANCE_ESCALON, _radio_capsula() + MARGEN_ESCALON)
+
+	# 1) ¿Cabe la subida? (si hay techo bajo, no)
 	if test_move(global_transform, Vector3.UP * altura):
 		return
-	# ¿Hay paso libre a la altura del escalón? (muro alto -> no es un escalón)
+
+	# 2) ¿Hay paso libre a la altura del escalón? (muro alto -> no es un escalón)
 	var elevado := global_transform
 	elevado.origin.y += altura
-	var avance := dir * AVANCE_ESCALON
-	if test_move(elevado, avance):
+	if test_move(elevado, dir * avance_dist):
 		return
-	# ¿Hay suelo bajo el punto de avance? (borde/precipicio -> no subir)
-	var destino := elevado
-	destino.origin += avance
-	if not test_move(destino, Vector3.DOWN * (altura + 0.1)):
+
+	# 3) Suelo de destino: superficie transitable, más alta que la actual pero
+	#    dentro del escalón. Distingue calzada (misma cota -> rechazar), escalón
+	#    (subir), pared/edificio y ausencia de suelo.
+	var desde := elevado.origin + dir * avance_dist + Vector3.UP * 0.05
+	var golpe := _rayo_suelo(desde, altura + 0.25)
+	if golpe.is_empty():
 		return
-	# Ejecuta la subida: eleva, avanza y vuelve a apoyarse sobre el escalón.
-	global_position.y += altura
-	move_and_collide(avance)
-	move_and_collide(Vector3.DOWN * (altura + 0.1))
+	var normal_suelo: Vector3 = golpe.get("normal", Vector3.UP)
+	if normal_suelo.dot(Vector3.UP) < cos(floor_max_angle):
+		return
+	var desnivel: float = (golpe["position"] as Vector3).y - global_position.y
+	if desnivel <= DESNIVEL_MINIMO or desnivel > altura + 0.03:
+		return
+
+	# 4) Ejecuta la subida con movimiento real (sin teletransporte): elevar,
+	#    avanzar y volver a apoyarse sobre la superficie de destino.
+	move_and_collide(Vector3.UP * (desnivel + 0.03))
+	move_and_collide(dir * avance_dist)
+	move_and_collide(Vector3.DOWN * (desnivel + 0.08))
+
+
+## Normal horizontal de la pared en la que se apoya el cuerpo (de las colisiones
+## del último move_and_slide), o Vector3.ZERO si no hay pared. Los suelos y techos
+## se descartan por su componente vertical.
+func _normal_pared() -> Vector3:
+	for i in get_slide_collision_count():
+		var col := get_slide_collision(i)
+		if col == null:
+			continue
+		var n := col.get_normal()
+		if absf(n.y) < 0.7:
+			var horiz := Vector3(n.x, 0.0, n.z)
+			if horiz.length_squared() > 0.0001:
+				return horiz.normalized()
+	return Vector3.ZERO
+
+
+## Rayo hacia abajo limitado a la máscara del jugador; devuelve {} si no hay
+## impacto. Permite conocer la altura y la normal del suelo de destino.
+func _rayo_suelo(desde: Vector3, largo: float) -> Dictionary:
+	var mundo := get_world_3d()
+	if mundo == null:
+		return {}
+	var q := PhysicsRayQueryParameters3D.create(desde, desde + Vector3.DOWN * largo)
+	q.collision_mask = collision_mask
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	q.collide_with_bodies = true
+	return mundo.direct_space_state.intersect_ray(q)
+
+
+## Radio de la cápsula de colisión del jugador (0.4 m por defecto).
+func _radio_capsula() -> float:
+	var capsula := get_node_or_null("Colision") as CollisionShape3D
+	if capsula != null and capsula.shape is CapsuleShape3D:
+		return (capsula.shape as CapsuleShape3D).radius
+	return 0.4
 
 
 func _on_menu_transformaciones_abierto() -> void:
