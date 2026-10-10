@@ -41,6 +41,10 @@ const H_MEZCLA := 0.15
 const H_VEL_AGACHADO := 2.5
 const H_ALTURA_AGACHADO := 0.7
 const H_MEZCLA_AGACHARSE := 0.25
+# Subida de bordillos de acera: escalón bajo (~15 cm). Altura máxima que el
+# controlador intenta subir y avance del sondeo de paso libre (metros).
+const ALTURA_ESCALON := 0.26
+const AVANCE_ESCALON := 0.40
 
 # Clips de la librería de Leo (personaje/transformaciones/humano/animations/leo_animations.tres).
 const ANIM_H_IDLE := "idle"
@@ -329,6 +333,9 @@ var _salto_forzado: bool = false
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
+	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
+	floor_snap_length = 0.2
 	_configurar_animaciones()
 	combate.golpe_realizado.connect(_on_golpe_realizado)
 	# Atacar también corta la regeneración de resistencia (sistema de daño/HUD):
@@ -468,6 +475,10 @@ func _physics_process(delta: float) -> void:
 		_actualizar_animaciones(delta)
 		_actualizar_pose(delta)
 
+	# Subida natural de los bordillos de las aceras (~15 cm): común a las cuatro
+	# formas, se ejecuta una vez por frame tras el move_and_slide() de cada una.
+	_resolver_escalon()
+
 # Menú abierto: sin control horizontal, sólo gravedad y pose quieta, para que
 # el personaje no se mueva ni quede flotando. La cámara no se modifica.
 func _congelar_por_menu(delta: float) -> void:
@@ -486,6 +497,40 @@ func _congelar_por_menu(delta: float) -> void:
 		_reproducir_fuerza(ANIM_F_IDLE)
 	else:
 		_reproducir_anim(ANIM_INACTIVO, BLEND_MARCHA)
+
+## Sube el bordillo de una acera (escalón bajo, ~15 cm) sin tocar move_and_slide
+## ni la gravedad. Se llama una vez por frame, tras el movimiento de cada forma,
+## así que sirve igual a Humano, Velocista, Acuático y Fuerza. Sólo actúa si el
+## cuerpo está apoyado y empujando contra una pared que resulta ser un escalón
+## (hay hueco por encima, paso libre a esa altura y suelo al otro lado). Un muro
+## alto (un edificio) no supera el sondeo de avance y no se sube.
+func _resolver_escalon() -> void:
+	if not is_on_floor() or not is_on_wall():
+		return
+	var empuje := Vector3(velocity.x, 0.0, velocity.z)
+	if empuje.length_squared() < 0.04:
+		return
+	var dir := empuje.normalized()
+	var altura := ALTURA_ESCALON
+	# ¿Cabe la subida? (si hay techo bajo, no)
+	if test_move(global_transform, Vector3.UP * altura):
+		return
+	# ¿Hay paso libre a la altura del escalón? (muro alto -> no es un escalón)
+	var elevado := global_transform
+	elevado.origin.y += altura
+	var avance := dir * AVANCE_ESCALON
+	if test_move(elevado, avance):
+		return
+	# ¿Hay suelo bajo el punto de avance? (borde/precipicio -> no subir)
+	var destino := elevado
+	destino.origin += avance
+	if not test_move(destino, Vector3.DOWN * (altura + 0.1)):
+		return
+	# Ejecuta la subida: eleva, avanza y vuelve a apoyarse sobre el escalón.
+	global_position.y += altura
+	move_and_collide(avance)
+	move_and_collide(Vector3.DOWN * (altura + 0.1))
+
 
 func _on_menu_transformaciones_abierto() -> void:
 	_menu_abierto = true

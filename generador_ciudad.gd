@@ -1158,16 +1158,17 @@ func _generar_calles() -> void:
 func _corredor(vertical: bool, p: float, d0: float, d1: float) -> void:
 	var calzada: float = _trazado.calzada
 	var acera: float = _trazado.acera
-	var hw: float = _trazado.hw
 	var paso: float = _trazado.paso
 	var n_lineas: int = (manzanas_z + 1) if vertical else (manzanas_x + 1)
 	var cont_calles: Node3D = _cont["Calles"]
 	var cont_marcas: Node3D = _cont["MarcasViales"]
 	var cont_acera: Node3D = _cont["Aceras"]
 
-	# Aceras: superficie peatonal y colisión a ambos lados del vial.
+	# Aceras: superficie peatonal y colisión a ambos lados del vial, POR TRAMOS.
+	# La colisión se corta en cada cruce para no atravesar la calzada transversal
+	# (esas franjas continuas eran las "paredes invisibles" de las intersecciones).
 	for lado: float in [-1.0, 1.0]:
-		_banda_acera(vertical, p, lado, d0 - hw, d1 + hw)
+		_bandas_acera(vertical, p, lado, d0, d1, n_lineas)
 
 	# Tramos entre cruces consecutivos: calzada y aceras.
 	for k in n_lineas - 1:
@@ -1234,7 +1235,32 @@ func _giro_acera(vertical: bool, lado: float) -> float:
 	return PI * 0.5 if lado < 0.0 else -PI * 0.5
 
 
+## Colisión de acera a un lado del vial, dividida en TRAMOS para que NO cruce las
+## calzadas de las calles perpendiculares (esas franjas continuas eran las
+## "paredes invisibles" de las intersecciones). Cada tramo cubre la acera de su
+## manzana; los cuatro chaflanes de cada cruce los cubren los tramos contiguos,
+## así que no se duplica la colisión de las esquinas. En los bordes del mapa la
+## acera se prolonga hw metros (igual que la geometría del kit) para cerrar los
+## chaflanes exteriores y que el jugador no caiga por el borde.
+func _bandas_acera(vertical: bool, p: float, lado: float, d0: float, d1: float, n_lineas: int) -> void:
+	var medio: float = _trazado.calzada * 0.5
+	var hw: float = _trazado.hw
+	var paso: float = _trazado.paso
+	# Borde inicial del mapa (cubre el chaflán exterior del primer cruce).
+	_banda_acera(vertical, p, lado, d0 - hw, d0 - medio)
+	# Tramos entre cruces consecutivos: acera sólo donde hay manzana, nunca sobre
+	# la calzada de la calle que cruza.
+	for k in n_lineas - 1:
+		_banda_acera(vertical, p, lado,
+				d0 + float(k) * paso + medio, d0 + float(k + 1) * paso - medio)
+	# Borde final del mapa.
+	_banda_acera(vertical, p, lado, d1 + medio, d1 + hw)
+
+
+## Colisión de un tramo de acera (banda de 'acera' de ancho) a un lado del vial.
 func _banda_acera(vertical: bool, p: float, lado: float, d0: float, d1: float) -> void:
+	if d1 - d0 < 0.01:
+		return
 	var calzada: float = _trazado.calzada
 	var acera: float = _trazado.acera
 	var centro_lat := p + lado * (calzada * 0.5 + acera * 0.5)
