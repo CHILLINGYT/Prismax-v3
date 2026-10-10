@@ -20,6 +20,10 @@
 [ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://generador_ciudad.gd" id="16_ciudad"]
 [ext_resource type="Sky" path="res://Cielo/cielo_ciudad.tres" id="17_cielo"]
 [ext_resource type="Script" path="res://Cielo/ciclo_dia_noche.gd" id="18_ciclo"]
+[ext_resource type="Script" path="res://world/terreno3d.gd" id="19_isla"]
+[ext_resource type="PackedScene" path="res://Agua/Scenes/Ocean.tscn" id="21_oceano"]
+[ext_resource type="Script" path="res://world/bosque.gd" id="22_bosque"]
+[ext_resource type="PackedScene" path="res://world/LimitesMundo.tscn" id="23_limites"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -51,6 +55,16 @@ duracion_dia_segundos = 900.0
 duracion_noche_segundos = 900.0
 fase_inicial = 0.33
 
+[node name="Terreno" type="Node3D" parent="."]
+script = ExtResource("19_isla")
+
+[node name="Oceano" parent="." instance=ExtResource("21_oceano")]
+
+[node name="Bosque" type="Node3D" parent="."]
+script = ExtResource("22_bosque")
+
+[node name="LimitesMundo" parent="." instance=ExtResource("23_limites")]
+
 [node name="Ciudad" type="Node3D" parent="." unique_id=338105555]
 script = ExtResource("16_ciudad")
 crear_camara_y_luz = false
@@ -59,6 +73,7 @@ camara_libre = false
 
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
+collision_mask = 3
 
 [node name="Modelo" parent="Jugador/Visual/Pose/Volteo" parent_id_path=PackedInt32Array(110866062, 1889189844) index="0" unique_id=575471977]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04462242, 0)

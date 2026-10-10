@@ -1,0 +1,41 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_horizontal"]
+size = Vector3(3800, 700, 20)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_vertical"]
+size = Vector3(20, 700, 3800)
+
+[node name="LimitesMundo" type="Node3D"]
+
+[node name="Limite_Norte" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 150, -1800)
+collision_layer = 2
+collision_mask = 0
+
+[node name="Forma" type="CollisionShape3D" parent="Limite_Norte"]
+shape = SubResource("BoxShape3D_horizontal")
+
+[node name="Limite_Sur" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 150, 1800)
+collision_layer = 2
+collision_mask = 0
+
+[node name="Forma" type="CollisionShape3D" parent="Limite_Sur"]
+shape = SubResource("BoxShape3D_horizontal")
+
+[node name="Limite_Este" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1800, 150, 0)
+collision_layer = 2
+collision_mask = 0
+
+[node name="Forma" type="CollisionShape3D" parent="Limite_Este"]
+shape = SubResource("BoxShape3D_vertical")
+
+[node name="Limite_Oeste" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1800, 150, 0)
+collision_layer = 2
+collision_mask = 0
+
+[node name="Forma" type="CollisionShape3D" parent="Limite_Oeste"]
+shape = SubResource("BoxShape3D_vertical")
