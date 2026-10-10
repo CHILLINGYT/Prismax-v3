@@ -18,19 +18,12 @@
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_modo_ataque.tres" id="14_x5dtm"]
 [ext_resource type="PackedScene" path="res://ui/scenes/PauseMenu.tscn" id="15_pausa"]
 [ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://generador_ciudad.gd" id="16_ciudad"]
-
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_ciudad"]
-sky_top_color = Color(0.3, 0.47, 0.76, 1)
-sky_horizon_color = Color(0.76, 0.81, 0.87, 1)
-ground_bottom_color = Color(0.21, 0.21, 0.22, 1)
-ground_horizon_color = Color(0.58, 0.59, 0.58, 1)
-
-[sub_resource type="Sky" id="Sky_ciudad"]
-sky_material = SubResource("ProceduralSkyMaterial_ciudad")
+[ext_resource type="Sky" path="res://Cielo/cielo_ciudad.tres" id="17_cielo"]
+[ext_resource type="Script" path="res://Cielo/ciclo_dia_noche.gd" id="18_ciclo"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
-sky = SubResource("Sky_ciudad")
+sky = ExtResource("17_cielo")
 ambient_light_source = 3
 ambient_light_sky_contribution = 0.6
 tonemap_mode = 2
@@ -49,6 +42,14 @@ transform = Transform3D(0.76604444, -0.45451945, 0.45451945, 0, 0.70710677, 0.70
 light_color = Color(1, 0.95686275, 0.8627451, 1)
 light_energy = 1.25
 shadow_enabled = true
+
+[node name="CicloDiaNoche" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
+script = ExtResource("18_ciclo")
+sol = NodePath("../Sol")
+entorno = NodePath("../Entorno")
+duracion_dia_segundos = 900.0
+duracion_noche_segundos = 900.0
+fase_inicial = 0.33
 
 [node name="Ciudad" type="Node3D" parent="." unique_id=338105555]
 script = ExtResource("16_ciudad")
