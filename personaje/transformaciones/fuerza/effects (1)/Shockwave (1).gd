@@ -34,6 +34,9 @@ extends Node3D
 
 ## Quien provocó la onda: nunca se daña a sí misma.
 var autor: Node = null
+## Normal del suelo en el punto de impacto: el anillo se tumba sobre el
+## terreno real (calles, rampas, césped) en lugar de quedarse plano.
+var normal_suelo: Vector3 = Vector3.UP
 
 var _anillo: MeshInstance3D
 var _mat: ShaderMaterial
@@ -43,10 +46,35 @@ var _acabado: bool = false
 
 func _ready() -> void:
 	_construir_anillo()
-	_lanzar_efectos()
-	_danar()
+	# CAUSA REAL del bug "el efecto sale en el origen del mundo": quien crea la
+	# onda la añade con add_child() y DESPUÉS le asigna global_position, así que
+	# durante _ready() este nodo todavía está en (0,0,0). Las partículas y el
+	# daño se difieren al final del fotograma (call_deferred): para entonces la
+	# posición real del aterrizaje ya está puesta y el impacto cae donde toca.
+	call_deferred("_comenzar")
 	# Red de seguridad: nunca se queda colgada en la escena.
 	FuerzaVfx.liberar_mas_tarde(self, duration + 3.0)
+
+
+func _comenzar() -> void:
+	if is_queued_for_deletion():
+		return
+	_alinear_con_suelo()
+	_lanzar_efectos()
+	_danar()
+
+
+## Tumba la onda sobre el terreno: su eje Y local sigue la normal del suelo.
+func _alinear_con_suelo() -> void:
+	if normal_suelo.length_squared() < 0.25:
+		return
+	var n: Vector3 = normal_suelo.normalized()
+	if n.angle_to(Vector3.UP) < 0.01:
+		return
+	var ref: Vector3 = Vector3.FORWARD if absf(n.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT
+	var x: Vector3 = ref.cross(n).normalized()
+	var z: Vector3 = x.cross(n)
+	basis = Basis(x, n, z)
 
 
 func _process(delta: float) -> void:

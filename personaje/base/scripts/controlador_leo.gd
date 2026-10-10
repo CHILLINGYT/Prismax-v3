@@ -129,6 +129,20 @@ const F_ACELERACION := 12.0
 const F_DESACELERACION := 16.0
 const F_GRAVEDAD := 25.0
 const F_SALTO := 6.5
+# Supersalto con carga (mantener ESPACIO en el suelo). Un toque corto conserva
+# el salto normal de siempre. Valores heredados del paquete original de Fuerza
+# (su gravedad es la MISMA: F_GRAVEDAD = 25, así que el rango 8..21 m/s da las
+# mismas alturas de diseño: ~1.3 m al mínimo y ~8.8 m con la carga al tope).
+const F_SUPER_CARGA_MIN := 0.25     # s: por debajo, toque corto = salto normal
+const F_SUPER_CARGA_MAX := 1.4      # s: carga completa
+const F_SUPER_VEL_MIN := 8.0        # m/s al soltar justo pasado el mínimo
+const F_SUPER_VEL_MAX := 21.0       # m/s con la carga al tope
+const F_SUPER_IMPULSO := 2.0        # empuje horizontal mínimo del despegue
+const F_SUPER_SACUDIDA := 0.45      # sacudida de cámara al despegar
+const F_SUPER_CAIDA_CAMARA := 0.28  # la cámara baja mientras se carga
+const F_SUPER_TEMBLOR := 0.035      # temblor del cuerpo mientras se carga
+const F_SUPER_BARRA_LARGO := 220.0  # tamaño del indicador de carga en pantalla
+const F_SUPER_BARRA_ALTO := 16.0
 # Embestida con el hombro (R).
 const F_EMBESTIDA_VEL := 7.0
 const F_EMBESTIDA_DUR := 0.5
@@ -147,11 +161,43 @@ const F_GOLPE_RADIO := 0.7
 const F_GOLPE_ALTURA := 1.2
 const F_PATADA_ALTURA := 0.9
 const F_COMBO_VENTANA := 0.45
-# Roca (Q arranca / clic izq. lanza).
+# u (fracción del clip) en la que el puño/el pie alcanzan su extensión MÁXIMA,
+# medida sobre el propio esqueleto con los clips reales: mano izquierda al
+# frente en Punch_Left u=0.23, mano derecha (cross) en Punch_Right u=0.30 y
+# pie al frente en Kick u=0.375. El daño de un golpe cae en ese instante.
+const F_IMPACTO_U := {
+	"Punch_Left": 0.23,
+	"Punch_Right": 0.30,
+	"Kick": 0.375,
+}
+# Roca (Q la arranca del suelo frente al personaje / clic izq. la lanza).
 const F_ROCA_TAM := 0.8
 const F_ROCA_VEL := 17.0
 const F_ROCA_DANIO := 80.0
 const F_ROCA_RADIO := 3.0
+# Agarre de la roca. Estos valores DEBEN coincidir con el horneado de los
+# clips de la roca (animations/libraries/FuerzaUniversal.tres: RockLift,
+# RockCarry, RockCarryWalk, RockThrow): animación e IK usan exactamente la
+# misma fórmula de trayectoria y de puntos de agarre, así que nunca se pelean.
+const F_ROCA_CARRY_H := 1.13   # altura del centro sobre la cabeza, en radios
+const F_ROCA_Z0 := 0.62        # dónde nace/apoya la roca (esp. esqueleto, +adelante)
+const F_ROCA_U_SUBIDA := 0.55  # fase del levantamiento en la que la roca empieza a subir
+const F_ROCA_U_FIN := 0.90     # fase en la que termina de subir
+const F_ROCA_GUARDA := 0.25    # margen extra alrededor de la cabeza (en radios)
+const F_ROCA_SWAY := 0.008     # balanceo lateral al caminar cargada (esp. esqueleto)
+const F_ROCA_POLO_SALIDA := 2.2
+const F_ROCA_POLO_ABAJO := 0.0
+const F_ROCA_POLO_ATRAS := 0.2
+# Mira (crosshair) del modo apuntado de la roca: cruz fina con contorno en el
+# centro exacto de la pantalla mientras la piedra está arriba, lista para
+# lanzar. El punto objetivo sale de un raycast desde el centro de la cámara.
+const F_MIRA_LARGO := 11.0        # longitud de cada brazo de la cruz (px)
+const F_MIRA_GROSOR := 2.0        # grosor de cada brazo (px)
+const F_MIRA_HUECO := 5.0         # hueco central alrededor del punto (px)
+const F_MIRA_PUNTO := 3.0         # tamaño del punto central (px)
+const F_MIRA_ALCANCE := 60.0      # alcance máximo del raycast de apuntado (m)
+const F_MIRA_COLOR := Color(1.0, 1.0, 1.0, 0.92)
+const F_MIRA_SOMBRA := Color(0.0, 0.0, 0.0, 0.55)
 
 # Clips de la nueva librería de Fuerza (UniversalLibrary -> FuerzaUniversal.tres).
 # Se reproducen por su nombre simple sobre el AnimationPlayer del nodo $Fuerza.
@@ -171,6 +217,8 @@ const ANIM_F_ROCKLIFT := "RockLift"
 const ANIM_F_ROCKCARRY := "RockCarry"
 const ANIM_F_ROCKCARRYWALK := "RockCarryWalk"
 const ANIM_F_ROCKTHROW := "RockThrow"
+const ANIM_F_CARGA := "Charge"
+const ANIM_F_SUPERJUMP := "SuperJump"
 const ANIM_F_SHOULDERPREP := "ShoulderPrep"
 const ANIM_F_SHOULDERRUN := "ShoulderRun"
 const ANIM_F_SHOULDERECOVER := "ShoulderRecover"
@@ -325,13 +373,41 @@ var f_recuperacion: float = 0.0
 var f_slam: bool = false
 var f_cargando_roca: bool = false
 var f_roca: FuerzaRock = null
+# IK de agarre de la roca: se crea una sola vez, la primera vez que se pulsa Q.
+var _f_ik: FuerzaBrazosIK = null
+var _f_esqueleto: Skeleton3D = null
+var _f_idx_cabeza: int = -1
+var _f_idx_cabeza_top: int = -1
+# Supersalto con carga (ESPACIO mantenido en el suelo): estado de la carga,
+# indicador visual (reutiliza el anillo del HUD, mismo estilo) y la posición
+# base del nodo del modelo para el temblor de esfuerzo.
+var f_super_cargando: bool = false
+var f_super_carga: float = 0.0
+var _f_fondo: ColorRect = null
+var _f_relleno: ColorRect = null
+var _f_flash_indicador: float = 0.0
+var _f_fuerza_pos_base: Vector3 = Vector3.ZERO
+# El levantamiento de la roca ha TERMINADO de verdad (fin del clip RockLift):
+# sólo entonces se puede apuntar/lanzar.
+var f_roca_lista: bool = false
+# Última piedra LANZADA: sigue existiendo en el mundo hasta desvanecerse.
+# Mientras siga ahí no se puede arrancar otra del suelo.
+var _f_roca_lanzada: FuerzaRock = null
 var f_ataque: bool = false
-var f_t_ataque: float = 0.0
+# Ventana de combo: instante en el que TERMINÓ el último golpe (no aquel en el
+# que empezó): el encadenado 1-2 se mide desde el fin real de la animación.
 var f_ultimo_golpe: float = 0.0
 # --- Animación Fuerza (librería UniversalLibrary: FuerzaUniversal.tres) ---
 var _f_anim_actual: String = ""
 var _f_ataque_clip: String = ""
+var _f_ataque_dur: float = 0.0
+var _f_ataque_impacto_u: float = 0.29
+var _f_ataque_golpeado: bool = false
+var _f_clip_terminado: String = ""
+var _f_combo_pedido: bool = false
 var _f_bloqueo_anim: float = 0.0
+# Mira del apuntado de la roca (cruz fina en el centro de la pantalla).
+var _f_mira: Control = null
 
 # --- Estado velocista ---
 var _dir_dash: Vector3 = Vector3.ZERO
@@ -384,6 +460,15 @@ func _ready() -> void:
 	_ajustar_escala_acuatico()
 	# Iguala la altura visual de la forma Fuerza a la de Leo humano.
 	_ajustar_escala_fuerza()
+	# El fin REAL del clip de levantar la roca (señal del propio AnimationPlayer,
+	# no un temporizador paralelo) es lo que habilita apuntar y lanzar.
+	anim_fuerza.animation_finished.connect(_on_animacion_fuerza_terminada)
+	# Indicador de carga del supersalto: se reutiliza el anillo del HUD para que
+	# quede en el mismo estilo que el resto de la interfaz.
+	_preparar_indicador_super()
+	# Mira del apuntado de la piedra (se enciende sólo con la roca lista).
+	_preparar_mira_roca()
+	_f_fuerza_pos_base = fuerza.position
 	# Enfriamientos de las 4 habilidades acuáticas (arrancan listas).
 	for i in ABIL_AGUA.size():
 		a_cooldowns[i + 1] = 0.0
@@ -711,6 +796,13 @@ func _intentar_escalon_ejecucion(col: KinematicCollision3D, dir_mov: Vector3) ->
 
 func _on_menu_transformaciones_abierto() -> void:
 	_menu_abierto = true
+	# Cargar el supersalto y abrir el menú a la vez dejaría la carga a medias:
+	# se cancela sin salto (nada se dispara solo al cerrar el menú).
+	_cancelar_super()
+	# Si la mole está a MEDIO levantar, se cancela limpiamente: con el control
+	# congelado el clip no puede completarse y la piedra acabaría colocada mal.
+	if _esta_levantando_roca():
+		_soltar_roca_interrumpida()
 
 func _on_menu_transformaciones_cerrado() -> void:
 	_menu_abierto = false
@@ -869,6 +961,10 @@ func _entrar_fuerza() -> void:
 	f_slam = false
 	f_ataque = false
 	f_recuperacion = 0.0
+	f_super_cargando = false
+	f_super_carga = 0.0
+	f_roca_lista = false
+	_limpiar_efectos_carga()
 	pivote.position.y = h_pivote_y_base
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
@@ -891,7 +987,9 @@ func _detener_fuerza() -> void:
 	f_t_embestida = 0.0
 	f_slam = false
 	f_ataque = false
-	f_t_ataque = 0.0
+	_f_ataque_clip = ""
+	_f_combo_pedido = false
+	_actualizar_mira_roca(false)
 	f_recuperacion = 0.0
 	f_embestida_golpeados.clear()
 	if f_roca != null and is_instance_valid(f_roca):
@@ -899,7 +997,15 @@ func _detener_fuerza() -> void:
 			f_roca.queue_free()
 	f_roca = null
 	f_cargando_roca = false
+	f_roca_lista = false
 	_f_bloqueo_anim = 0.0
+	# Cargar el supersalto no cruza de forma: se cancela sin salto.
+	_cancelar_super()
+	# El IK de la roca se apaga sin dejar nada activo al cambiar de forma.
+	if _f_ik != null:
+		_f_ik.peso_objetivo = 0.0
+		_f_ik.peso_actual = 0.0
+		_f_ik.soltar_roca()
 	if anim_fuerza != null:
 		anim_fuerza.speed_scale = 1.0
 	_f_anim_actual = ""
@@ -1389,9 +1495,10 @@ func _origen_ataque_agua(adelante: Vector3) -> Vector3:
 # (falta animations/FuerzaUniversal.tres), así que las habilidades se ejecutan a
 # nivel de movimiento + efectos + daño, sin clips propios. Ver informe final.
 func _procesar_fuerza(delta: float) -> void:
-	f_t_ataque = maxf(f_t_ataque - delta, 0.0)
-	if f_t_ataque <= 0.0:
-		f_ataque = false
+	# El ataque lo gobierna su clip real: dura lo que dura la animación y el
+	# daño cae en su extensión (ver _procesar_ataque_fuerza).
+	if f_ataque:
+		_procesar_ataque_fuerza()
 	f_recuperacion = maxf(f_recuperacion - delta, 0.0)
 
 	if f_embestiendo:
@@ -1414,7 +1521,11 @@ func _procesar_fuerza(delta: float) -> void:
 		vel = F_VEL_CORRER
 	if f_cargando_roca:
 		vel *= 0.65
-	if f_ataque or f_recuperacion > 0.0:
+	# Freno corto mientras el golpe va camino del impacto; después el clip sólo
+	# acompaña la recuperación y el control se alivia (Kick dura 1.6 s).
+	if f_ataque:
+		vel *= 0.2 if not _f_ataque_golpeado else 0.55
+	elif f_recuperacion > 0.0:
 		vel *= 0.2
 
 	var horiz := Vector3(velocity.x, 0.0, velocity.z)
@@ -1430,26 +1541,68 @@ func _procesar_fuerza(delta: float) -> void:
 	elif velocity.y < 0.0:
 		velocity.y = -0.1
 
-	if is_on_floor() and Input.is_action_just_pressed("saltar") and not f_agachado:
-		velocity.y = F_SALTO
-		f_salto_aire = true
-		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+	# --- Supersalto con carga (ESPACIO mantenido en el suelo) ---
+	# Mantener ESPACIO carga el salto; un toque corto sigue siendo el salto
+	# normal de siempre. Durante el levantamiento de la roca el salto se ignora
+	# (la mole a medio camino no debe quedar colgada en el aire). La carga se
+	# cancela sin salto si algo la rompe: perder el suelo, agacharse, empezar
+	# otra habilidad u abrir el menú.
+	if f_super_cargando:
+		if not is_on_floor() or f_agachado or f_embestiendo or f_slam or f_cargando_roca:
+			_cancelar_super()
+		elif not Input.is_action_pressed("saltar"):
+			_ejecutar_super()
+		else:
+			f_super_carga = minf(f_super_carga + delta, F_SUPER_CARGA_MAX)
+			_actualizar_carga_super()
+	elif is_on_floor() and Input.is_action_just_pressed("saltar") and not f_agachado \
+			and not _esta_levantando_roca():
+		if _puede_cargar_super():
+			f_super_cargando = true
+			f_super_carga = 0.0
+			_f_flash_indicador = 0.0
+			_actualizar_carga_super()
+		else:
+			# Con otra habilidad en curso, el toque de ESPACIO salta como antes.
+			velocity.y = F_SALTO
+			f_salto_aire = true
+			_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+
+	# El indicador de carga se queda un instante a tope tras el supersalto.
+	if _f_flash_indicador > 0.0 and not f_super_cargando:
+		_f_flash_indicador = maxf(_f_flash_indicador - delta, 0.0)
+		_actualizar_indicador_super(1.0, _f_flash_indicador > 0.0)
 
 	move_and_slide()
 	_orientar_fuerza(delta, dir)
 	_actualizar_roca_fuerza()
 
-	# Con la roca en las manos (Q), el clic IZQUIERDO lanza; no pega.
+	# Con la roca en las manos (Q), el clic IZQUIERDO lanza; no pega. Hasta que
+	# el clip de levantamiento no ha TERMINADO de verdad (señal del
+	# AnimationPlayer, con el selector de clips como red de seguridad) no se
+	# atiende ningún clic: la mole tiene que estar arriba antes de apuntar.
 	if f_cargando_roca and f_roca != null:
-		if Input.is_action_just_pressed("atacar"):
+		if not f_roca_lista and (anim_fuerza == null \
+				or anim_fuerza.current_animation != ANIM_F_ROCKLIFT):
+			f_roca_lista = true
+		# Modo apuntado: con la mole ya arriba, el crosshair marca el centro de
+		# la pantalla y el lanzamiento sale hacia ese punto objetivo.
+		_actualizar_mira_roca(f_roca_lista)
+		if f_roca_lista and Input.is_action_just_pressed("atacar"):
 			_lanzar_roca_fuerza()
 		return
 	if f_ataque or f_recuperacion > 0.0:
 		return
 	# Cuerpo a cuerpo: clic izquierdo = puñetazo (doble = combo 1-2), derecho = patada.
+	# Golpear cancela una carga de supersalto a medias: la carga nunca decide
+	# por el jugador ni se dispara sola más tarde.
 	if Input.is_action_just_pressed("atacar"):
+		if f_super_cargando:
+			_cancelar_super()
 		_golpe_fuerza(false)
 	elif Input.is_action_just_pressed("cargar_poder"):
+		if f_super_cargando:
+			_cancelar_super()
 		_golpe_fuerza(true)
 
 func _orientar_fuerza(delta: float, dir: Vector3) -> void:
@@ -1482,8 +1635,11 @@ func _actualizar_anim_fuerza(delta: float) -> void:
 	_reproducir_fuerza(_clip_fuerza())
 
 func _clip_fuerza() -> String:
+	# Cargando el supersalto (ESPACIO mantenido en el suelo): flexión de carga.
+	if f_super_cargando:
+		return ANIM_F_CARGA
 	# Cuerpo a cuerpo: manda el clip fijado al golpear (jab / cross / patada).
-	if f_ataque and f_t_ataque > 0.0 and not _f_ataque_clip.is_empty():
+	if f_ataque and not _f_ataque_clip.is_empty():
 		return _f_ataque_clip
 	# Embestida con el hombro, pisotón aéreo y su recuperación.
 	if f_embestiendo:
@@ -1511,7 +1667,9 @@ func _rapidez_horizontal() -> float:
 
 # --- Embestida con el hombro (R) ---
 func _iniciar_embestida_fuerza() -> void:
-	if f_embestiendo or f_cargando_roca or not is_on_floor():
+	# Cargar el supersalto ocupa la habilidad igual que la roca: nada la
+	# interrumpe a medias (se suelta ESPACIO y ya se decide).
+	if f_embestiendo or f_cargando_roca or f_super_cargando or not is_on_floor():
 		return
 	f_embestiendo = true
 	f_t_embestida = 0.0
@@ -1573,12 +1731,27 @@ func _procesar_slam_fuerza(_delta: float) -> void:
 		if host == null:
 			host = self
 		host.add_child(onda)
+		# La onda lee su posición al final del fotograma (call_deferred en su
+		# _ready), ya con este global_position aplicado: el impacto cae en el
+		# punto real del aterrizaje. La normal del suelo tumba la onda en las
+		# pendientes en lugar de dejarla flotando.
+		onda.normal_suelo = get_floor_normal()
 		onda.global_position = global_position + Vector3.UP * 0.05
 
-# --- Lanzar piedra (Q arranca / clic izquierdo lanza) ---
+# --- Arrancar piedra del suelo (Q) ---
+# La roca NACE EN EL SUELO delante del personaje: el clip RockLift horneado
+# (agacharse, agarrarla, tirón y alzarla sobre la cabeza) recorre con los
+# brazos la misma trayectoria que aquí usa el IK, así que las manos acaban
+# siempre sobre la superficie de la piedra y la subida sale de una pieza.
 func _intentar_roca_fuerza() -> void:
-	if f_roca != null or not is_on_floor():
+	if f_roca != null or f_super_cargando or not is_on_floor():
 		return
+	# Mientras la última piedra LANZADA siga existiendo en el mundo no se
+	# arranca otra: soltarla de las manos no significa que haya desaparecido.
+	if not _puede_levantar_roca():
+		return
+	if _f_ik == null:
+		_preparar_ik_roca()
 	var roca := FuerzaRock.new()
 	roca.radius = F_ROCA_TAM
 	roca.damage = F_ROCA_DANIO
@@ -1588,63 +1761,513 @@ func _intentar_roca_fuerza() -> void:
 	if host == null:
 		host = self
 	host.add_child(roca)
-	roca.global_position = global_position + Vector3.UP * 2.2
+	roca.global_position = _posicion_roca_nace()
 	roca.sujetar()
 	f_roca = roca
 	f_cargando_roca = true
+	f_roca_lista = false
 	_reproducir_fuerza(ANIM_F_ROCKLIFT, H_MEZCLA, true)
-	_f_bloqueo_anim = 1.26
+	# El levantamiento ocupa el clip ENTERO: es el fin real del clip (señal del
+	# AnimationPlayer) lo que habilita apuntar y lanzar después.
+	_f_bloqueo_anim = maxf(_duracion_fuerza(ANIM_F_ROCKLIFT), 0.2)
 
 func _lanzar_roca_fuerza() -> void:
+	# Defensa en profundidad: el tiro sólo existe con el levantamiento TERMINADO
+	# (el llamador ya lo comprueba).
+	if not f_roca_lista:
+		return
 	if f_roca == null or not is_instance_valid(f_roca):
 		f_roca = null
 		f_cargando_roca = false
+		f_roca_lista = false
 		return
-	var adelante := -pivote.global_transform.basis.z
-	adelante.y = 0.0
-	adelante = adelante.normalized() if adelante.length_squared() > 0.0001 else Vector3.FORWARD
-	var dir := (adelante + Vector3.UP * 0.12).normalized()
+	# El IK suelta primero: la roca sale volando desde donde la dejaron las
+	# manos y el clip de lanzamiento recupera los brazos con su mezcla corta.
+	if _f_ik != null:
+		_f_ik.peso_objetivo = 0.0
+		_f_ik.soltar_roca()
+	# El tiro sale hacia el PUNTO OBJETIVO de la mira (raycast desde el centro
+	# de la cámara), resolviendo el ángulo balístico con la gravedad y la
+	# velocidad REALES de la piedra: cae donde apunta el crosshair.
+	var objetivo := _punto_objetivo_mira()
+	var gravedad_efectiva := float(ProjectSettings.get_setting(
+		"physics/3d/default_gravity", 9.8)) * f_roca.gravity_scale
+	var dir := _direccion_lanzamiento_roca(
+		f_roca.global_position, objetivo, F_ROCA_VEL, gravedad_efectiva)
 	f_roca.lanzar(dir, F_ROCA_VEL)
+	# La piedra lanzada SIGUE existiendo (vuela, impacta y se desvanece sola):
+	# se conserva la referencia hasta que salga del árbol de escena; mientras
+	# exista, Q no puede arrancar otra del suelo.
+	_f_roca_lanzada = f_roca
+	if not _f_roca_lanzada.tree_exited.is_connected(_on_piedra_lanzada_fuera):
+		_f_roca_lanzada.tree_exited.connect(_on_piedra_lanzada_fuera)
 	f_roca = null
 	f_cargando_roca = false
+	f_roca_lista = false
+	_actualizar_mira_roca(false)
 	_reproducir_fuerza(ANIM_F_ROCKTHROW, BLEND_ATAQUE, true)
-	_f_bloqueo_anim = 0.62
+	_f_bloqueo_anim = maxf(_duracion_fuerza(ANIM_F_ROCKTHROW) - 0.05, 0.2)
 
+# --- Agarre de la roca (trayectoria + IK, compartidos con el horneado) ---
+# Mientras la roca está en las manos, cada fotograma se recoloca sobre la
+# trayectoria del clip (suelo -> arco por delante -> centrada sobre la cabeza)
+# en el espacio del esqueleto, y el IK de brazos lleva las manos a la
+# superficie de la piedra. El peso del IK sigue la MISMA curva con la que se
+# hornearon los brazos de los clips: cero pelea entre animación e IK.
 func _actualizar_roca_fuerza() -> void:
+	if f_roca == null or not is_instance_valid(f_roca) or f_roca.volando:
+		return
+	if _f_ik == null or _f_esqueleto == null:
+		return
+	var escala := _escala_esqueleto()
+	if escala <= 0.0001:
+		return
+	var r_sk := F_ROCA_TAM / escala
+	var c := _centro_roca_sk(r_sk)
+	f_roca.global_position = _f_esqueleto.global_transform * c
+	_f_ik.peso_objetivo = _peso_ik_roca()
+	_f_ik.fijar_roca(c, r_sk)
+
+func _escala_esqueleto() -> float:
+	if _f_esqueleto == null:
+		return 1.0
+	return _f_esqueleto.global_transform.basis.get_scale().x
+
+func _smooth_fuerza(t: float) -> float:
+	t = clampf(t, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
+## Fase (0..1) del levantamiento mientras suena RockLift; 1 en cualquier otro
+## momento (roca ya arriba, en el carry).
+func _fase_roca() -> float:
+	if anim_fuerza == null:
+		return 1.0
+	if anim_fuerza.current_animation == ANIM_F_ROCKLIFT and anim_fuerza.current_animation_length > 0.0:
+		return clampf(anim_fuerza.current_animation_position / anim_fuerza.current_animation_length,
+			0.0, 1.0)
+	return 1.0
+
+## Peso del IK: durante el levantamiento sube con la misma curva que los brazos
+## horneados (0 mientras el personaje se agacha, 1 al agarrar) y luego se queda.
+func _peso_ik_roca() -> float:
+	var u := _fase_roca()
+	if u < 0.12:
+		return 0.0
+	if u < 0.46:
+		return _smooth_fuerza((u - 0.12) / 0.34)
+	return 1.0
+
+## Centro de la roca en el espacio del esqueleto. MISMA trayectoria que el
+## horneado: sube por delante mientras el cuerpo se yergue y una guarda la
+## aparta de la cabeza en el tramo final. Termina centrada encima de ella.
+func _centro_roca_sk(r_sk: float) -> Vector3:
+	var u := _fase_roca()
+	var ht := _altura_cabeza_sk()
+	var fy := _smooth_fuerza((u - F_ROCA_U_SUBIDA) / (F_ROCA_U_FIN - F_ROCA_U_SUBIDA))
+	var c := Vector3(0.0, lerpf(r_sk * 0.94, ht + r_sk * F_ROCA_CARRY_H + 0.005, fy),
+		lerpf(F_ROCA_Z0, 0.02, fy))
+	var hc := _centro_cabeza_sk()
+	var min_dist := r_sk * (1.0 + F_ROCA_GUARDA)
+	var d := c - hc
+	if d.length_squared() > 0.000001 and d.length() < min_dist:
+		var w_g := _smooth_fuerza((u - 0.58) / 0.10) * (1.0 - _smooth_fuerza((u - 0.86) / 0.14))
+		c = c.lerp(hc + d.normalized() * min_dist, w_g)
+	# Balanceo corto y contenido al caminar con la piedra (sólo en el carry).
+	if u >= 0.999 and anim_fuerza != null and anim_fuerza.current_animation_length > 0.0 \
+			and _rapidez_horizontal() > H_UMBRAL_MOVIMIENTO:
+		var uw := anim_fuerza.current_animation_position / anim_fuerza.current_animation_length
+		c.x += F_ROCA_SWAY * sin(uw * TAU)
+	return c
+
+func _altura_cabeza_sk() -> float:
+	if _f_esqueleto == null or _f_idx_cabeza_top < 0:
+		return 0.0
+	return _f_esqueleto.get_bone_global_pose(_f_idx_cabeza_top).origin.y
+
+func _centro_cabeza_sk() -> Vector3:
+	if _f_esqueleto == null or _f_idx_cabeza < 0 or _f_idx_cabeza_top < 0:
+		return Vector3.ZERO
+	return (_f_esqueleto.get_bone_global_pose(_f_idx_cabeza).origin
+		+ _f_esqueleto.get_bone_global_pose(_f_idx_cabeza_top).origin) * 0.5
+
+func _duracion_fuerza(nombre: String) -> float:
+	if anim_fuerza != null and anim_fuerza.has_animation(nombre):
+		return anim_fuerza.get_animation(nombre).length
+	return 0.0
+
+## Dónde nace la roca: en el suelo, delante, justo bajo las manos del primer
+## fotograma del levantamiento (mismo sitio que el clip horneado).
+func _posicion_roca_nace() -> Vector3:
+	if _f_esqueleto == null:
+		return global_position + Vector3.UP * F_ROCA_TAM
+	var r_sk := F_ROCA_TAM / maxf(_escala_esqueleto(), 0.0001)
+	return _f_esqueleto.global_transform * Vector3(0.0, r_sk * 0.94, F_ROCA_Z0)
+
+## Crea (una sola vez, la primera vez que se pulsa Q) el modificador de
+## esqueleto que recoloca los brazos para agarrar la piedra. Los huesos y la
+## escala se leen del propio rig.
+func _preparar_ik_roca() -> void:
+	_f_esqueleto = _buscar_esqueleto_fuerza()
+	if _f_esqueleto == null:
+		return
+	_f_ik = FuerzaBrazosIK.new()
+	_f_ik.name = "BrazosIKRoca"
+	var objetivo_izq := Node3D.new()
+	objetivo_izq.name = "LeftHandTarget"
+	_f_ik.add_child(objetivo_izq)
+	var objetivo_der := Node3D.new()
+	objetivo_der.name = "RightHandTarget"
+	_f_ik.add_child(objetivo_der)
+	_f_ik.polo_salida = F_ROCA_POLO_SALIDA
+	_f_ik.polo_abajo = F_ROCA_POLO_ABAJO
+	_f_ik.polo_atras = F_ROCA_POLO_ATRAS
+	_f_ik.peso_objetivo = 0.0
+	_f_ik.peso_actual = 0.0
+	_f_esqueleto.add_child(_f_ik)
+	_f_idx_cabeza = _f_esqueleto.find_bone(&"mixamorig_Head")
+	_f_idx_cabeza_top = _f_esqueleto.find_bone(&"mixamorig_HeadTop_End")
+	if _f_idx_cabeza_top < 0:
+		_f_idx_cabeza_top = _f_idx_cabeza
+
+func _buscar_esqueleto_fuerza() -> Skeleton3D:
+	if fuerza == null:
+		return null
+	var lista := fuerza.find_children("*", "Skeleton3D", true, false)
+	if lista.is_empty():
+		return null
+	return lista[0] as Skeleton3D
+
+# --- Supersalto con carga: lógica y presentación ------------------------------
+# Mantener SPACE en el suelo junta fuerza (clip Charge + cámara que baja +
+# temblor creciente, como el paquete original); al soltar, la potencia acumulada
+# decide entre el salto normal (toque corto) y el supersalto (8..21 m/s con la
+# gravedad real de la forma: F_GRAVEDAD = 25). El indicador reutiliza el mismo
+# anillo del HUD, colocado abajo en el centro de la pantalla.
+
+func _puede_cargar_super() -> bool:
+	return not f_embestiendo and not f_slam and not f_cargando_roca \
+		and not f_ataque and f_recuperacion <= 0.0
+
+func _esta_levantando_roca() -> bool:
+	return f_cargando_roca and not f_roca_lista
+
+func _actualizar_carga_super() -> void:
+	var fr := clampf(f_super_carga / F_SUPER_CARGA_MAX, 0.0, 1.0)
+	# La cámara baja con la flexión y el cuerpo tiembla: se le ve juntando fuerza.
+	pivote.position.y = h_pivote_y_base - F_SUPER_CAIDA_CAMARA * fr
+	pivote.vibracion = lerpf(0.12, 0.6, fr)
+	var t := F_SUPER_TEMBLOR * (0.35 + 0.65 * fr)
+	fuerza.position = _f_fuerza_pos_base + Vector3(
+		randf_range(-t, t), 0.0, randf_range(-t, t))
+	_actualizar_indicador_super(fr, true)
+
+func _cancelar_super() -> void:
+	f_super_cargando = false
+	f_super_carga = 0.0
+	_f_flash_indicador = 0.0
+	_limpiar_efectos_carga()
+
+## Devuelve cámara, vibración, temblor e indicador a su sitio. Es seguro
+## llamarla aunque no haya carga en curso (todo queda como estaba).
+func _limpiar_efectos_carga() -> void:
+	pivote.position.y = h_pivote_y_base
+	pivote.vibracion = 0.0
+	fuerza.position = _f_fuerza_pos_base
+	_actualizar_indicador_super(0.0, false)
+
+func _ejecutar_super() -> void:
+	var cargado := f_super_carga
+	f_super_cargando = false
+	f_super_carga = 0.0
+	_limpiar_efectos_carga()
+	if not is_on_floor():
+		# Red de seguridad: sin suelo no hay despegue.
+		return
+	if cargado < F_SUPER_CARGA_MIN:
+		# Toque corto: el salto NORMAL de siempre, sin ceremonial.
+		velocity.y = F_SALTO
+		f_salto_aire = true
+		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+		return
+	var fr := clampf(inverse_lerp(F_SUPER_CARGA_MIN, F_SUPER_CARGA_MAX, cargado), 0.0, 1.0)
+	velocity.y = lerpf(F_SUPER_VEL_MIN, F_SUPER_VEL_MAX, fr)
+	f_salto_aire = true
+	# La carrerilla se conserva tal cual; si salía casi parado, empujón mínimo
+	# hacia donde apunta la entrada (o donde mira el modelo).
+	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+	if horizontal.length() < F_SUPER_IMPULSO:
+		var rumbo := _direccion_entrada()
+		if rumbo.length() < 0.05:
+			rumbo = -fuerza.global_transform.basis.z
+			rumbo.y = 0.0
+			rumbo = rumbo.normalized() if rumbo.length_squared() > 0.0001 else Vector3.FORWARD
+		velocity.x = rumbo.x * F_SUPER_IMPULSO
+		velocity.z = rumbo.z * F_SUPER_IMPULSO
+	_reproducir_fuerza(ANIM_F_SUPERJUMP, BLEND_SALTO, true)
+	_f_bloqueo_anim = maxf(_duracion_fuerza(ANIM_F_SUPERJUMP), 0.2)
+	# El indicador se queda un momento a tope: se ve la fuerza que llevaba.
+	_f_flash_indicador = 0.35
+	_actualizar_indicador_super(1.0, true)
+	# El suelo se agrieta bajo los pies y la cámara lo nota.
+	FuerzaVfx.polvo(get_parent(), global_position, 1.5 + fr, 20,
+		Color(0.62, 0.55, 0.45), 0.9, 2.6 + fr * 2.0)
+	FuerzaCombat.sacudir_camara(get_tree(), F_SUPER_SACUDIDA * (0.45 + 0.55 * fr))
+
+func _preparar_indicador_super() -> void:
+	if _f_relleno != null:
+		return
+	# Se cuelga del CanvasLayer del HUD que el jugador ya usa (mismo estilo que
+	# los anillos de vida/escudo). Dos ColorRect DIRECTOS al HUD: el fondo
+	# oscuro de la interfaz y el relleno dorado que crece con la carga.
+	var capa := get_node_or_null("HUD") as CanvasLayer
+	if capa == null:
+		capa = CanvasLayer.new()
+		capa.name = "HUDSuperSalto"
+		capa.layer = 2
+		add_child(capa)
+	_f_fondo = ColorRect.new()
+	_f_fondo.name = "BarraCargaFondo"
+	_f_fondo.color = Color(0.08, 0.09, 0.12, 0.7)
+	_f_fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_f_fondo.size = Vector2(F_SUPER_BARRA_LARGO + 12.0, F_SUPER_BARRA_ALTO + 12.0)
+	capa.add_child(_f_fondo)
+	_f_relleno = ColorRect.new()
+	_f_relleno.name = "BarraCargaRelleno"
+	_f_relleno.color = Color(1.0, 0.78, 0.35, 1.0)
+	_f_relleno.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_f_relleno.size = Vector2(0.0, F_SUPER_BARRA_ALTO)
+	capa.add_child(_f_relleno)
+	_posicionar_indicador_super()
+	_actualizar_indicador_super(0.0, false)
+
+func _posicionar_indicador_super() -> void:
+	if _f_fondo == null or _f_relleno == null:
+		return
+	var vp := get_viewport().get_visible_rect().size
+	# Esquina inferior izquierda: zona siempre libre de la pantalla (el jugador
+	# se ve centrado y el HUD de vida está en la derecha).
+	var x := 52.0
+	var y := vp.y - F_SUPER_BARRA_ALTO - 56.0
+	_f_fondo.position = Vector2(x - 6.0, y - 6.0)
+	_f_relleno.position = Vector2(x, y)
+
+func _actualizar_indicador_super(valor: float, mostrar: bool) -> void:
+	if _f_fondo == null or _f_relleno == null:
+		return
+	_f_fondo.visible = mostrar
+	_f_relleno.visible = mostrar
+	if not mostrar:
+		return
+	_posicionar_indicador_super()
+	_f_relleno.size = Vector2(F_SUPER_BARRA_LARGO * clampf(valor, 0.0, 1.0),
+		F_SUPER_BARRA_ALTO)
+	# Al tope la barra late: avisa de que el salto saldrá a máxima potencia.
+	var brillo := 0.0
+	if valor >= 1.0:
+		brillo = 0.25 + 0.25 * sin(Time.get_ticks_msec() / 1000.0 * 8.0)
+	_f_relleno.color = Color(1.0, 0.78, 0.35).lerp(Color(1.0, 0.95, 0.7), brillo)
+
+# --- Mira del apuntado de la roca ---------------------------------------------
+# Cruz fina con contorno en el centro EXACTO de la pantalla. Vive en el
+# CanvasLayer del HUD, así que queda fija aunque la cámara se mueva; sólo se
+# enciende mientras la piedra está arriba, lista para apuntar y lanzar.
+func _preparar_mira_roca() -> void:
+	if _f_mira != null:
+		return
+	var capa := get_node_or_null("HUD") as CanvasLayer
+	if capa == null:
+		capa = CanvasLayer.new()
+		capa.name = "HUDMiraRoca"
+		capa.layer = 2
+		add_child(capa)
+	_f_mira = Control.new()
+	_f_mira.name = "MiraRoca"
+	_f_mira.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	capa.add_child(_f_mira)
+	# Brazos de la cruz + punto central: [desplazamiento, tamaño] desde (0,0).
+	var piezas: Array = [
+		[Vector2(-F_MIRA_HUECO - F_MIRA_LARGO, -F_MIRA_GROSOR * 0.5),
+			Vector2(F_MIRA_LARGO, F_MIRA_GROSOR)],
+		[Vector2(F_MIRA_HUECO, -F_MIRA_GROSOR * 0.5),
+			Vector2(F_MIRA_LARGO, F_MIRA_GROSOR)],
+		[Vector2(-F_MIRA_GROSOR * 0.5, -F_MIRA_HUECO - F_MIRA_LARGO),
+			Vector2(F_MIRA_GROSOR, F_MIRA_LARGO)],
+		[Vector2(-F_MIRA_GROSOR * 0.5, F_MIRA_HUECO),
+			Vector2(F_MIRA_GROSOR, F_MIRA_LARGO)],
+		[Vector2(-F_MIRA_PUNTO * 0.5, -F_MIRA_PUNTO * 0.5),
+			Vector2(F_MIRA_PUNTO, F_MIRA_PUNTO)],
+	]
+	for pieza in piezas:
+		var pos: Vector2 = pieza[0]
+		var tam: Vector2 = pieza[1]
+		var sombra := ColorRect.new()
+		sombra.color = F_MIRA_SOMBRA
+		sombra.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sombra.position = pos - Vector2.ONE
+		sombra.size = tam + Vector2.ONE * 2.0
+		_f_mira.add_child(sombra)
+		var luz := ColorRect.new()
+		luz.color = F_MIRA_COLOR
+		luz.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		luz.position = pos
+		luz.size = tam
+		_f_mira.add_child(luz)
+	_actualizar_mira_roca(false)
+
+func _actualizar_mira_roca(mostrar: bool) -> void:
+	if _f_mira == null:
+		return
+	_f_mira.visible = mostrar
+	if not mostrar:
+		return
+	var vp := get_viewport().get_visible_rect().size
+	_f_mira.position = (vp * 0.5).round()
+
+## Punto del mundo al que apunta el centro de la cámara: raycast sobre el
+## escenario y los cuerpos; si no encuentra superficie, un punto lejano en esa
+## misma dirección (alcance máximo razonable).
+func _punto_objetivo_mira() -> Vector3:
+	var origen := pivote.global_position
+	var dir := -pivote.global_transform.basis.z
+	var mundo := get_world_3d()
+	if mundo != null:
+		var consulta := PhysicsRayQueryParameters3D.create(
+			origen, origen + dir * F_MIRA_ALCANCE, 1, [get_rid()])
+		var golpe: Dictionary = mundo.direct_space_state.intersect_ray(consulta)
+		if golpe.has("position"):
+			return golpe["position"]
+	return origen + dir * F_MIRA_ALCANCE
+
+## Dirección inicial para que la piedra (con su velocidad y su gravedad reales)
+## caiga en el punto objetivo: solución balística de ángulo bajo. Fuera de
+## alcance, tiro directo (la física hará que caiga donde llegue).
+func _direccion_lanzamiento_roca(origen: Vector3, objetivo: Vector3,
+		velocidad: float, gravedad_tiro: float) -> Vector3:
+	var a_objetivo := objetivo - origen
+	var horiz := Vector3(a_objetivo.x, 0.0, a_objetivo.z)
+	var d := horiz.length()
+	if a_objetivo.length_squared() < 0.0001:
+		return -pivote.global_transform.basis.z
+	if d < 0.25 or gravedad_tiro <= 0.001 or velocidad <= 0.001:
+		return a_objetivo.normalized()
+	var v2 := velocidad * velocidad
+	var raiz := v2 * v2 - gravedad_tiro * (gravedad_tiro * d * d + 2.0 * a_objetivo.y * v2)
+	if raiz < 0.0:
+		return a_objetivo.normalized()
+	var tan_theta := (v2 - sqrt(raiz)) / (gravedad_tiro * d)
+	return (horiz / d + Vector3.UP * tan_theta).normalized()
+
+# --- Piedra lanzada: no se puede arrancar otra mientras siga en el mundo ------
+## ¿Está el camino libre para arrancar una piedra nueva?
+func _puede_levantar_roca() -> bool:
+	if _f_roca_lanzada == null:
+		return true
+	# El objeto puede haberse liberado ya (is_instance_valid) o estar en cola de
+	# liberación este mismo fotograma (is_queued_for_deletion): en ambos casos
+	# ya no existe para el mundo y la habilidad vuelve a estar disponible.
+	if not is_instance_valid(_f_roca_lanzada) or _f_roca_lanzada.is_queued_for_deletion():
+		_f_roca_lanzada = null
+		return true
+	return false
+
+func _on_piedra_lanzada_fuera() -> void:
+	# Señal tree_exited: la piedra salió definitivamente del árbol de escena.
+	_f_roca_lanzada = null
+
+## Cancela un levantamiento a medias SIN dejar la piedra en mala posición: la
+## piedra se retira (no llegó a levantarse) y el IK se apaga, igual que hace
+## _detener_fuerza al cambiar de forma.
+func _soltar_roca_interrumpida() -> void:
 	if f_roca != null and is_instance_valid(f_roca) and not f_roca.volando:
-		var adelante := -fuerza.global_transform.basis.z
-		adelante.y = 0.0
-		adelante = adelante.normalized() if adelante.length_squared() > 0.0001 else Vector3.FORWARD
-		f_roca.global_position = global_position + Vector3.UP * 2.2 + adelante * 0.9
+		f_roca.queue_free()
+	f_roca = null
+	f_cargando_roca = false
+	f_roca_lista = false
+	_actualizar_mira_roca(false)
+	if _f_ik != null:
+		_f_ik.peso_objetivo = 0.0
+		_f_ik.peso_actual = 0.0
+		_f_ik.soltar_roca()
+
+# --- Señal del AnimationPlayer ------------------------------------------------
+func _on_animacion_fuerza_terminada(nombre: StringName) -> void:
+	# Fin REAL del clip de levantamiento: desde aquí la roca está arriba de
+	# verdad (el fin de RockLift es el primer fotograma de RockCarry) y se puede
+	# apuntar, andar con ella y lanzarla.
+	if nombre == ANIM_F_ROCKLIFT and f_cargando_roca:
+		f_roca_lista = true
+	# Fin REAL del clip de golpe: el ataque dura lo que dura la animación.
+	if f_ataque and not _f_ataque_clip.is_empty() and nombre == _f_ataque_clip:
+		_terminar_ataque_fuerza()
 
 # --- Cuerpo a cuerpo (puñetazo / combo / patada) ---
+# La duración de cada golpe es la del CLIP REAL: la animación nunca se corta a
+# medias y el personaje sólo vuelve a la locomoción cuando el golpe termina.
 func _golpe_fuerza(es_patada: bool) -> void:
 	if f_ataque:
+		# Un puñetazo pedido durante el jab queda ENCOLADO: el cross sale al
+		# terminar el golpe en curso, jamás cortándolo a media animación.
+		if not es_patada and _f_ataque_clip == ANIM_F_PUNCH_L:
+			_f_combo_pedido = true
+		return
+	if es_patada:
+		_f_combo_pedido = false
+		_iniciar_ataque_fuerza(ANIM_F_KICK)
 		return
 	var ahora := Time.get_ticks_msec() / 1000.0
-	var combo := (not es_patada) and f_ultimo_golpe > 0.0 and (ahora - f_ultimo_golpe < F_COMBO_VENTANA)
-	f_ultimo_golpe = 0.0 if es_patada else ahora
+	var combo := _f_clip_terminado == ANIM_F_PUNCH_L and f_ultimo_golpe > 0.0 \
+		and (ahora - f_ultimo_golpe < F_COMBO_VENTANA)
+	_iniciar_ataque_fuerza(ANIM_F_PUNCH_R if combo else ANIM_F_PUNCH_L)
+
+## Arranca un golpe completo: clip entero desde el principio y daño pendiente
+## hasta la extensión real del puño o del pie.
+func _iniciar_ataque_fuerza(clip: String) -> void:
+	f_ataque = true
+	_f_ataque_clip = clip
+	_f_ataque_dur = _duracion_fuerza(clip)
+	_f_ataque_impacto_u = float(F_IMPACTO_U.get(clip, 0.29))
+	_f_ataque_golpeado = false
+	_reproducir_fuerza(clip, BLEND_ATAQUE, true)
+
+## Sigue el golpe por la posición REAL del clip: el daño se aplica cuando el
+## puño o el pie alcanzan su extensión (u medida sobre los propios clips) y el
+## ataque se cierra cuando la animación termina de verdad (posición o señal).
+func _procesar_ataque_fuerza() -> void:
+	if anim_fuerza == null or _f_ataque_clip.is_empty() \
+			or anim_fuerza.current_animation != _f_ataque_clip:
+		# Otra cosa tomó el AnimationPlayer (salto, menú, cambio de forma):
+		# el golpe ya no está en curso y se suelta sin dejarlo bloqueado.
+		_terminar_ataque_fuerza()
+		return
+	var pos := anim_fuerza.current_animation_position
+	if not _f_ataque_golpeado and _f_ataque_dur > 0.0 \
+			and pos >= _f_ataque_dur * _f_ataque_impacto_u:
+		_f_ataque_golpeado = true
+		_aplicar_impacto_golpe_fuerza()
+	if pos >= _f_ataque_dur - 0.02 or not anim_fuerza.is_playing():
+		_terminar_ataque_fuerza()
+
+func _aplicar_impacto_golpe_fuerza() -> void:
+	var es_patada := _f_ataque_clip == ANIM_F_KICK
 	var dano := F_PATADA_DANIO if es_patada else F_PUNIO_DANIO
 	var altura := F_PATADA_ALTURA if es_patada else F_GOLPE_ALTURA
 	var punto := _punto_golpe_fuerza(altura)
 	_golpear_esfera_fuerza(punto, F_GOLPE_RADIO, dano, 6.0)
 	FuerzaVfx.chispas(get_parent(), punto, 0.7, 16, Color(1.0, 0.85, 0.5), 0.4, 5.0)
-	f_ataque = true
-	f_t_ataque = 0.3 if es_patada else 0.22
-	_f_ataque_clip = ANIM_F_KICK if es_patada else ANIM_F_PUNCH_L
-	_reproducir_fuerza(_f_ataque_clip, BLEND_ATAQUE, true)
-	if combo:
-		_segundo_golpe_fuerza()
 
-func _segundo_golpe_fuerza() -> void:
-	await get_tree().create_timer(0.14).timeout
-	if forma != Forma.FUERZA:
+func _terminar_ataque_fuerza() -> void:
+	if not f_ataque:
 		return
-	var punto := _punto_golpe_fuerza(F_GOLPE_ALTURA)
-	_golpear_esfera_fuerza(punto, F_GOLPE_RADIO, F_PUNIO_DANIO, 6.0)
-	FuerzaVfx.chispas(get_parent(), punto, 0.7, 16, Color(1.0, 0.85, 0.5), 0.4, 5.0)
-	_f_ataque_clip = ANIM_F_PUNCH_R
-	_reproducir_fuerza(ANIM_F_PUNCH_R, BLEND_ATAQUE, true)
+	f_ataque = false
+	_f_clip_terminado = _f_ataque_clip
+	_f_ataque_clip = ""
+	_f_ataque_dur = 0.0
+	# La ventana de combo se cuenta desde que el golpe TERMINÓ.
+	f_ultimo_golpe = Time.get_ticks_msec() / 1000.0
+	# Puñetazo encadenado pedido durante el jab: ahora sí, clip nuevo entero.
+	if _f_combo_pedido and _f_clip_terminado == ANIM_F_PUNCH_L:
+		_f_combo_pedido = false
+		_iniciar_ataque_fuerza(ANIM_F_PUNCH_R)
 
 func _punto_golpe_fuerza(altura: float) -> Vector3:
 	var adelante := -fuerza.global_transform.basis.z

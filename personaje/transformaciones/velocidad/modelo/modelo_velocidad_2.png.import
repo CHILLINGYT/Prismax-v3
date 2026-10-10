@@ -2,14 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dx20inaioalug"
+uid="uid://cr3p4ep1obpni"
 path.s3tc="res://.godot/imported/modelo_velocidad_2.png-e739538fbda09e183745a65ba29c0c58.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
-}
-generator_parameters={
-"md5": "ad46f938dcd5e3ed2952fe212819a2c6"
 }
 
 [deps]
@@ -30,7 +27,7 @@ compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=1
-roughness/src_normal="res://modelo_velocidad_2.png"
+roughness/src_normal="res://personaje/transformaciones/velocidad/modelo/modelo_velocidad_2.png"
 process/channel_remap/red=0
 process/channel_remap/green=1
 process/channel_remap/blue=2
