@@ -45,6 +45,46 @@ const H_MEZCLA_AGACHARSE := 0.25
 # controlador intenta subir y avance del sondeo de paso libre (metros).
 const ALTURA_ESCALON := 0.26
 const AVANCE_ESCALON := 0.40
+
+# --- AGUA (una sola forma nada; las demás se frenan en la orilla) -------------
+# La profundidad NO se saca de ninguna superficie ni de un valor fijo: se pide a
+# `Relieve.profundidad_agua()`, que la calcula como el nivel del mar menos la cota
+# del terreno, es decir, con la MISMA función que genera el mundo. Así el límite
+# vale igual en la playa de la ciudad, en una bahía o en cualquier tramo de costa.
+## Profundidad (m) de agua que una forma TERRESTRE puede vadear (andar por el
+## fondo mojándose los tobillos o las rodillas). Más honda que esto, el fondo ya no
+## es transitable a pie: sólo la forma ACUÁTICA puede seguir nadando.
+const PROFUNDIDAD_VADEO := 0.55
+## Profundidad (m) a partir de la cual la forma ACUÁTICA nada en vez de vadear. Es
+## algo mayor que el límite terrestre para que pueda entrar y salir del agua
+## caminando por la playa (vadea antes de ponerse a nadar).
+const PROFUNDIDAD_NADO := 0.95
+## Cota (m) de la superficie VISIBLE del océano: es la del plano de
+## res://Agua/Scenes/Ocean.tscn (-2.05), 5 cm por debajo de Relieve.NIVEL_MAR para
+## que la línea de costa no quede coplanaria con la malla del terreno. El nado usa
+## ESTA cota, de modo que el cuerpo flota donde se ve el agua.
+const SUPERFICIE_MAR := -2.05
+## Fundido de los clips de agua (entrar/salir) y del nado.
+const BLEND_AGUA := 0.22
+## Velocidad (m/s) de nado horizontal en superficie y bajo el agua.
+const A_VEL_NADO := 4.6
+## Aceleración (m/s²) del nado: da inercia de pez, no un cambio de dirección seco.
+const A_ACEL_NADO := 6.0
+## Velocidad (m/s) de subida/bajada al sumergirse con las teclas de flotar/bucear.
+const A_VEL_VERTICAL_NADO := 3.2
+## Empuje (m/s²) con el que el agua devuelve el cuerpo a la superficie: es lo que
+## hace que el personaje flote y pueda nadar sin hundirse solo.
+const A_FLOTABILIDAD := 9.0
+## Altura (m) sobre la superficie a la que el cuerpo se estabiliza al flotar: con el
+## origen en los pies, deja el agua a la altura del pecho (no "de pie" sobre ella).
+const A_CALADO_FLOTANDO := 1.05
+## Amortiguación vertical bajo el agua: evita oscilar alrededor de la superficie.
+const A_AMORTIGUA_VERTICAL := 4.0
+## Duración (s) de los clips de entrada y salida del agua (miden 1,90 s en la
+## librería). Sólo son transiciones visuales: la lógica de nado manda desde el
+## primer fotograma.
+const A_T_ENTRADA_AGUA := 1.50
+const A_T_SALIDA_AGUA := 1.40
 # Metro extra de avance sobre el radio de la cápsula: garantiza que el centro del
 # cuerpo quede claramente encima de la superficie de destino (no justo en el canto).
 const MARGEN_ESCALON := 0.12
@@ -77,6 +117,17 @@ const ANIM_A_FALL := "fall"
 const ANIM_A_CROUCH_IDLE := "crouch_idle"
 const ANIM_A_CROUCH_WALK := "crouch_walk"
 const ANIM_A_ATTACK := "attack"
+# Clips de NATACIÓN del módulo acuático. Ya existían importados en
+# personaje/transformaciones/acuatica/animations/player_animations.tres (el
+# AnimationPlayer del modelo acuático los carga por su nombre simple, igual que
+# los de tierra); antes no se usaban en el juego. Nombres REALES verificados.
+const ANIM_A_SWIM_IDLE := "swim_idle"
+const ANIM_A_SWIM_FORWARD := "swim_forward"
+const ANIM_A_SWIM_BACK := "swim_back"
+const ANIM_A_SWIM_UP := "swim_up"
+const ANIM_A_SWIM_DOWN := "swim_down"
+const ANIM_A_ENTER_WATER := "enter_water"
+const ANIM_A_EXIT_WATER := "exit_water"
 
 # ------------------------------------------- Acuático / Pes: 4 habilidades (1-4)
 # Tabla única de las cuatro habilidades acuáticas. Reutiliza TAL CUAL los objetos
@@ -287,6 +338,15 @@ var a_salto_aire: bool = false
 var a_agachado: bool = false
 var a_ataque_activo: bool = false
 var a_t_ataque: float = 0.0
+# NATACIÓN: true mientras el cuerpo está en agua honda y nada en vez de andar.
+var a_nadando: bool = false
+# Tiempo (s) que le queda al clip de transición de entrar o salir del agua.
+var a_t_transicion: float = 0.0
+## Clip de transición en curso ("" = ninguna).
+var a_clip_transicion: String = ""
+## Relieve compartido: ÚNICA fuente de verdad de dónde empieza el agua y de cuánto
+## honda es en cada punto (lo usan el límite de las formas terrestres y el nado).
+var _relieve := Relieve.new()
 # Habilidades acuáticas (teclas 1-4): bloqueo de acción, enfriamientos y carga.
 var a_en_habilidad: bool = false
 var a_t_habilidad: float = 0.0
@@ -480,6 +540,9 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
+	# Posición ANTES de mover: la usa el límite de agua de más abajo para deshacer
+	# el desplazamiento horizontal de este fotograma si el cuerpo acaba nadando.
+	var antes := global_position
 	if forma == Forma.HUMANO:
 		_procesar_humano(delta)
 	elif forma == Forma.ACUATICO:
@@ -503,6 +566,11 @@ func _physics_process(delta: float) -> void:
 				_procesar_ejecucion(delta)
 		_actualizar_animaciones(delta)
 		_actualizar_pose(delta)
+
+	# LÍMITE DE AGUA: sólo la forma acuática puede nadar. Las formas terrestres
+	# (humano, velocista y fuerza) se frenan en la orilla.
+	if forma != Forma.ACUATICO:
+		_restringir_agua(antes)
 
 	# Subida natural de bordillos para locomoción normal. Durante EJECUCION el
 	# recorrido gestiona el bloqueo en _procesar_ejecucion(): ahí primero distingue
@@ -709,6 +777,47 @@ func _intentar_escalon_ejecucion(col: KinematicCollision3D, dir_mov: Vector3) ->
 	return true
 
 
+# ------------------------------------------------ AGUA: dónde se puede pisar
+## Profundidad REAL (m) de agua sobre el fondo en un punto del mapa: el nivel del
+## mar menos la cota del terreno. La responde `Relieve` con la MISMA función que
+## genera el mundo, así que vale en cualquier punto de la costa y no depende de
+## ningún valor fijo: 0 o menos = tierra seca, 1.2 = metro y medio de agua.
+func profundidad_agua(x: float, z: float) -> float:
+	return _relieve.profundidad_agua(x, z)
+
+
+## true si en ese punto el agua es demasiado honda para caminar (sólo se nada).
+func agua_no_pisable(x: float, z: float) -> bool:
+	return profundidad_agua(x, z) > PROFUNDIDAD_VADEO
+
+
+## Frena a las formas TERRESTRES en la orilla. Se llama una vez por fotograma,
+## después de que la forma haya movido el cuerpo, con la posición previa al
+## movimiento ([param antes]).
+##
+## POR QUÉ ASÍ: comprobar el agua ANTES de moverse obligaría a meter el control en
+## los ocho caminos de movimiento (andar, correr, dash, embestida, pisotón, salto,
+## carga y ejecución del trazado). Mirando el resultado, una sola comprobación
+## cubre todos los casos, incluidos los que llevan mucha inercia o una habilidad
+## activa: si el cuerpo terminó sobre agua honda se deshace EL DESPLAZAMIENTO
+## HORIZONTAL DE ESTE FOTOGRAMA y se anula la velocidad. La corrección es como
+## mucho la distancia de un fotograma (un paso corto) y no se repite: en cuanto la
+## velocidad es 0 no hay nada que deshacer, así que el personaje se queda quieto en
+## la arena, sin vibrar ni retroceder en cadena.
+func _restringir_agua(antes: Vector3) -> void:
+	if not agua_no_pisable(global_position.x, global_position.z):
+		return
+	global_position.x = antes.x
+	global_position.z = antes.z
+	velocity.x = 0.0
+	velocity.z = 0.0
+	# Si el recorrido del velocista llegara al agua (una ruta vieja, un salto de
+	# terreno), la habilidad se cierra de forma ordenada en vez de quedarse
+	# empujando contra la orilla para siempre.
+	if estado == Estado.EJECUCION:
+		_terminar_ejecucion()
+
+
 func _on_menu_transformaciones_abierto() -> void:
 	_menu_abierto = true
 
@@ -742,6 +851,13 @@ func _alternar_forma() -> void:
 # que el efecto termine antes de devolver el control. No duplica el sistema de efectos.
 func _transicionar(destino: int) -> void:
 	if _transformando:
+		return
+	# Bajo el agua honda sólo se puede seguir siendo la forma acuática: cambiar a una
+	# forma terrestre dejaría al personaje atrapado en el fondo (no puede nadar ni
+	# salir). El cambio se rechaza hasta que vuelva a aguas transitables; volver a la
+	# forma acuática sí se permite, y es la salida natural si el cambio fue forzado.
+	if destino != Forma.ACUATICO and a_nadando:
+		print("[Leo] No se puede transformar bajo el agua: vuelve a la superficie o a la orilla.")
 		return
 	_transformando = true
 	var id_destino: StringName = _id_forma(destino)
@@ -849,6 +965,10 @@ func _detener_acuatico() -> void:
 	a_agachado = false
 	a_ataque_activo = false
 	a_t_ataque = 0.0
+	# Natación: al salir de la forma no queda anotado que estaba nadando.
+	a_nadando = false
+	a_t_transicion = 0.0
+	a_clip_transicion = ""
 	# Cancela cualquier habilidad en curso y su carga (no debe quedar nada activo).
 	a_en_habilidad = false
 	a_t_habilidad = 0.0
@@ -1058,21 +1178,30 @@ func _animar_agachado_quieto(delta: float) -> void:
 # ============================================================== FORMA ACUÁTICA (Pes)
 # Misma mecánica de locomoción que la forma humana (mismo cuerpo, colisión y cámara),
 # pero reproduciendo los clips ORIGINALES del módulo acuático (sin renombrarlos).
+# Además es la ÚNICA forma que puede nadar: en agua honda el cuerpo flota, se
+# desplaza en 3D y puede sumergirse (ver _procesar_nado).
 func _procesar_acuatico(delta: float) -> void:
 	_tick_cooldowns_agua(delta)
-	# Mientras corre una habilidad acuática (1-4): sin movimiento horizontal; sólo
-	# gravedad y apoyo. La animación la manda la habilidad, no se sobrescribe.
+	# 1) ¿Nadar o andar? Lo decide la profundidad REAL del agua bajo los pies.
+	_actualizar_estado_agua(delta)
+
+	# 2) Mientras corre una habilidad acuática (1-4): sin movimiento horizontal; la
+	# animación la manda la habilidad, no se sobrescribe. La vertical sí responde al
+	# medio: flotando en la superficie si está nadando, con gravedad si hace pie.
 	if a_en_habilidad:
 		_actualizar_habilidad_agua(delta)
 		velocity.x = 0.0
 		velocity.z = 0.0
-		if not is_on_floor():
-			velocity.y -= H_GRAVEDAD * delta
-		elif velocity.y < 0.0:
-			velocity.y = -0.1
+		_aplicar_vertical_acuatico(delta)
 		move_and_slide()
 		return
 
+	# 3) Nado: movimiento en 3D.
+	if a_nadando:
+		_procesar_nado(delta)
+		return
+
+	# 4) Tierra o agua somera: locomoción igual que la forma humana.
 	if a_salto_aire and is_on_floor():
 		a_salto_aire = false
 
@@ -1118,6 +1247,98 @@ func _procesar_acuatico(delta: float) -> void:
 	_orientar_acuatico(delta, dir)
 	_actualizar_anim_acuatico(delta)
 
+# --- Natación (sólo la forma acuática) ---------------------------------------
+## Comprueba si el cuerpo está en agua honda y cambia entre andar y nadar, con su
+## clip de transición. La profundidad se mide con `profundidad_agua()`, es decir con
+## el fondo REAL del terreno (no con la superficie del agua, que no es una colisión).
+func _actualizar_estado_agua(delta: float) -> void:
+	# NO basta con que el fondo sea hondo: el cuerpo tiene que estar DE VERDAD dentro
+	# del agua. Antes sólo se miraba la profundidad del terreno (x, z), así que si el
+	# cuerpo subía por encima de la superficie el estado seguía siendo "nadando" y el
+	# personaje quedaba volando fuera del mar sin que nada lo devolviera. Con esta
+	# comprobación, en cuanto el cuerpo asoma a la superficie el nado termina y vuelve
+	# a valer la gravedad/el suelo: nunca se nada en el aire.
+	var en_agua := global_position.y <= SUPERFICIE_MAR + 0.05
+	var honda := en_agua and profundidad_agua(global_position.x, global_position.z) > PROFUNDIDAD_NADO
+	if honda != a_nadando:
+		a_nadando = honda
+		a_clip_transicion = ANIM_A_ENTER_WATER if honda else ANIM_A_EXIT_WATER
+		if not anim_acuatico_has(a_clip_transicion):
+			a_clip_transicion = ""
+		a_t_transicion = A_T_ENTRADA_AGUA if honda else A_T_SALIDA_AGUA
+		if honda:
+			# Al entrar al agua se cancelan los estados de tierra que ya no valen.
+			a_salto_aire = false
+			a_agachado = false
+		if a_clip_transicion != "":
+			_reproducir_acuatico(a_clip_transicion, BLEND_AGUA, true)
+	if a_t_transicion > 0.0:
+		a_t_transicion = maxf(a_t_transicion - delta, 0.0)
+		if a_t_transicion <= 0.0:
+			a_clip_transicion = ""
+
+
+## ¿Existe ese clip en la librería del modelo acuático? Evita pedir animaciones que
+## no estén importadas.
+func anim_acuatico_has(nombre: String) -> bool:
+	return anim_acuatico != null and anim_acuatico.has_animation(nombre)
+
+
+## Cota de flotación (m) en la posición actual: el cuerpo se estabiliza con el agua
+## a la altura del pecho, pero nunca por debajo del fondo (en agua somera se apoya
+## en el terreno, que es lo que permite salir a la playa caminando).
+func _cota_flotacion() -> float:
+	var fondo := _relieve.altura(global_position.x, global_position.z)
+	return maxf(SUPERFICIE_MAR - A_CALADO_FLOTANDO, fondo)
+
+
+## Vertical del medio acuático (flotar, subir con "saltar", bucear con CTRL). Se
+## usa tanto nadando como durante una habilidad lanzada desde el agua, para que el
+## personaje no se hunda mientras la reproduce.
+func _aplicar_vertical_acuatico(delta: float) -> void:
+	if Input.is_key_pressed(KEY_CTRL):
+		velocity.y = move_toward(velocity.y, -A_VEL_VERTICAL_NADO, A_ACEL_NADO * 2.0 * delta)
+		return
+	# "Saltar" bajo el agua ES nadar hacia arriba, pero ACOTADO a la cota de
+	# flotación: en cuanto el cuerpo llega a la superficie deja de empujar y pasa a
+	# la flotabilidad de abajo. Antes empujaba siempre a 3,2 m/s sin límite, así que
+	# mantener la tecla sacaba al personaje del agua y seguía subiendo (el "vuelo").
+	var objetivo := _cota_flotacion()
+	if Input.is_action_pressed("saltar") and global_position.y < objetivo - 0.02:
+		velocity.y = move_toward(velocity.y, A_VEL_VERTICAL_NADO, A_ACEL_NADO * 2.0 * delta)
+		return
+	# Flotabilidad: empuja hacia la cota de flotación y amortigua el movimiento, así
+	# el cuerpo se queda quieto flotando en vez de oscilar alrededor de la superficie.
+	var empuje := clampf((objetivo - global_position.y) * A_FLOTABILIDAD,
+			-A_VEL_VERTICAL_NADO, A_VEL_VERTICAL_NADO)
+	empuje -= velocity.y * A_AMORTIGUA_VERTICAL
+	velocity.y = move_toward(velocity.y, empuje, A_ACEL_NADO * 2.0 * delta)
+
+
+## NATACIÓN: el agua no es una barrera, es un medio en el que la forma acuática se
+## mueve en 3D. Horizontal respecto a la cámara con inercia de pez; vertical con
+## flotabilidad (arriba), y buceo con CTRL. Al soltar, el cuerpo vuelve solo a la
+## superficie. La colisión sigue siendo la del terreno, así que puede salir a la
+## playa caminando sin atravesar el suelo.
+func _procesar_nado(delta: float) -> void:
+	a_salto_aire = false
+	a_agachado = false
+	var dir := _direccion_entrada()
+	var horiz := Vector3(velocity.x, 0.0, velocity.z)
+	if dir.length() > 0.05:
+		horiz = horiz.move_toward(dir * A_VEL_NADO, A_ACEL_NADO * delta)
+	else:
+		horiz = horiz.move_toward(Vector3.ZERO, A_ACEL_NADO * 0.7 * delta)
+	velocity.x = horiz.x
+	velocity.z = horiz.z
+
+	_aplicar_vertical_acuatico(delta)
+
+	move_and_slide()
+	_orientar_acuatico(delta, dir)
+	_actualizar_anim_acuatico(delta)
+
+
 func _iniciar_ataque_acuatico() -> void:
 	a_ataque_activo = true
 	a_t_ataque = _duracion_clip_acuatico(ANIM_A_ATTACK)
@@ -1144,6 +1365,29 @@ func _actualizar_anim_acuatico(delta: float) -> void:
 		_reproducir_acuatico(ANIM_A_ATTACK)
 		if a_t_ataque <= 0.0:
 			a_ataque_activo = false
+		return
+	# NATACIÓN: la animación la manda la velocidad REAL (horizontal y vertical), así
+	# el personaje no nada quieto ni se desliza por el agua con un clip de caminar.
+	if a_nadando:
+		if a_t_transicion > 0.0 and anim_acuatico_has(a_clip_transicion):
+			anim_acuatico.speed_scale = 1.0
+			_reproducir_acuatico(a_clip_transicion)
+			return
+		var vel := Vector2(velocity.x, velocity.z).length()
+		anim_acuatico.speed_scale = 1.0
+		if velocity.y < -A_VEL_VERTICAL_NADO * 0.45:
+			_reproducir_acuatico(ANIM_A_SWIM_DOWN)
+		elif velocity.y > A_VEL_VERTICAL_NADO * 0.45:
+			_reproducir_acuatico(ANIM_A_SWIM_UP)
+		elif vel > 0.7:
+			var avance := Vector3(velocity.x, 0.0, velocity.z).normalized()
+			if avance.dot(_direccion_camara_horizontal()) < -0.4:
+				_reproducir_acuatico(ANIM_A_SWIM_BACK)
+			else:
+				_reproducir_acuatico(ANIM_A_SWIM_FORWARD)
+				anim_acuatico.speed_scale = clampf(vel / A_VEL_NADO, 0.6, 1.6)
+		else:
+			_reproducir_acuatico(ANIM_A_SWIM_IDLE)
 		return
 	if a_salto_aire:
 		anim_acuatico.speed_scale = 1.0

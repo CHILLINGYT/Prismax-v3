@@ -12,14 +12,14 @@ const MAPA := "res://ziba/escenas/ziba_prototipo.tscn"
 const VISTAS: Array = [
 	{"nombre": "mapa cenital", "pos": Vector3(0.0, 640.0, -90.0), "mira": Vector3(-90.0, 0.0, -95.0), "fov": 85.0},
 	{"nombre": "isla aerea", "pos": Vector3(-90.0, 420.0, 300.0), "mira": Vector3(-90.0, 0.0, -140.0), "fov": 75.0},
-	{"nombre": "ciudad aerea", "pos": Vector3(0.0, 150.0, 190.0), "mira": Vector3(0.0, 0.0, -10.0), "fov": 70.0},
+	{"nombre": "ciudad aerea", "pos": Vector3(-60.0, 130.0, -150.0), "mira": Vector3(120.0, 0.0, 110.0), "fov": 70.0},
 	{"nombre": "ciudad calle", "pos": Vector3(0.0, 2.2, 70.0), "mira": Vector3(0.0, 2.2, -40.0), "fov": 70.0},
 	{"nombre": "transicion ciudad-bosque", "pos": Vector3(-100.0, 14.0, -100.0), "mira": Vector3(-420.0, 14.0, -420.0), "fov": 70.0},
 	{"nombre": "montanas desde el bosque", "pos": Vector3(-160.0, 24.0, -130.0), "mira": Vector3(-370.0, 58.0, -60.0), "fov": 70.0},
-	{"nombre": "costa sureste", "pos": Vector3(120.0, 22.0, 60.0), "mira": Vector3(330.0, -3.0, 220.0), "fov": 70.0},
-	{"nombre": "playa", "pos": Vector3(320.0, 2.2, 0.0), "mira": Vector3(520.0, 0.6, 24.0), "fov": 70.0},
-	{"nombre": "costa desde arriba", "pos": Vector3(260.0, 45.0, 0.0), "mira": Vector3(520.0, -10.0, 20.0), "fov": 70.0},
-	{"nombre": "isla desde el mar", "pos": Vector3(620.0, 45.0, 260.0), "mira": Vector3(-90.0, 8.0, -90.0), "fov": 70.0},
+	{"nombre": "arboles de acera (bases)", "pos": Vector3(3.5, 1.8, 46.0), "mira": Vector3(6.6, 1.0, 14.0), "fov": 75.0},
+	{"nombre": "union rasante (este, z=30)", "pos": Vector3(136.0, 1.7, 30.0), "mira": Vector3(172.0, -1.0, 34.0), "fov": 78.0},
+	{"nombre": "ciudad y playa desde el mar", "pos": Vector3(330.0, 65.0, 165.0), "mira": Vector3(20.0, 0.0, 20.0), "fov": 70.0},
+	{"nombre": "cielo hacia arriba", "pos": Vector3(-60.0, 60.0, -60.0), "mira": Vector3(-20.0, 400.0, 20.0), "fov": 80.0},
 ]
 
 var _camara: Camera3D
@@ -37,6 +37,28 @@ var _muestras_recorrido: int = 0
 var _pos_inicial: Vector3 = Vector3.ZERO
 var _perfil_impreso: bool = false
 var _ocultar_fondo: bool = false
+# Prueba de nado (tecla J): comprueba que sólo la forma acuática nada.
+var _nado: bool = false
+var _fase_nado: int = 0
+var _t_nado: float = 0.0
+var _muestras_nado: int = 0
+# Prueba del límite de agua de las formas terrestres (tecla K).
+var _limite: bool = false
+var _fase_limite: int = 0
+var _t_limite: float = 0.0
+var _muestras_limite: int = 0
+# Prueba del bug de ESPACIO durante el nado (tecla H): mantiene "saltar" pulsado
+# mientras nada y comprueba que NO sale del agua ni sigue subiendo.
+var _espacio: bool = false
+var _fase_espacio: int = 0
+var _t_espacio: float = 0.0
+var _muestras_espacio: int = 0
+# Prueba del FILTRO SUBMARINO (tecla X): mete la cámara bajo el agua y comprueba el
+# velo azul, la inmersión y las burbujas de cámara y de la cabeza.
+var _filtro: bool = false
+var _fase_filtro: int = 0
+var _t_filtro: float = 0.0
+var _muestras_filtro: int = 0
 
 
 func _ready() -> void:
@@ -69,6 +91,14 @@ func _process(_delta: float) -> void:
 		_procesar_prueba(_delta)
 	if _recorrido:
 		_procesar_recorrido(_delta)
+	if _nado:
+		_procesar_nado(_delta)
+	if _limite:
+		_procesar_limite(_delta)
+	if _espacio:
+		_procesar_espacio(_delta)
+	if _filtro:
+		_procesar_filtro(_delta)
 	# El juego también crea su cámara: se reafirma la nuestra unas cuantas veces.
 	if not _camara_juego and _cuadros in [2, 10, 30, 90] and not _camara.current:
 		_camara.make_current()
@@ -341,6 +371,521 @@ func _suelo(x: float, z: float) -> float:
 	return (golpe["position"] as Vector3).y
 
 
+## PRUEBA DE NADO (tecla J): deja a la forma ACUÁTICA en la playa, la hace entrar
+## andando al mar, comprueba que pasa a nadar y flota, la sumerge con CTRL y
+## comprueba que vuelve sola a la superficie. Imprime el estado real cada 0,6 s.
+func _iniciar_prueba_nado() -> void:
+	var jug := find_child("Jugador", true, false) as CharacterBody3D
+	if jug == null:
+		print("[nado] no encuentro al jugador")
+		return
+	var rel := Relieve.new()
+	_jugador = jug
+	var x := 158.0
+	var z := 20.0
+	jug.global_position = Vector3(x, rel.altura(x, z) + 1.0, z)
+	jug.velocity = Vector3.ZERO
+	jug.call("_entrar_acuatico")
+	var pivote := jug.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.rotation.y = -PI / 2.0          # mirando al mar (+X)
+		if pivote.has_method("definir_pitch"):
+			pivote.call("definir_pitch", -0.12)
+	_camara_juego = true
+	_camara.current = false
+	var cam := find_child("Camara", true, false) as Camera3D
+	if cam != null:
+		cam.make_current()
+	_nado = true
+	_fase_nado = 0
+	_t_nado = 0.0
+	_muestras_nado = 0
+	print("[nado] empieza en (%.0f, %.0f): profundidad %.2f m (nivel del mar %.2f)" % [
+			x, z, rel.profundidad_agua(x, z), rel.NIVEL_MAR])
+
+
+func _procesar_nado(delta: float) -> void:
+	_t_nado += delta
+	var rel := Relieve.new()
+	# La cámara de tercera persona del juego gira sola para seguir al personaje, lo
+	# que cambiaría la dirección de avance a mitad de la prueba: aquí se fija el
+	# rumbo (y se desactiva el look) para que el personaje camine/nade siempre hacia
+	# el mar y la prueba mida lo que debe medir.
+	var pivote := _jugador.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.set("permitir_look", false)
+		pivote.rotation.y = -PI / 2.0          # mirando al mar (+X)
+	match _fase_nado:
+		0:                                     # que se asiente sobre el terreno
+			if _t_nado > 1.5:
+				Input.action_press("mover_adelante")
+				_fase_nado = 1
+				_t_nado = 0.0
+				_muestras_nado = 0
+		1:                                     # andar hacia el agua hasta ponerse a nadar
+			if _t_nado > 0.4:
+				_t_nado = 0.0
+				_muestras_nado += 1
+				var prof: float = rel.profundidad_agua(_jugador.global_position.x, _jugador.global_position.z)
+				_informe_nado(rel, "avanzando")
+				if prof > 1.2 or _muestras_nado >= 34:
+					_tecla_nado(KEY_CTRL, true)
+					_fase_nado = 2
+					_t_nado = 0.0
+					_muestras_nado = 0
+		2:                                     # bucear (seguir avanzando, ahora bajo el agua)
+			if _t_nado > 0.5:
+				_t_nado = 0.0
+				_muestras_nado += 1
+				_informe_nado(rel, "buceando")
+				if _muestras_nado >= 5:
+					_tecla_nado(KEY_CTRL, false)
+					Input.action_release("mover_adelante")
+					_fase_nado = 3
+					_t_nado = 0.0
+					_muestras_nado = 0
+		3:                                     # soltar: debe volver a flotar a la superficie
+			if _t_nado > 0.5:
+				_t_nado = 0.0
+				_muestras_nado += 1
+				_informe_nado(rel, "flotando")
+				if _muestras_nado >= 6:
+					_nado = false
+					print("[nado] fin de la prueba")
+
+
+## Informe de un instante del nado: posición, profundidad REAL bajo el cuerpo, si
+## está nadando, velocidad y el clip que reproduce el modelo acuático.
+func _informe_nado(rel: Relieve, etiqueta: String) -> void:
+	var p: Vector3 = _jugador.global_position
+	var ap := _jugador.get_node_or_null("Acuatico/AnimadorAcuatico") as AnimationPlayer
+	var clip := "-"
+	if ap != null:
+		clip = ap.current_animation
+	print("[nado] %-10s pos=(%.1f, %.2f, %.1f)  profundidad=%.2f  nadando=%s  v=(%.1f, %.2f, %.1f)  clip=%s" % [
+			etiqueta, p.x, p.y, p.z, rel.profundidad_agua(p.x, p.z), str(_jugador.get("a_nadando")),
+			_jugador.velocity.x, _jugador.velocity.y, _jugador.velocity.z, clip])
+
+
+## Pulsa o suelta una tecla física (CTRL) como haría el jugador.
+func _tecla_nado(codigo: Key, pulsada: bool) -> void:
+	var ev := InputEventKey.new()
+	ev.keycode = codigo
+	ev.physical_keycode = codigo
+	ev.pressed = pulsada
+	Input.parse_input_event(ev)
+
+
+## DIAGNÓSTICO DE LA UNIÓN CIUDAD-PLAYA (tecla Z): lanza rayos verticales desde
+## dentro de la ciudad hacia el mar en varios sectores de la costa e informa, en
+## cada punto, de la altura del terreno (`Relieve`), la altura FÍSICA y el NODO que
+## la soporta. Así se ve exactamente qué superficie queda elevada y cuánto.
+func _diagnostico_union() -> void:
+	var rel := Relieve.new()
+	print("[union] terreno natural de la ciudad (COTA_CIUDAD) = %.3f | cota de arena = %.3f" % [
+			Relieve.COTA_CIUDAD, Relieve.COTA_ARENA])
+	var filas := [
+		{"nombre": "lado ESTE  z=30 ", "vertical": true, "fijo": 30.0},
+		{"nombre": "lado ESTE  z=90 ", "vertical": true, "fijo": 90.0},
+		{"nombre": "lado ESTE  z=-30", "vertical": true, "fijo": -30.0},
+		{"nombre": "lado SUR   x=30 ", "vertical": false, "fijo": 30.0},
+	]
+	for fila: Dictionary in filas:
+		var texto := "\n  %s (desde el borde urbano hacia el mar):" % fila["nombre"]
+		var d := 0.0
+		while d <= 40.0:
+			var x: float
+			var z: float
+			if fila["vertical"]:
+				x = 120.0 + d
+				z = fila["fijo"]
+			else:
+				x = fila["fijo"]
+				z = 120.0 + d
+			var info := _rayo_info(x, z)
+			var fis := "SIN SUELO"
+			if not info.is_empty():
+				fis = "%7.3f [%s]" % [info["y"], info["nodo"]]
+			texto += "\n    (%.0f, %.0f)  relieve %7.3f  |  fisica %s" % [
+					x, z, rel.altura(x, z), fis]
+			d += 5.0
+		print("[union]%s" % texto)
+
+
+## Rayo vertical en (x, z): devuelve la altura del golpe y el nodo que lo soporta,
+## o un diccionario vacío si no hay suelo.
+func _rayo_info(x: float, z: float) -> Dictionary:
+	var mundo := get_world_3d()
+	if mundo == null:
+		return {}
+	var consulta := PhysicsRayQueryParameters3D.create(
+			Vector3(x, 300.0, z), Vector3(x, -200.0, z), 1)
+	var golpe := mundo.direct_space_state.intersect_ray(consulta)
+	if golpe.is_empty():
+		return {}
+	var col := golpe["collider"] as Node
+	var nombre := "?"
+	if col != null:
+		nombre = col.name
+		var p := col.get_parent()
+		if p != null:
+			nombre = "%s/%s" % [p.name, nombre]
+	return {"y": (golpe["position"] as Vector3).y, "nodo": nombre}
+
+
+## Fija la FASE del ciclo de día y noche (0 = medianoche, 0.25 amanecer, 0.5
+## mediodía, 0.75 atardecer) e informa del minuto de juego al que corresponde.
+func _fase_ciclo(f: float) -> void:
+	var ciclo := find_child("CicloDiaNoche", true, false)
+	if ciclo == null:
+		print("[fase] no encuentro el ciclo de día y noche")
+		return
+	ciclo.set("_fase", f)
+	print("[fase] puesta a %.3f = minuto %.1f de juego" % [f, _minuto_de_fase(f)])
+
+
+## Minuto de juego de una fase del ciclo (900 s de día y 900 s de noche).
+func _minuto_de_fase(f: float) -> float:
+	if f >= 0.25 and f < 0.75:
+		return (f - 0.25) * 1800.0
+	if f >= 0.75:
+		return 900.0 + (f - 0.75) * 1800.0
+	return 1350.0 + f * 1800.0
+
+
+## Estado de las farolas y tabla del factor de encendido por fase (con la MISMA
+## función que usa el juego): comprueba a qué minuto empiezan a encenderse, en
+## cuál están del todo encendidas y cuándo se apagan al amanecer.
+func _informe_farolas() -> void:
+	var far := find_child("Farolas", true, false)
+	if far != null:
+		print("[farolas] %s" % far.call("resumen"))
+	var tabla := ""
+	for f: float in [0.55, 0.65, 0.68333, 0.70, 0.72, 0.74, 0.749, 0.75, 0.80, 0.99,
+			0.0, 0.10, 0.179, 0.20, 0.23, 0.249, 0.30]:
+		tabla += "\n    fase %.5f (minuto %5.1f de juego) -> factor %.2f  %s" % [
+				f, _minuto_de_fase(f), Farolas.factor_noche(f),
+				"ENCENDIDAS" if Farolas.factor_noche(f) > 0.001 else "apagadas"]
+	print("[farolas] factor de encendido según la fase:%s" % tabla)
+
+
+## COMPROBACIÓN DEL ANCLAJE DE LOS ÁRBOLES (tecla A): busca una tarjeta de árbol
+## de la ciudad, informa de dónde cae la BASE DE LA FIGURA dibujada y la compara
+## con el suelo físico en ese punto, y deja la cámara a pocos metros para verlo.
+func _vista_arbol() -> void:
+	var gen := find_child("Ciudad", true, false)
+	if gen == null:
+		print("[arbol] no encuentro la ciudad")
+		return
+	var elegido := Vector3.ZERO
+	var escala := 1.0
+	var base_carta := 0.0
+	var hallado := false
+	for n: Node in gen.find_children("*", "MultiMeshInstance3D", true, false):
+		var mmi := n as MultiMeshInstance3D
+		if mmi == null or mmi.multimesh == null:
+			continue
+		var mat := mmi.material_override as StandardMaterial3D
+		if mat == null or mat.albedo_texture == null:
+			continue
+		if mat.albedo_texture.resource_path != Vegetacion.ARBOL_A:
+			continue
+		var mm := mmi.multimesh
+		for i in mini(mm.instance_count, 60):
+			var xf := mm.get_instance_transform(i)
+			var p := xf.origin
+			if absf(p.x) < 120.0 and absf(p.z) < 120.0:
+				elegido = p
+				escala = xf.basis.get_scale().y
+				base_carta = p.y
+				hallado = true
+				break
+		if hallado:
+			break
+	if not hallado:
+		print("[arbol] no encuentro ninguna tarjeta del árbol A en la ciudad")
+		return
+	var aire := Vegetacion.margenes(Vegetacion.ARBOL_A)
+	var base_figura := base_carta + aire.y * escala
+	var suelo: Variant = _rayo_suelo(elegido.x, elegido.z)
+	print("[arbol] árbol en (%.1f, %.1f): base de la FIGURA %.3f | suelo físico %s | diferencia %s | alto tarjeta %.2f (aire %.2f%%)" % [
+		elegido.x, elegido.z, base_figura,
+		"sin suelo" if suelo == null else "%.3f" % (suelo as float),
+		"-" if suelo == null else "%+.3f m" % (base_figura - (suelo as float)),
+		escala, aire.y * 100.0])
+	_camara.fov = 60.0
+	_camara.global_position = elegido + Vector3(2.6, 1.5, 2.2)
+	_camara.look_at(Vector3(elegido.x, elegido.y + 1.4, elegido.z), Vector3.UP)
+	_camara.make_current()
+	_camara_juego = true
+	print("[arbol] cámara a %.1f m del árbol" % _camara.global_position.distance_to(elegido))
+
+
+## PRUEBA DEL FILTRO SUBMARINO (tecla X): deja a la forma ACUÁTICA en agua HONDA y
+## bucea con CTRL hasta que la CÁMARA cruza la superficie. Comprueba la inmersión
+## (que sigue la posición real de la cámara), que el velo se ve bajo el agua y no
+## fuera, y que las burbujas de la cámara y de la cabeza se encienden sólo dentro.
+func _iniciar_prueba_filtro() -> void:
+	var jug := find_child("Jugador", true, false) as CharacterBody3D
+	if jug == null:
+		print("[filtro] no encuentro al jugador")
+		return
+	var rel := Relieve.new()
+	_jugador = jug
+	# Agua honda: la cámara necesita sitio para quedar por debajo de la superficie.
+	# Se coloca YA en la línea de flotación, con la cámara fuera del agua, que es el
+	# estado que hay que comprobar primero.
+	var x := 290.0
+	var z := 30.0
+	jug.global_position = Vector3(x, Relieve.NIVEL_MAR - 1.05, z)
+	jug.velocity = Vector3.ZERO
+	jug.call("_entrar_acuatico")
+	var pivote := jug.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.rotation.y = -PI / 2.0
+		if pivote.has_method("definir_pitch"):
+			pivote.call("definir_pitch", -0.12)
+	_camara_juego = true
+	_camara.current = false
+	var cam := find_child("Camara", true, false) as Camera3D
+	if cam != null:
+		cam.make_current()
+	_filtro = true
+	_fase_filtro = 0
+	_t_filtro = 0.0
+	_muestras_filtro = 0
+	print("[filtro] arranca en (%.0f, %.0f): profundidad del fondo %.2f m" % [
+			x, z, rel.profundidad_agua(x, z)])
+
+
+func _procesar_filtro(delta: float) -> void:
+	_t_filtro += delta
+	var pivote := _jugador.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.set("permitir_look", false)
+		pivote.rotation.y = -PI / 2.0
+	match _fase_filtro:
+		0:                                     # en superficie: el filtro debe estar APAGADO
+			if _t_filtro > 2.0:
+				_informe_filtro("superficie")
+				_fase_filtro = 1
+				_t_filtro = 0.0
+		1:                                     # bucear con CTRL hasta que la cámara se hunda
+			_tecla_nado(KEY_CTRL, true)
+			if _t_filtro > 0.6:
+				_t_filtro = 0.0
+				_muestras_filtro += 1
+				_informe_filtro("buceando")
+				if _muestras_filtro >= 3:
+					_tecla_nado(KEY_CTRL, false)
+					_fase_filtro = 2
+					_t_filtro = 0.0
+					_muestras_filtro = 0
+		2:                                     # subir con "saltar": el filtro debe volver a 0
+			Input.action_press("saltar")
+			if _t_filtro > 0.6:
+				_t_filtro = 0.0
+				_muestras_filtro += 1
+				_informe_filtro("subiendo")
+				if _muestras_filtro >= 5:
+					Input.action_release("saltar")
+					_fase_filtro = 3
+					_t_filtro = 0.0
+		3:
+			if _t_filtro > 0.5:
+				_informe_filtro("final")
+				# A TIERRA: el pez anda por la playa; las burbujas del personaje
+				# deben APAGARSE (ya no está nadando).
+				_jugador.global_position = Vector3(150.0, 1.0, 30.0)
+				_fase_filtro = 4
+				_t_filtro = 0.0
+		4:
+			if _t_filtro > 1.2:
+				_informe_filtro("en tierra")
+				_filtro = false
+				print("[filtro] fin de la prueba")
+
+
+func _informe_filtro(etiqueta: String) -> void:
+	var cam := find_child("Camara", true, false) as Camera3D
+	var y_cam := 0.0
+	var depth := 0.0
+	if cam != null:
+		y_cam = cam.global_position.y
+		depth = maxf(Relieve.NIVEL_MAR - y_cam, 0.0)
+	var vista := _jugador.get_node_or_null("VistaSubmarina")
+	var inmersion := 0.0
+	if vista != null:
+		inmersion = float(vista.call("inmersion"))
+	var velo := false
+	var capa := _jugador.get_node_or_null("VistaSubmarina/CapaVistaSubmarina")
+	if capa != null:
+		var v := capa.get_node_or_null("Velo") as Control
+		if v != null:
+			velo = v.visible
+	var burb_cam := false
+	var bc := _jugador.get_node_or_null("VistaSubmarina/BurbujasCamara") as GPUParticles3D
+	if bc != null:
+		burb_cam = bc.emitting
+	var burb_cab := false
+	var bk := _jugador.get_node_or_null("BurbujasAcuaticas/BurbujasCabeza") as GPUParticles3D
+	if bk != null:
+		burb_cab = bk.emitting
+	print("[filtro] %-11s cuerpo.y=%6.2f  camara.y=%6.2f  prof.camara=%.2f  inmersion=%.2f  velo=%s  burbCam=%s  burbCabeza=%s" % [
+			etiqueta, _jugador.global_position.y, y_cam, depth, inmersion,
+			str(velo), str(burb_cam), str(burb_cab)])
+
+
+## PRUEBA DE ESPACIO AL NADAR (tecla H): deja a la forma ACUÁTICA nadando en agua
+## honda y MANTIENE "saltar" pulsado 3 s. Si el bug sigue, el cuerpo sale del agua y
+## sigue subiendo (la cota deja de subir con la superficie). Lo correcto es que suba
+## hasta la superficie, se quede flotando ahí y NO pase nunca de la línea del agua.
+func _iniciar_prueba_espacio() -> void:
+	var jug := find_child("Jugador", true, false) as CharacterBody3D
+	if jug == null:
+		print("[espacio] no encuentro al jugador")
+		return
+	var rel := Relieve.new()
+	_jugador = jug
+	# Agua de 2 m: arranca nadando directamente (no hay que vadear antes).
+	var x := 225.0
+	var z := 30.0
+	jug.global_position = Vector3(x, rel.altura(x, z) + 1.5, z)
+	jug.velocity = Vector3.ZERO
+	jug.call("_entrar_acuatico")
+	var pivote := jug.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.rotation.y = -PI / 2.0
+		if pivote.has_method("definir_pitch"):
+			pivote.call("definir_pitch", -0.12)
+	_camara_juego = true
+	_camara.current = false
+	var cam := find_child("Camara", true, false) as Camera3D
+	if cam != null:
+		cam.make_current()
+	_espacio = true
+	_fase_espacio = 0
+	_t_espacio = 0.0
+	_muestras_espacio = 0
+	print("[espacio] arranca en (%.0f, %.0f): profundidad %.2f m, superficie visible -2.05" % [
+			x, z, rel.profundidad_agua(x, z)])
+
+
+func _procesar_espacio(delta: float) -> void:
+	_t_espacio += delta
+	var rel := Relieve.new()
+	var pivote := _jugador.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.set("permitir_look", false)
+		pivote.rotation.y = -PI / 2.0
+	match _fase_espacio:
+		0:                                     # que se asiente y empiece a nadar
+			if _t_espacio > 1.5:
+				_informe_espacio(rel, "reposo")
+				_fase_espacio = 1
+				_t_espacio = 0.0
+				_muestras_espacio = 0
+		1:                                     # ESPACIO mantenido 3 s
+			Input.action_press("saltar")
+			if _t_espacio > 0.5:
+				_t_espacio = 0.0
+				_muestras_espacio += 1
+				_informe_espacio(rel, "ESPACIO pulsado")
+				if _muestras_espacio >= 6:
+					Input.action_release("saltar")
+					_fase_espacio = 2
+					_t_espacio = 0.0
+					_muestras_espacio = 0
+		2:                                     # soltado: vuelve a flotar
+			if _t_espacio > 0.5:
+				_t_espacio = 0.0
+				_muestras_espacio += 1
+				_informe_espacio(rel, "soltado")
+				if _muestras_espacio >= 6:
+					_espacio = false
+					print("[espacio] fin de la prueba")
+
+
+func _informe_espacio(rel: Relieve, etiqueta: String) -> void:
+	var p: Vector3 = _jugador.global_position
+	print("[espacio] %-16s y=%6.2f  (superficie -2.05)  sobre_agua=%.2f  nadando=%s  v.y=%5.2f  prof=%.2f" % [
+			etiqueta, p.y, p.y - (-2.05), str(_jugador.get("a_nadando")),
+			_jugador.velocity.y, rel.profundidad_agua(p.x, p.z)])
+
+
+## PRUEBA DEL LÍMITE DE AGUA (tecla K): pone al VELOCISTA y luego al TANQUE (Fuerza)
+## en aguas someras y los empuja hacia el mar. Ninguno de los dos debe ganar
+## profundidad: se tienen que frenar en la orilla, con el agua por debajo del límite
+## que puede vadear una forma terrestre (0,55 m).
+func _iniciar_prueba_limite() -> void:
+	var jug := find_child("Jugador", true, false) as CharacterBody3D
+	if jug == null:
+		return
+	var rel := Relieve.new()
+	_jugador = jug
+	var x := 180.0
+	var z := 20.0
+	jug.global_position = Vector3(x, rel.altura(x, z) + 0.5, z)
+	jug.velocity = Vector3.ZERO
+	jug.call("_entrar_velocista")
+	# Hay que pasar a la cámara del juego: Terrain3D construye la colisión alrededor
+	# de la cámara ACTIVA y, si sigue siendo la libre (que mira desde el cenital), no
+	# hay colisión bajo el personaje y se cae al vacío.
+	_camara_juego = true
+	_camara.current = false
+	var cam := find_child("Camara", true, false) as Camera3D
+	if cam != null:
+		cam.make_current()
+	_limite = true
+	_fase_limite = 0
+	_t_limite = 0.0
+	_muestras_limite = 0
+	print("[limite] empieza en (%.0f, %.0f): profundidad %.2f m" % [x, z, rel.profundidad_agua(x, z)])
+
+
+func _procesar_limite(delta: float) -> void:
+	_t_limite += delta
+	var rel := Relieve.new()
+	var pivote := _jugador.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.set("permitir_look", false)
+		pivote.rotation.y = -PI / 2.0          # mirando al mar (+X)
+	match _fase_limite:
+		0:                                     # asentar y salir corriendo
+			if _t_limite > 1.5:
+				Input.action_press("mover_adelante")
+				_fase_limite = 1
+				_t_limite = 0.0
+				_muestras_limite = 0
+		1:                                     # VELOCISTA hacia el agua
+			if _t_limite > 0.5:
+				_t_limite = 0.0
+				_muestras_limite += 1
+				_informe_limite(rel, "velocista")
+				if _muestras_limite >= 10:
+					Input.action_release("mover_adelante")
+					_jugador.call("_entrar_fuerza")
+					_fase_limite = 2
+					_t_limite = 0.0
+					_muestras_limite = 0
+		2:                                     # TANQUE hacia el agua
+			if _t_limite > 0.5:
+				_t_limite = 0.0
+				_muestras_limite += 1
+				_informe_limite(rel, "tanque")
+				if _muestras_limite >= 10:
+					Input.action_release("mover_adelante")
+					_limite = false
+					print("[limite] fin de la prueba")
+
+
+func _informe_limite(rel: Relieve, etiqueta: String) -> void:
+	var p: Vector3 = _jugador.global_position
+	print("[limite] %-10s pos=(%.1f, %.2f, %.1f)  profundidad=%.2f m  v=(%.1f, %.2f, %.1f)  forma=%d" % [
+			etiqueta, p.x, p.y, p.z, rel.profundidad_agua(p.x, p.z),
+			_jugador.velocity.x, _jugador.velocity.y, _jugador.velocity.z, _jugador.get("forma")])
+
+
 func _procesar_recorrido(delta: float) -> void:
 	_t_recorrido += delta
 	match _fase_recorrido:
@@ -498,10 +1043,15 @@ func _input(evento: InputEvent) -> void:
 				cam_juego.make_current()
 			print("[vista] cámara del juego (%s)" % cam_juego)
 		elif k == KEY_N:
-			var ciclo := find_child("CicloDiaNoche", true, false)
-			if ciclo != null:
-				ciclo.set("_fase", 0.95)   # noche cerrada
-				print("[vista] fase nocturna")
+			_fase_ciclo(0.95)              # noche cerrada
+		elif k == KEY_F:
+			_fase_ciclo(0.70)              # minuto 13,5: las farolas empiezan a encenderse
+		elif k == KEY_D:
+			_fase_ciclo(0.55)              # pleno día: las farolas deben estar apagadas
+		elif k == KEY_G:
+			_informe_farolas()
+		elif k == KEY_A:
+			_vista_arbol()
 		elif k == KEY_T:
 			_iniciar_prueba_recorrido(Vector3(-230.0, 0.0, -230.0), PI / 4.0, "bosque -> montanas")
 		elif k == KEY_Y:
@@ -512,6 +1062,21 @@ func _input(evento: InputEvent) -> void:
 			# Recorrido REAL (usa el trazador): desde la calzada hacia +X, con lo que
 			# cruza la acera y llega a un edificio, que es el caso que se atascaba.
 			_iniciar_prueba_recorrido(Vector3(0.0, 0.0, 70.0), -PI / 2.0, "calzada -> acera -> edificio")
+		elif k == KEY_M:
+			# Recorrido de la UNIÓN CIUDAD-PLAYA: arranca en la calzada del anillo
+			# exterior este (x=126) y va hacia el mar (+X), así cruza en orden
+			# calzada -> acera -> borde urbano -> paseo -> pasto -> arena -> agua.
+			_iniciar_prueba_recorrido(Vector3(126.0, 0.0, 30.0), -PI / 2.0, "ciudad -> playa")
+		elif k == KEY_J:
+			_iniciar_prueba_nado()
+		elif k == KEY_H:
+			_iniciar_prueba_espacio()
+		elif k == KEY_X:
+			_iniciar_prueba_filtro()
+		elif k == KEY_Z:
+			_diagnostico_union()
+		elif k == KEY_B:
+			_iniciar_prueba_limite()
 		elif k == KEY_K:
 			_diagnostico_agua(true)
 		elif k == KEY_O:
