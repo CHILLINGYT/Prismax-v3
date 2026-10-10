@@ -498,9 +498,12 @@ func _physics_process(delta: float) -> void:
 		_actualizar_animaciones(delta)
 		_actualizar_pose(delta)
 
-	# Subida natural de los bordillos de las aceras (~15 cm): común a las cuatro
-	# formas, se ejecuta una vez por frame tras el move_and_slide() de cada una.
-	_resolver_escalon()
+	# Subida natural de bordillos para locomoción normal. Durante EJECUCION el
+	# recorrido gestiona el bloqueo en _procesar_ejecucion(): ahí primero distingue
+	# pared/escalón y, si corresponde, llama a _salvar_escalon(). No ejecutar ambos
+	# solucionadores en el mismo fotograma.
+	if estado != Estado.EJECUCION:
+		_resolver_escalon()
 
 # Menú abierto: sin control horizontal, sólo gravedad y pose quieta, para que
 # el personaje no se mueva ni quede flotando. La cámara no se modifica.
@@ -1878,13 +1881,16 @@ func _procesar_ejecucion(delta: float) -> void:
 	var avance := global_position - antes
 	avance.y = 0.0
 	var paso := _vel_trayecto * delta
+	# Sólo una corrección por fotograma: primero medimos el avance REAL tras
+	# move_and_slide. El contacto en sí (incluido un contacto con el suelo) no
+	# termina la habilidad; sólo el avance horizontal insuficiente puede hacerlo.
 	if paso > 0.001 and avance.length() < paso * 0.35:
 		if _muro_al_frente(dir):
 			_terminar_ejecucion()
 			return
-		# No es un muro: lo que frena es un escalón del suelo (el bordillo de una
-		# acera). A 34-60 m/s move_and_slide no lo resuelve por su cuenta, así que
-		# se sube aquí mismo, en el fotograma en que se detecta el bloqueo.
+		# Sin pared a la altura del pecho: intentamos resolver únicamente un
+		# desnivel bajo. _resolver_escalon() se omite durante EJECUCION para no
+		# duplicar esta corrección en el mismo movimiento.
 		_salvar_escalon(dir)
 
 	efectos.actualizar_ejecucion(global_position, dir)
