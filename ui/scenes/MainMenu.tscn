@@ -55,12 +55,12 @@ mouse_filter = 2
 layout_mode = 0
 offset_left = 35.0
 offset_top = 16.0
-offset_right = 230.0
+offset_right = 270.0
 offset_bottom = 44.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
 theme_override_font_sizes/font_size = 20
-text = "MAIN MENU"
+text = "MENÚ PRINCIPAL"
 
 [node name="TitleLine" type="ColorRect" parent="MenuPanel/Content"]
 layout_mode = 0
@@ -103,14 +103,14 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("4_option")
 action = 0
-description = "CONTINUE: Continue your current game."
+description = "CONTINUAR: Reanuda la partida actual."
 
 [node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/ContinueOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "CONTINUE"
+text = "CONTINUAR"
 vertical_alignment = 1
 
 [node name="NewGameOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
@@ -120,14 +120,14 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("4_option")
 action = 1
-description = "NEW GAME: Begin a new game."
+description = "NUEVA PARTIDA: Empieza una partida nueva."
 
 [node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/NewGameOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "NEW GAME"
+text = "NUEVA PARTIDA"
 vertical_alignment = 1
 
 [node name="QuitOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
@@ -137,14 +137,14 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("4_option")
 action = 2
-description = "QUIT GAME: Exit the game."
+description = "SALIR DEL JUEGO: Cierra el juego."
 
 [node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/QuitOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "QUIT GAME"
+text = "SALIR DEL JUEGO"
 vertical_alignment = 1
 
 [node name="Description" type="Label" parent="MenuPanel/Content"]
@@ -157,7 +157,7 @@ offset_bottom = 368.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.62, 0.64, 0.68, 1)
 theme_override_font_sizes/font_size = 15
-text = "CONTINUE: Continue your current game."
+text = "CONTINUAR: Reanuda la partida actual."
 
 [node name="GameLogo" parent="MenuPanel/Content" instance=ExtResource("2_logo")]
 layout_mode = 1

@@ -25,12 +25,20 @@ const ESCENA_CARGA := "res://ui/scenes/LoadingScreen.tscn"
 ## exagerada: solo un fundido breve del panel y del desenfoque.
 const VELOCIDAD_TRANSICION := 7.0
 
+## Titulos de las dos paginas del menu: la lista de pausa y la configuracion.
+const TITULO_PAUSA := "PAUSA"
+const TITULO_CONFIG := "CONFIGURACIÓN"
+
 ## Emitida al reanudar, para que el mundo pueda reaccionar si lo necesita.
 signal resumed
 
 @onready var _root: Control = $Root
 @onready var _blur: ColorRect = $Blur
+@onready var _title: Label = %Title
 @onready var _items: VBoxContainer = %Items
+@onready var _config_items: VBoxContainer = %ConfigItems
+@onready var _config_panel: Control = $Root/ConfigPanel
+@onready var _config_title: Label = %ConfigTitle
 @onready var _indicator: ColorRect = %Indicator
 @onready var _description: Label = %Description
 
@@ -38,6 +46,8 @@ var _selected: int = 0
 var _move_tween: Tween
 var _fade_tween: Tween
 var _abierto: bool = false
+# Pagina activa: false = lista de pausa, true = pantalla de configuracion.
+var _en_config: bool = false
 # Progreso de la transicion: 0 = cerrado (sin blur), 1 = abierto.
 var _transicion: float = 0.0
 # Indice de la opcion destructiva pendiente de confirmacion (-1 = ninguna).
@@ -47,14 +57,29 @@ func _ready() -> void:
 	visible = false
 	_blur.material.set_shader_parameter("cantidad", 0.0)
 	_root.modulate.a = 0.0
-	for i in _items.get_child_count():
-		var row := _items.get_child(i) as MenuOptionRes
-		if row == null:
-			continue
-		row.mouse_entered.connect(_on_row_hovered.bind(i))
-		row.gui_input.connect(_on_row_gui_input.bind(i))
+	_conectar_lista(_items)
+	_conectar_lista(_config_items)
+	_en_config = false
+	_title.text = TITULO_PAUSA
+	_items.visible = true
+	_config_items.visible = false
+	_config_panel.visible = false
 	_selected = 0
 	_refresh(true)
+
+## Conecta hovering y clic de cada fila de una lista (lista de pausa o la de
+## configuracion). Se les pasa la lista porque ahora hay dos paginas.
+func _conectar_lista(lista: VBoxContainer) -> void:
+	for i in lista.get_child_count():
+		var row := lista.get_child(i) as MenuOptionRes
+		if row == null:
+			continue
+		row.mouse_entered.connect(_on_row_hovered.bind(lista, i))
+		row.gui_input.connect(_on_row_gui_input.bind(lista, i))
+
+## Lista de filas de la pagina activa.
+func _filas_activas() -> VBoxContainer:
+	return _config_items if _en_config else _items
 
 ## Anima el desenfoque y el fundido del panel. Corre en process_mode ALWAYS,
 ## por lo que sigue avanzando con el arbol pausado.
@@ -72,9 +97,12 @@ func esta_abierto() -> bool:
 	return _abierto
 
 func _unhandled_input(event: InputEvent) -> void:
-	# ESC: interruptor. "ui_cancel" es la accion por defecto de la tecla ESC.
+	# ESC: interruptor. En la lista de pausa abre/cierra la pausa; en la pantalla
+	# de configuracion vuelve a la lista de pausa (no reanuda la partida).
 	if event.is_action_pressed("ui_cancel"):
-		if _abierto:
+		if _abierto and _en_config:
+			_salir_config()
+		elif _abierto:
 			cerrar()
 		else:
 			abrir()
@@ -101,6 +129,13 @@ func abrir() -> void:
 	_abierto = true
 	_pendiente = -1
 	visible = true
+	# Al abrir la pausa siempre se empieza en la lista de pausa, nunca a medias
+	# en la pantalla de configuracion.
+	_en_config = false
+	_title.text = TITULO_PAUSA
+	_items.visible = true
+	_config_items.visible = false
+	_config_panel.visible = false
 	_selected = 0
 	_refresh(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -117,7 +152,7 @@ func cerrar() -> void:
 	resumed.emit()
 
 func _move(step: int) -> void:
-	var count: int = _items.get_child_count()
+	var count: int = _filas_activas().get_child_count()
 	if count == 0:
 		return
 	# Cualquier movimiento cancela una confirmacion pendiente.
@@ -126,7 +161,7 @@ func _move(step: int) -> void:
 	_refresh(false)
 
 func _refresh(instant: bool) -> void:
-	var rows: Array[Node] = _items.get_children()
+	var rows: Array[Node] = _filas_activas().get_children()
 	if _selected < 0 or _selected >= rows.size():
 		return
 	for i in rows.size():
@@ -140,6 +175,10 @@ func _refresh(instant: bool) -> void:
 
 	var current := rows[_selected] as MenuOptionRes
 	if current != null:
+		# El panel de contenido muestra el titulo de la categoria seleccionada.
+		# Solo cambia el texto del MISMO panel; nunca se crea otro.
+		if current.action == MenuOptionRes.Action.CATEGORY:
+			_config_title.text = _titulo_categoria(current)
 		_description.text = current.description
 		if not instant:
 			if _fade_tween != null and _fade_tween.is_valid():
@@ -160,7 +199,7 @@ func _slide_indicator(row: Control, instant: bool) -> void:
 	_move_tween.tween_property(_indicator, "position:y", target_y, 0.12)
 
 func _activate(index: int) -> void:
-	var rows: Array[Node] = _items.get_children()
+	var rows: Array[Node] = _filas_activas().get_children()
 	if index < 0 or index >= rows.size():
 		return
 	var row := rows[index] as MenuOptionRes
@@ -173,12 +212,53 @@ func _activate(index: int) -> void:
 			if _pendiente == index:
 				_nueva_partida.call_deferred()
 			else:
-				_pedir_confirmacion(index, "NEW GAME: presiona de nuevo para confirmar.")
+				_pedir_confirmacion(index, "NUEVA PARTIDA: pulsa de nuevo para confirmar.")
 		MenuOptionRes.Action.QUIT:
 			if _pendiente == index:
 				get_tree().quit()
 			else:
-				_pedir_confirmacion(index, "QUIT GAME: presiona de nuevo para confirmar.")
+				_pedir_confirmacion(index, "SALIR DEL JUEGO: pulsa de nuevo para confirmar.")
+		MenuOptionRes.Action.CONFIG:
+			_entrar_config()
+		MenuOptionRes.Action.BACK:
+			_salir_config()
+		MenuOptionRes.Action.CATEGORY:
+			# Categorias de configuracion todavia sin opciones: solo se
+			# seleccionan (responden visualmente con el resaltado y la
+			# descripcion). No ejecutan ningun ajuste por ahora.
+			pass
+
+## Entra en la pantalla de configuracion: misma pausa, misma escena, solo se
+## alternan los nodos visibles y el titulo. No reanuda ni reinicia nada.
+func _entrar_config() -> void:
+	_en_config = true
+	_pendiente = -1
+	_selected = 0
+	_items.visible = false
+	_config_items.visible = true
+	_config_panel.visible = true
+	_title.text = TITULO_CONFIG
+	_refresh(true)
+
+## Vuelve de la configuracion a la lista de pausa. La partida sigue pausada.
+func _salir_config() -> void:
+	_en_config = false
+	_pendiente = -1
+	_selected = 0
+	_config_items.visible = false
+	_items.visible = true
+	_config_panel.visible = false
+	_title.text = TITULO_PAUSA
+	_refresh(true)
+
+## Nombre de la categoria para el titulo del panel de contenido. Se toma de la
+## propia etiqueta de la fila (p. ej. "> AUDIO" -> "AUDIO"), de modo que el titulo
+## del panel y el boton nunca se desincronizan.
+func _titulo_categoria(row: MenuOptionRes) -> String:
+	var etiqueta := row.get_node_or_null("Label") as Label
+	if etiqueta == null:
+		return ""
+	return etiqueta.text.trim_prefix("> ").strip_edges()
 
 ## Marca una accion destructiva como pendiente: el segundo accept la ejecuta.
 ## Evita perder la partida por una pulsacion accidental.
@@ -195,14 +275,18 @@ func _nueva_partida() -> void:
 	LoadingScreen.destino = ESCENA_MUNDO
 	get_tree().change_scene_to_file(ESCENA_CARGA)
 
-func _on_row_hovered(index: int) -> void:
+func _on_row_hovered(lista: VBoxContainer, index: int) -> void:
+	if lista != _filas_activas():
+		return
 	if index == _selected:
 		return
 	_pendiente = -1
 	_selected = index
 	_refresh(false)
 
-func _on_row_gui_input(event: InputEvent, index: int) -> void:
+func _on_row_gui_input(event: InputEvent, lista: VBoxContainer, index: int) -> void:
+	if lista != _filas_activas():
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if index != _selected:
 			_pendiente = -1

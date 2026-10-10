@@ -6,7 +6,12 @@ extends MarginContainer
 ## (label, action, description) lives in the scene, so rows can be reordered,
 ## renamed or retargeted without touching the menu's navigation logic.
 
-enum Action { CONTINUE, NEW_GAME, QUIT }
+## Valores nuevos se añaden SIEMPRE al final para no cambiar el numero de las
+## acciones ya existentes (las escenas guardan el valor entero de 'action').
+## CONFIG: abre la pantalla de configuracion (solo en el menu de pausa).
+## CATEGORY: categoria de configuracion aun sin opciones (solo seleccionable).
+## BACK: vuelve del submenu de configuracion a la lista de pausa.
+enum Action { CONTINUE, NEW_GAME, QUIT, CONFIG, CATEGORY, BACK }
 
 @export var action: Action = Action.CONTINUE
 @export_multiline var description: String = ""

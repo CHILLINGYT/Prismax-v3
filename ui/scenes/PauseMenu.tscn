@@ -61,15 +61,16 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Root/MenuPanel/Content"]
+unique_name_in_owner = true
 layout_mode = 0
 offset_left = 35.0
 offset_top = 16.0
-offset_right = 230.0
+offset_right = 270.0
 offset_bottom = 44.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
 theme_override_font_sizes/font_size = 20
-text = "PAUSED"
+text = "PAUSA"
 
 [node name="TitleLine" type="ColorRect" parent="Root/MenuPanel/Content"]
 layout_mode = 0
@@ -112,14 +113,14 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 0
-description = "CONTINUE: Resume the current game."
+description = "CONTINUAR: Reanuda la partida actual."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/ContinueOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "CONTINUE"
+text = "CONTINUAR"
 vertical_alignment = 1
 
 [node name="NewGameOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/Items"]
@@ -129,14 +130,31 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 1
-description = "NEW GAME: Start over from the beginning."
+description = "NUEVA PARTIDA: Empieza de nuevo desde el principio."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/NewGameOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "NEW GAME"
+text = "NUEVA PARTIDA"
+vertical_alignment = 1
+
+[node name="ConfigOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/Items"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 3
+description = "CONFIGURACIÓN: Ajusta las opciones del juego."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/ConfigOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "CONFIGURACIÓN"
 vertical_alignment = 1
 
 [node name="QuitOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/Items"]
@@ -146,14 +164,108 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 2
-description = "QUIT GAME: Exit the game."
+description = "SALIR DEL JUEGO: Cierra el juego."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/QuitOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "QUIT GAME"
+text = "SALIR DEL JUEGO"
+vertical_alignment = 1
+
+[node name="ConfigItems" type="VBoxContainer" parent="Root/MenuPanel/Content/OptionsList"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 179.0
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="AudioOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "AUDIO: Ajustes de sonido (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/AudioOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> AUDIO"
+vertical_alignment = 1
+
+[node name="ControlesOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "CONTROLES: Ajustes de los controles (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/ControlesOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> CONTROLES"
+vertical_alignment = 1
+
+[node name="GraficosOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "GRÁFICOS: Ajustes gráficos (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/GraficosOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> GRÁFICOS"
+vertical_alignment = 1
+
+[node name="JugabilidadOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "JUGABILIDAD: Ajustes de jugabilidad (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/JugabilidadOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> JUGABILIDAD"
+vertical_alignment = 1
+
+[node name="VolverOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 5
+description = "VOLVER: Regresa al menú de pausa."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/VolverOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "VOLVER"
 vertical_alignment = 1
 
 [node name="Description" type="Label" parent="Root/MenuPanel/Content"]
@@ -166,7 +278,7 @@ offset_bottom = 368.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.62, 0.64, 0.68, 1)
 theme_override_font_sizes/font_size = 15
-text = "CONTINUE: Resume the current game."
+text = "CONTINUAR: Reanuda la partida actual."
 
 [node name="GameLogo" parent="Root/MenuPanel/Content" instance=ExtResource("3_logo")]
 layout_mode = 1
@@ -178,3 +290,54 @@ offset_top = -300.0
 offset_bottom = -165.0
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="ConfigPanel" type="Control" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 556.0
+offset_top = 74.0
+offset_right = -140.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelBG" type="ColorRect" parent="Root/ConfigPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.031, 0.035, 0.047, 0.62)
+
+[node name="ConfigTitle" type="Label" parent="Root/ConfigPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 35.0
+offset_top = 16.0
+offset_right = -35.0
+offset_bottom = 44.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
+theme_override_font_sizes/font_size = 20
+text = "AUDIO"
+
+[node name="ConfigTitleLine" type="ColorRect" parent="Root/ConfigPanel"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 35.0
+offset_top = 52.0
+offset_right = -35.0
+offset_bottom = 53.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.45, 0.47, 0.52, 0.8)
