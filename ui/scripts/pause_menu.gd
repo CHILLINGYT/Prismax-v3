@@ -37,6 +37,8 @@ signal resumed
 @onready var _title: Label = %Title
 @onready var _items: VBoxContainer = %Items
 @onready var _config_items: VBoxContainer = %ConfigItems
+@onready var _config_panel: Control = $Root/ConfigPanel
+@onready var _config_title: Label = %ConfigTitle
 @onready var _indicator: ColorRect = %Indicator
 @onready var _description: Label = %Description
 
@@ -61,6 +63,7 @@ func _ready() -> void:
 	_title.text = TITULO_PAUSA
 	_items.visible = true
 	_config_items.visible = false
+	_config_panel.visible = false
 	_selected = 0
 	_refresh(true)
 
@@ -132,6 +135,7 @@ func abrir() -> void:
 	_title.text = TITULO_PAUSA
 	_items.visible = true
 	_config_items.visible = false
+	_config_panel.visible = false
 	_selected = 0
 	_refresh(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -171,6 +175,10 @@ func _refresh(instant: bool) -> void:
 
 	var current := rows[_selected] as MenuOptionRes
 	if current != null:
+		# El panel de contenido muestra el titulo de la categoria seleccionada.
+		# Solo cambia el texto del MISMO panel; nunca se crea otro.
+		if current.action == MenuOptionRes.Action.CATEGORY:
+			_config_title.text = _titulo_categoria(current)
 		_description.text = current.description
 		if not instant:
 			if _fade_tween != null and _fade_tween.is_valid():
@@ -228,6 +236,7 @@ func _entrar_config() -> void:
 	_selected = 0
 	_items.visible = false
 	_config_items.visible = true
+	_config_panel.visible = true
 	_title.text = TITULO_CONFIG
 	_refresh(true)
 
@@ -238,8 +247,18 @@ func _salir_config() -> void:
 	_selected = 0
 	_config_items.visible = false
 	_items.visible = true
+	_config_panel.visible = false
 	_title.text = TITULO_PAUSA
 	_refresh(true)
+
+## Nombre de la categoria para el titulo del panel de contenido. Se toma de la
+## propia etiqueta de la fila (p. ej. "> AUDIO" -> "AUDIO"), de modo que el titulo
+## del panel y el boton nunca se desincronizan.
+func _titulo_categoria(row: MenuOptionRes) -> String:
+	var etiqueta := row.get_node_or_null("Label") as Label
+	if etiqueta == null:
+		return ""
+	return etiqueta.text.trim_prefix("> ").strip_edges()
 
 ## Marca una accion destructiva como pendiente: el segundo accept la ejecuta.
 ## Evita perder la partida por una pulsacion accidental.
