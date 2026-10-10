@@ -62,6 +62,21 @@ var peso_actual: float = 0.0
 ## Centro de la roca en espacio del esqueleto (lo fija Player.gd cada frame).
 var centro: Vector3 = Vector3.ZERO
 
+# --- Modo roca: los agarres se calculan solos desde el centro de la piedra ---
+#  Con roca_activa = true, cada actualización del esqueleto recoloca los dos
+#  objetivos sobre la SUPERFICIE de la esfera, en el punto más cercano a cada
+#  hombro y dentro del alcance real del brazo. Así las manos acompañan a la
+#  piedra en TODA la trayectoria (suelo -> cabeza) sin despegarse ni
+#  atravesarla, aunque el cuerpo se mueva (caminar, respirar, girar).
+## Separación de la palma respecto a la superficie (espesor de la mano).
+@export var agarre_palma: float = 0.035
+## Estiramiento máximo del brazo hacia la piedra (0..1 del alcance del brazo).
+@export var agarre_estirado_max: float = 0.252
+## Flexión mínima: por debajo el brazo queda recogido, no extendido.
+@export var agarre_doblado_min: float = 0.12
+var roca_activa: bool = false
+var roca_radio: float = 0.4
+
 var _objetivo_izq: Node3D = null
 var _objetivo_der: Node3D = null
 var _sk: Skeleton3D = null
@@ -107,6 +122,14 @@ func _process_modification() -> void:
 		_objetivo_der = get_node_or_null("RightHandTarget") as Node3D
 	if _objetivo_izq == null or _objetivo_der == null:
 		return
+	if roca_activa:
+		# Los agarres se recolocan solos sobre la superficie de la piedra, con
+		# los huesos del brazo REcién animados (este modificador corre después
+		# del AnimationMixer), así la mano nunca pierde el contacto.
+		var i_hombro_izq: int = sk.find_bone(huesos_izq[0])
+		var i_hombro_der: int = sk.find_bone(huesos_der[0])
+		_objetivo_izq.position = punto_agarre(sk, i_hombro_izq, centro, roca_radio)
+		_objetivo_der.position = punto_agarre(sk, i_hombro_der, centro, roca_radio)
 	resolver(sk, _objetivo_izq.position, _objetivo_der.position, centro)
 
 
@@ -117,6 +140,40 @@ func fijar_agarres(izq: Vector3, der: Vector3) -> void:
 		_objetivo_izq.position = izq
 	if _objetivo_der != null:
 		_objetivo_der.position = der
+
+
+## Modo roca: desde ahora los agarres se recalculan solos en cada actualización
+## del esqueleto a partir del centro y el radio de la piedra (espacio del
+## esqueleto). Es lo que llama el controlador mientras la mole está en las manos.
+func fijar_roca(centro_roca: Vector3, radio_roca: float) -> void:
+	roca_activa = true
+	centro = centro_roca
+	roca_radio = maxf(radio_roca, 0.01)
+
+
+## Vuelve al modo manual (agarres fijados con fijar_agarres()): el IK sigue
+## funcionando, pero ya no recoloca nada solo.
+func soltar_roca() -> void:
+	roca_activa = false
+
+
+## Punto de agarre de una mano sobre la superficie de la roca: sobre la recta
+## hombro -> centro, a la distancia de la superficie (+ grosor de la palma),
+## recortada al alcance real del brazo. Público y determinista: lo usan también
+## las herramientas de horneado de los clips (exactamente la misma fórmula que
+## en tiempo real, así animación e IK nunca se pelean).
+func punto_agarre(sk: Skeleton3D, i_hombro: int, centro_roca: Vector3,
+		radio_roca: float) -> Vector3:
+	if sk == null or i_hombro < 0:
+		return centro_roca
+	var s: Vector3 = sk.get_bone_global_pose(i_hombro).origin
+	var v: Vector3 = centro_roca - s
+	var dist: float = v.length()
+	if dist < 0.0001:
+		return s
+	var w: float = clampf(dist - maxf(radio_roca, 0.01) - agarre_palma,
+		agarre_doblado_min, agarre_estirado_max)
+	return s + v / dist * w
 
 
 ## Resuelve los dos brazos hacia sus agarres. Devuelve medidas de control
