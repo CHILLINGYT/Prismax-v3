@@ -1,0 +1,130 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://ui/scripts/loading_screen.gd" id="1_scr"]
+[ext_resource type="Shader" path="res://ui/shaders/loading_triangle.gdshader" id="2_shd"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tri"]
+shader = ExtResource("2_shd")
+shader_parameter/progress = 0.0
+shader_parameter/tam = Vector2(140, 121)
+
+[node name="LoadingScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_scr")
+
+[node name="Capa" type="CanvasLayer" parent="."]
+layer = 120
+
+[node name="Fondo" type="ColorRect" parent="Capa"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Centro" type="CenterContainer" parent="Capa"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Columna" type="VBoxContainer" parent="Capa/Centro"]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Triangulo" type="ColorRect" parent="Capa/Centro/Columna"]
+custom_minimum_size = Vector2(140, 121)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+mouse_filter = 2
+material = SubResource("ShaderMaterial_tri")
+color = Color(1, 1, 1, 1)
+
+[node name="Texto" type="HBoxContainer" parent="Capa/Centro/Columna"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Palabra" type="Label" parent="Capa/Centro/Columna/Texto"]
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.91, 0.94, 1)
+theme_override_font_sizes/font_size = 42
+text = "Cargando"
+
+[node name="Slot1" type="Control" parent="Capa/Centro/Columna/Texto"]
+custom_minimum_size = Vector2(18, 42)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+
+[node name="Punto" type="Label" parent="Capa/Centro/Columna/Texto/Slot1"]
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.91, 0.94, 1)
+theme_override_font_sizes/font_size = 42
+text = "."
+
+[node name="Slot2" type="Control" parent="Capa/Centro/Columna/Texto"]
+custom_minimum_size = Vector2(18, 42)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+
+[node name="Punto" type="Label" parent="Capa/Centro/Columna/Texto/Slot2"]
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.91, 0.94, 1)
+theme_override_font_sizes/font_size = 42
+text = "."
+
+[node name="Slot3" type="Control" parent="Capa/Centro/Columna/Texto"]
+custom_minimum_size = Vector2(18, 42)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+
+[node name="Punto" type="Label" parent="Capa/Centro/Columna/Texto/Slot3"]
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.91, 0.94, 1)
+theme_override_font_sizes/font_size = 42
+text = "."
+
+[node name="Fade" type="ColorRect" parent="Capa"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Error" type="Label" parent="Capa"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.86, 0.9, 1)
+theme_override_font_sizes/font_size = 20
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2

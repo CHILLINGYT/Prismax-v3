@@ -17,6 +17,10 @@ const MenuOptionRes := preload("res://ui/scripts/menu_option.gd")
 ## Escena del mundo que se reinicia con NEW GAME.
 const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
 
+## Escena de carga: misma que usa el menu principal, para no duplicar la logica
+## de carga del mundo (un unico flujo).
+const ESCENA_CARGA := "res://ui/scenes/LoadingScreen.tscn"
+
 ## Velocidad de la transicion visual (abrir/cerrar). No es una animacion
 ## exagerada: solo un fundido breve del panel y del desenfoque.
 const VELOCIDAD_TRANSICION := 7.0
@@ -183,11 +187,13 @@ func _pedir_confirmacion(index: int, texto: String) -> void:
 	_description.text = texto
 
 func _nueva_partida() -> void:
-	# Se reanuda antes de cambiar de escena para que el mundo nuevo arranque
-	# sin quedar pausado. Se restaura la captura del raton como al iniciar.
+	# Se reanuda antes de cambiar de escena para que la carga arranque sin el
+	# arbol pausado. La partida nueva pasa por la MISMA pantalla de carga que el
+	# menu principal: un unico flujo responsable de cargar el mundo.
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	get_tree().change_scene_to_file(ESCENA_MUNDO)
+	LoadingScreen.destino = ESCENA_MUNDO
+	get_tree().change_scene_to_file(ESCENA_CARGA)
 
 func _on_row_hovered(index: int) -> void:
 	if index == _selected:
