@@ -35,6 +35,8 @@
 [ext_resource type="Script" uid="uid://cljq6sirlwe4t" path="res://personaje/base/scripts/receptor_acuatico.gd" id="33_receptor_acuatico"]
 [ext_resource type="PackedScene" uid="uid://gorwfjfql5ie" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="34_fuerza_model"]
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/fuerza/animations (1)/libraries/FuerzaUniversal.tres" id="35_fuerza_anims"]
+[ext_resource type="Script" path="res://personaje/base/efectos/burbujas_acuaticas.gd" id="36_burbujas"]
+[ext_resource type="Script" path="res://personaje/base/efectos/vista_submarina.gd" id="37_vista_sub"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -154,3 +156,9 @@ transform = Transform3D(-1.98, 0, 0, 0, 1.98, 0, 0, 0, -1.98, 0, 0, 0)
 [node name="AnimadorFuerza" type="AnimationPlayer" parent="Fuerza"]
 root_node = NodePath("..")
 libraries/ = ExtResource("35_fuerza_anims")
+
+[node name="BurbujasAcuaticas" type="Node3D" parent="."]
+script = ExtResource("36_burbujas")
+
+[node name="VistaSubmarina" type="Node3D" parent="."]
+script = ExtResource("37_vista_sub")

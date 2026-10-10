@@ -261,11 +261,14 @@ func _crear_hierba() -> void:
 			z += hierba_paso
 			var jx := x + _rng.randf_range(-hierba_paso, hierba_paso) * 0.5
 			var jz := z + _rng.randf_range(-hierba_paso, hierba_paso) * 0.5
-			# Ni en la ciudad ni en el agua ni en las paredes de roca.
-			if maxf(absf(jx), absf(jz)) < 132.0:
+			# Ni en la ciudad (meseta plana, SEMI_MESETA) ni en el agua ni en las
+			# paredes de roca.
+			if maxf(absf(jx), absf(jz)) < Relieve.SEMI_MESETA + 2.0:
 				continue
 			var h := _rel.altura(jx, jz)
-			if h < -0.5 or h > 78.0:
+			# La cota de arena de `Relieve` (no un valor a mano): así la hierba
+			# nunca se planta sobre la arena si esa cota cambia.
+			if h < Relieve.COTA_ARENA or h > 78.0:
 				continue
 			# Las comprobaciones caras (la pendiente son cuatro muestras de altura)
 			# van al final: así sólo se pagan en los candidatos que van a plantarse.

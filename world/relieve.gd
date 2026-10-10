@@ -39,18 +39,27 @@ const DIR_NO := -135.0
 const NIVEL_MAR := -2.0
 ## Fondo del mar lejos de la isla (el terreno nunca baja más que esto).
 const FONDO_MAR := -70.0
-## Cota de la meseta plana de la ciudad: 30 cm por debajo del suelo urbano
-## (el generador de la ciudad usa -0.155..0), así que la ciudad nunca es tapada.
-const COTA_CIUDAD := -0.30
-## Media extensión de la meseta plana (la ciudad ocupa 126 m de semi-extensión).
-## Se deja un margen pequeño sobre el borde urbano: así el terreno natural empieza
-## en cuanto se sale de las calles y no queda un anillo plano alrededor.
-const SEMI_MESETA := 132.0
+## Cota de la meseta plana de la ciudad. DEBE coincidir con el suelo urbano que
+## construye `generador_ciudad.gd`: su losa "Terreno" tiene la cara superior en
+## Y_TERRENO = -0.155 y las aceras en y = 0. Si el terreno natural quedase por
+## debajo, la ciudad aparecería sobre un escalón de hormigón. Con -0.18 el terreno
+## llega al borde de las calles a la cota del propio suelo urbano (2,5 cm por
+## debajo de la losa) y la acera forma un bordillo de 17,8 cm, que es natural y
+## se sube andando (el controlador admite escalones de 0,26 m).
+const COTA_CIUDAD := -0.18
+## Media extensión de la meseta plana. Cubre TODO el recinto urbano, cuyo corredor
+## exterior llega a ±135 (centro ±126 + 9 m de semiancho), y deja el terreno
+## natural a partir de ahí en pocos metros.
+const SEMI_MESETA := 136.0
 ## Ancho de la transición entre la meseta y el relieve natural. Corta a propósito:
-## la ciudad pasa a paisaje natural en pocos metros.
-const TRANSICION_CIUDAD := 40.0
+## así la meseta no aplasta la rampa de playa que empieza justo detrás del recinto
+## urbano, que es lo que levantaba la arena junto a la ciudad.
+const TRANSICION_CIUDAD := 14.0
 ## Distancia (m) sobre la que la tierra sube desde la orilla hasta la cota base.
-const ANCHO_COSTA := 38.0
+## Alargada de 42 a 48 m: al subir el suelo llano de la ciudad a COTA_CIUDAD, la
+## rampa de playa queda más corta en altura; alargarla mantiene la ARENA del ancho
+## que tenía y deja una rampa más suave y transitable detrás de la ciudad.
+const ANCHO_COSTA := 48.0
 ## Distancia (m) sobre la que las colinas del bosque se desvanecen al acercarse a
 ## la costa. Es mucho mayor que el ancho de playa a propósito: si las colinas se
 ## apagasen en la misma franja de 40 m, la orilla quedaría con una pendiente de
@@ -105,6 +114,51 @@ const BOSQUE_FIN := 120.0
 const MONTE_CENTRO := -45.0
 const MONTE_PLENO := 105.0
 const MONTE_FIN := 150.0
+
+# --- COSTA DEL SECTOR URBANO (la playa pegada a la ciudad) --------------------
+# OJO CON LOS DOS ÁNGULOS DEL ARCHIVO:
+#   * `radio_costa(theta)` usa el ángulo MATEMÁTICO (0 = +X = este, +90 = +Z = sur),
+#   * `_peso_sector` (bosque y montañas) usa el de BRÚJULA (0 = -Z = norte).
+# Relación: brújula = matemático + 90. Las montañas ocupan la brújula [-150°, 60°],
+# que en ángulo matemático es [120°, 330°]: quedan fuera del sector urbano.
+#
+# En el sector SIN montañas (el lado de la ciudad) la costa deja de ser un círculo
+# y pasa a seguir la silueta cuadrada del recinto urbano con una franja de costa
+# entre los edificios y la orilla. Así la playa queda a un paseo de las calles en
+# lugar de tras una gran franja vacía de pasto.
+## Centro (grados matemáticos) del sector donde la costa se acerca a la ciudad.
+const COSTA_URBANA_CENTRO := 38.0
+## Semiancho (grados) del sector con el acercamiento a pleno peso.
+const COSTA_URBANA_PLENO := 40.0
+## Semiancho (grados) al que el acercamiento ya no tiene efecto (transición suave).
+const COSTA_URBANA_FIN := 66.0
+## Franja costera (m) mínima y máxima entre el borde urbano y la orilla. NO es
+## fija: _margen_costero() la varía con el rumbo, así unas partes de la ciudad
+## quedan casi en la arena y otras tienen paseo, plaza o franja natural de por medio.
+## Ampliados de 18/46 a 24/52: con la playa más ancha, el borde urbano queda unos
+## metros más lejos de la orilla, que es lo que deja sitio a la franja de pasto
+## entre las veredas y la arena sin recortar el ancho de la propia playa.
+const MARGEN_COSTERO_MIN := 24.0
+const MARGEN_COSTERO_MAX := 52.0
+## Frente de playa: ensanchamiento local del margen (m) frente a la esquina sureste,
+## como un paseo abierto al mar.
+const PLAZA_COSTERA_CENTRO := 44.0
+const PLAZA_COSTERA_ANCHO := 14.0
+const PLAZA_COSTERA_EXTRA := 10.0
+## Bahía: entrante suave y localizado dentro del sector urbano.
+const BAHIA_CENTRO := 58.0
+const BAHIA_ANCHO := 22.0
+## Cuánto se mete la bahía hacia el interior de la isla (m).
+const BAHIA_FONDO := 10.0
+## Ancho (m) de la franja de playa pintada de arena: desde la orilla hacia dentro.
+## Se limita además por altura para que la arena no suba por las laderas de roca.
+const ANCHO_PLAYA := 40.0
+## Cota por debajo de la cual el terreno es arena. El suelo urbano está en -0.18.
+## Subida de -0.50 a -0.45 junto con ANCHO_COSTA: la playa empieza un poco más
+## arriba de la rampa, de modo que la arena es ~15-25 % más ancha en el sector
+## ciudad-océano. Sigue muy por debajo (0,15 m) del suelo urbano, así que la arena
+## no se cuela bajo el pavimento de las calles.
+const COTA_ARENA := -0.45
 
 var _ruido := FastNoiseLite.new()
 var _ruido_suave := FastNoiseLite.new()
@@ -164,24 +218,91 @@ func altura(x: float, z: float) -> float:
 		# Mar: baja de la orilla al fondo, también con perfil suave.
 		var m := clampf((r - rc) / ANCHO_FONDO, 0.0, 1.0)
 		h = lerpf(NIVEL_MAR, FONDO_MAR, smoothstep(0.0, 1.0, m))
-	# Meseta plana de la ciudad. El peso se apaga en la propia franja de playa
-	# (smoothstep sobre la altura) para que la meseta no empuje la costa hacia el
-	# mar ni aplaste la arena del lado sureste, que es el más cercano a la ciudad.
-	var pc := peso_ciudad(x, z) * smoothstep(NIVEL_MAR, COTA_CIUDAD, h)
+	# Suelo llano de la ciudad. ANTES este peso se apagaba ADEMÁS con la altura
+	# (`smoothstep(COTA_ARENA, COTA_CIUDAD, h)`), y eso era justo lo que dejaba el
+	# terreno a 15-45 cm por DEBAJO del pavimento urbano en el borde costero: la
+	# meseta se rendía ante la rampa de playa y el terreno aparecía como arena
+	# mientras la acera seguía a y=0, o sea un escalón de hormigón sobre la arena.
+	# Ahora la meseta manda DENTRO del recinto urbano y sólo se apaga por DISTANCIA
+	# a la ciudad (SEMI_MESETA -> TRANSICION_CIUDAD): el terreno llega al borde de
+	# las calles a COTA_CIUDAD y la unión ciudad-pasto-arena es continua.
+	var pc := peso_ciudad(x, z)
 	return lerpf(h, COTA_CIUDAD, pc)
 
 
-## Radio de la costa en la dirección [param theta] (radianes). Suma un término
-## direccional (la isla se estira hacia el noroeste, donde están las montañas, y
-## se acerca al sureste, hacia la ciudad) y armónicos para que la costa no sea un
-## círculo ni un cuadrado. La amplitud total (±18 %) se mantiene contenida para
-## que el agua no llegue nunca a la ciudad.
+## Radio de la costa en la dirección [param theta] (radianes, ángulo MATEMÁTICO:
+## 0 = +X = este, +90 = +Z = sur). La costa natural suma un término direccional (la
+## isla se estira hacia el noroeste, donde están las montañas, y se acerca al
+## sureste, hacia la ciudad) y armónicos de varias frecuencias para que no sea un
+## círculo: los primeros (3, 5, 8) dan los entrantes amplios y los últimos (11, 14)
+## rompen la uniformidad con variaciones pequeñas, sin dientes puntiagudos.
+##
+## En el sector urbano (sin montañas) el radio NO es el natural: se mezcla hacia
+## `_radio_urbano()`, que hace que la costa siga la silueta del recinto urbano con
+## una franja de playa de ancho variable. La mezcla angular es suave, así que la
+## costa entra y sale del círculo sin esquinas.
 func radio_costa(theta: float) -> float:
-	return RADIO_COSTA * (1.0
+	var natural := RADIO_COSTA * (1.0
 			+ ASIMETRIA * cos(theta - deg_to_rad(DIR_NO))
 			+ 0.045 * sin(3.0 * theta + 1.15)
 			+ 0.025 * sin(5.0 * theta + 2.60)
-			+ 0.012 * sin(8.0 * theta + 0.40))
+			+ 0.012 * sin(8.0 * theta + 0.40)
+			+ 0.020 * sin(11.0 * theta + 0.90)
+			+ 0.013 * sin(14.0 * theta + 2.10))
+	var w := _peso_angular_math(theta, COSTA_URBANA_CENTRO, COSTA_URBANA_PLENO, COSTA_URBANA_FIN)
+	if w <= 0.001:
+		return natural
+	return lerpf(natural, _radio_urbano(theta), w)
+
+
+## Peso angular (0..1) de un sector medido en ángulo MATEMÁTICO.
+func _peso_angular_math(theta: float, centro: float, pleno: float, fin: float) -> float:
+	var degv := rad_to_deg(theta)
+	var dd := absf(fposmod(degv - centro + 180.0, 360.0) - 180.0)
+	return 1.0 - smoothstep(pleno, fin, dd)
+
+
+## Radio (desde CENTRO) al que un rayo en la dirección [param theta] sale del
+## recinto urbano, más la franja costera. La ciudad es un cuadrado, así que la
+## costa del sector urbano sigue su silueta (redondeada por el margen) en vez de un
+## círculo: es lo que permite que la playa quede a distancia parecida de todas las
+## calles que dan al mar.
+func _radio_urbano(theta: float) -> float:
+	var dir := Vector2(cos(theta), sin(theta))
+	# El rayo parte de un punto INTERIOR del cuadrado, así que sale por la primera
+	# de las dos paredes que corta: el menor de los dos parámetros positivos.
+	var salida := INF
+	if absf(dir.x) > 0.0001:
+		var pared_x := SEMI_MESETA if dir.x > 0.0 else -SEMI_MESETA
+		var tx := (pared_x - CENTRO.x) / dir.x
+		if tx > 0.0:
+			salida = minf(salida, tx)
+	if absf(dir.y) > 0.0001:
+		var pared_z := SEMI_MESETA if dir.y > 0.0 else -SEMI_MESETA
+		var tz := (pared_z - CENTRO.y) / dir.y
+		if tz > 0.0:
+			salida = minf(salida, tz)
+	if not is_finite(salida):
+		salida = 1.0
+	return salida + _margen_costero(theta)
+
+
+## Ancho (m) de la franja costera en esa dirección: varía de forma suave entre
+## MARGEN_COSTERO_MIN y MARGEN_COSTERO_MAX, tiene un frente de playa más abierto
+## junto a la esquina sureste y se estrecha en el centro de la bahía (que es donde
+## el mar entra más hacia la ciudad).
+func _margen_costero(theta: float) -> float:
+	var degv := rad_to_deg(theta)
+	var t := 0.5 + 0.5 * sin(deg_to_rad(degv * 2.0) + 0.60)
+	var t2 := 0.5 + 0.5 * sin(deg_to_rad(degv * 3.0) - 1.70)
+	var ancho := lerpf(MARGEN_COSTERO_MIN, MARGEN_COSTERO_MAX, t * 0.7 + t2 * 0.3)
+	# Paseo/plaza abierta al mar frente a la esquina sureste.
+	var plaza := exp(-pow((degv - PLAZA_COSTERA_CENTRO) / PLAZA_COSTERA_ANCHO, 2.0))
+	ancho += PLAZA_COSTERA_EXTRA * plaza
+	# Bahía: entrante con perfil suave (curva de campana).
+	var bahia := exp(-pow((degv - BAHIA_CENTRO) / BAHIA_ANCHO, 2.0))
+	ancho -= BAHIA_FONDO * bahia
+	return ancho
 
 
 ## Peso de la meseta de la ciudad: 1 dentro (relieve plano) y 0 fuera de su
@@ -271,6 +392,26 @@ func distancia_isla(x: float, z: float) -> float:
 ## Distancia al centro de la ciudad (m). La ciudad está centrada en el origen.
 func distancia_ciudad(x: float, z: float) -> float:
 	return sqrt(x * x + z * z)
+
+
+## Distancia horizontal (m) desde el punto hasta la orilla: positiva en tierra y
+## negativa mar adentro. Es la misma medida que usa el relieve para decidir dónde
+## empieza el mar, así que no hay dos criterios distintos de "dónde está la costa".
+func distancia_costa(x: float, z: float) -> float:
+	return radio_costa(atan2(z - CENTRO.y, x - CENTRO.x)) - distancia_isla(x, z)
+
+
+## true si el punto queda bajo la superficie del mar (según la cota del terreno).
+func es_agua(x: float, z: float) -> bool:
+	return altura(x, z) < NIVEL_MAR
+
+
+## Profundidad REAL del agua (m) sobre el fondo en ese punto: el nivel del mar menos
+## la cota del terreno. 0 o menos = tierra seca. Al salir de la MISMA función que
+## genera el relieve, coincide con el fondo que ve el jugador y no depende de ningún
+## valor fijo que sólo funcione en un punto concreto del mapa.
+func profundidad_agua(x: float, z: float) -> float:
+	return NIVEL_MAR - altura(x, z)
 
 
 ## Pendiente del terreno en grados, medida con diferencias finitas. La usan el

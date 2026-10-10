@@ -44,6 +44,22 @@ const ARBUSTO := "res://assets/generated/parque_arbusto.png"
 ## Especies de árbol que se reparten al azar (el bosque y la ciudad eligen de aquí).
 const ARBOLES: Array = [ARBOL_A, ARBOL_B]
 
+## Aire transparente de cada dibujo (arriba, abajo), en fracción de su alto.
+## `parque_arbol_a.png` viene dibujado con un 5,11 % de aire arriba y otro tanto
+## abajo: el tronco NO llega al borde. Sin tenerlo en cuenta, la tarjeta apoyaba
+## su borde inferior (que es transparente) en el suelo y el árbol quedaba
+## FLOTANDO unos 30 cm (medido sobre los tres dibujos; los otros dos no tienen
+## margen). Con esto la base de la FIGURA cae justo donde se pide y la altura
+## pedida es la de la figura, no la de la tarjeta.
+const MARGENES: Dictionary = {
+	ARBOL_A: Vector2(0.0511, 0.0511),
+}
+
+
+## Aire transparente (arriba, abajo) del dibujo de una especie.
+static func margenes(ruta: String) -> Vector2:
+	return MARGENES.get(ruta, Vector2.ZERO)
+
 ## Caché de materiales: una tarjeta por textura (se reutiliza en todos los trozos,
 ## de modo que no se crean cientos de materiales iguales).
 static var _materiales: Dictionary = {}
@@ -148,9 +164,17 @@ static func _cara(st: SurfaceTool, a: Vector3, b: Vector3) -> void:
 ## altura pedida, un giro al azar (los planos nunca quedan todos alineados) y el
 ## ancho tomado de la proporción del dibujo.
 static func matriz(pos: Vector3, ruta: String, alto: float, giro: float) -> Transform3D:
-	var ancho := alto * proporcion(ruta)
-	var b := Basis(Vector3.UP, giro).scaled(Vector3(ancho, alto, ancho))
-	return Transform3D(b, pos)
+	# El alto pedido es el de la FIGURA dibujada: se descuenta el aire del dibujo
+	# (ver MARGENES) y la tarjeta se sube lo justo para que la base de la figura
+	# quede exactamente en `pos`, sin quedar flotando ni enterrada.
+	var aire := margenes(ruta)
+	var util := maxf(1.0 - aire.x - aire.y, 0.05)
+	var alto_carta := alto / util
+	var ancho := alto_carta * proporcion(ruta)
+	var b := Basis(Vector3.UP, giro).scaled(Vector3(ancho, alto_carta, ancho))
+	# El aire del dibujo está en su borde inferior, así que la tarjeta se BAJA lo
+	# que mide ese aire para que el tronco dibujado toque el suelo.
+	return Transform3D(b, pos - Vector3(0.0, aire.y * alto_carta, 0.0))
 
 
 ## Tono de una planta: variación de tono, saturación y luz sobre el verde base,
