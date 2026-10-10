@@ -37,8 +37,12 @@ const SALTO_ABAJO := 4.0
 const NORMAL_PISABLE := 0.70
 ## Altura (m) a la que se comprueba si hay un muro que la ruta no puede cruzar.
 const ALTURA_OBSTRUCCION := 1.1
-## Por debajo de esta cota no hay suelo transitable a pie (nivel del océano).
-var nivel_agua: float = -2.0
+## Por debajo de esta cota no hay suelo transitable a pie para el velocista. Es la
+## MISMA frontera que usa el controlador del jugador: el nivel del mar menos la
+## profundidad de agua que puede vadear una forma terrestre (0,55 m). Así la ruta
+## nunca propone un tramo que luego el cuerpo no pueda recorrer, y el velocista se
+## queda en la orilla en vez de internarse en el océano.
+var nivel_agua: float = Relieve.NIVEL_MAR - 0.55
 
 const MAX_HIST := 80
 const ANCHO_PLAN := 0.18

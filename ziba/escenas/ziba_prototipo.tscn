@@ -20,6 +20,8 @@
 [ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://generador_ciudad.gd" id="16_ciudad"]
 [ext_resource type="Sky" path="res://Cielo/cielo_ciudad.tres" id="17_cielo"]
 [ext_resource type="Script" path="res://Cielo/ciclo_dia_noche.gd" id="18_ciclo"]
+[ext_resource type="Script" uid="uid://4oqk8xkyuyxf" path="res://world/farolas.gd" id="25_farolas"]
+[ext_resource type="Script" uid="uid://cgg5chg1c4qf7" path="res://Cielo/sky3d_puente.gd" id="24_cielo3d"]
 [ext_resource type="Script" path="res://world/terreno3d.gd" id="19_isla"]
 [ext_resource type="PackedScene" path="res://Agua/Scenes/Ocean.tscn" id="21_oceano"]
 [ext_resource type="Script" path="res://world/bosque.gd" id="22_bosque"]
@@ -35,6 +37,7 @@ ssao_enabled = true
 fog_enabled = true
 fog_light_color = Color(0.73, 0.76, 0.81, 1)
 fog_density = 0.00035
+fog_sky_affect = 0.0
 
 [node name="ZibaPrototipo" type="Node3D" unique_id=1645821614]
 
@@ -46,6 +49,11 @@ transform = Transform3D(0.76604444, -0.45451945, 0.45451945, 0, 0.70710677, 0.70
 light_color = Color(1, 0.95686275, 0.8627451, 1)
 light_energy = 1.25
 shadow_enabled = true
+
+[node name="Cielo3D" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
+script = ExtResource("24_cielo3d")
+sol = NodePath("../Sol")
+entorno = NodePath("../Entorno")
 
 [node name="CicloDiaNoche" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
 script = ExtResource("18_ciclo")
@@ -70,6 +78,11 @@ script = ExtResource("16_ciudad")
 crear_camara_y_luz = false
 generar_en_editor = false
 camara_libre = false
+
+[node name="Farolas" type="Node3D" parent="." node_paths=PackedStringArray("ciudad", "ciclo")]
+script = ExtResource("25_farolas")
+ciudad = NodePath("../Ciudad")
+ciclo = NodePath("../CicloDiaNoche")
 
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)

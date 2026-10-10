@@ -160,6 +160,17 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 @export var arboles_calle: float = 14.0
 ## Usa la vegetación propia: césped generado y árboles/arbustos en 3D.
 @export var usar_vegetacion_propia: bool = true
+## Paseo costero: pavimenta la franja entre la última calle y la arena en los
+## sectores donde la costa queda cerca, con vegetación costera. Sigue la costa REAL
+## (la que genera `Relieve`), así que se adapta sola si el mapa cambia.
+@export var paseo_costero: bool = true
+## Ancho máximo (m) de la franja pavimentada del paseo costero. Es un paseo
+## ESTRECHO pegado a las veredas: el resto de la franja hasta la arena queda como
+## terreno natural (pasto), que es la transición que se quiere ver.
+@export_range(4.0, 40.0, 2.0) var paseo_ancho_max: float = 8.0
+## Franja mínima (m) de terreno natural (pasto) que se deja SIEMPRE entre el paseo
+## y la arena: ciudad/veredas -> paseo -> pasto -> transición natural -> arena.
+@export var paseo_pasto_min: float = 4.0
 
 @export_group("7. Colisiones")
 @export var colisiones_suelo: bool = true
@@ -306,6 +317,7 @@ func generar_ciudad() -> void:
 	_generar_suelo()
 	_generar_calles()
 	_generar_manzanas()
+	_generar_paseo_costero()
 	_generar_mobiliario()
 	_volcar_vegetacion()
 	_volcar_lotes()
@@ -437,7 +449,8 @@ func generar_ciudad_por_etapas() -> bool:
 				progreso_generacion.emit(0.52 + 0.22 * float(manzanas_hechas) / float(maxi(total_manzanas, 1)), "manzanas y edificios")
 				await get_tree().process_frame
 
-	# --- 7) Mobiliario y vegetación (un eje por lote) ----------------------
+	# --- 7) Paseo costero, mobiliario y vegetación (un eje por lote) -------
+	_generar_paseo_costero()
 	progreso_generacion.emit(0.74, "mobiliario urbano")
 	await get_tree().process_frame
 	if generar_props or generar_vegetacion:
@@ -1490,8 +1503,120 @@ func _interseccion(px: float, pz: float, i: int, j: int) -> void:
 
 
 # =============================================================================
-#  Manzanas y edificios
+#  Paseo costero (el borde urbano que da al mar)
 # =============================================================================
+
+## Pavimenta un paseo ESTRECHO pegado al borde urbano en los sectores donde la
+## costa queda cerca, y deja el resto de la franja como terreno natural (pasto):
+## la secuencia que ve el jugador es ciudad/veredas -> paseo -> pasto -> transición
+## natural -> arena -> agua somera.
+##
+## La costa NO se codifica a mano: se le pregunta a `Relieve`, la misma función que
+## genera el terreno, así que el paseo sigue la orilla real (incluida la bahía) y se
+## adapta solo si el mapa cambia. En los lados donde la costa queda lejos (las
+## montañas) no se construye nada: la ciudad sólo se abre al mar donde el mar está.
+func _generar_paseo_costero() -> void:
+	if not paseo_costero:
+		return
+	var rel := Relieve.new()
+	# El paseo arranca donde acaba el pavimento de la última calle: el corredor
+	# exterior del recinto urbano se centra en el borde y mide 'hw' a cada lado.
+	var semi := maxf(absf(_trazado.off.x), absf(_trazado.off.y))
+	var borde_urb := semi + float(_trazado.hw)
+	var padre: Node3D = _cont["Suelo"]
+	# Dos lados costeros del recinto: el que mira a +X (este) y el que mira a +Z
+	# (sur). Son los que dan al sector sin montañas.
+	var lados: Array = [
+		{"desde": Vector2(borde_urb, -borde_urb), "dir": Vector2(0, 1), "nor": Vector2(1, 0)},
+		{"desde": Vector2(-borde_urb, borde_urb), "dir": Vector2(1, 0), "nor": Vector2(0, 1)},
+	]
+	var paso := 3.0
+	var largo_lado := borde_urb * 2.0
+	for lado: Dictionary in lados:
+		var base: Vector2 = lado["desde"]
+		var dir: Vector2 = lado["dir"]
+		var nor: Vector2 = lado["nor"]
+		var d := 0.0
+		while d <= largo_lado:
+			var borde: Vector2 = base + dir * d
+			# Distancia real del borde urbano a la arena (la marca el terreno).
+			var hasta_arena := _distancia_a_arena(rel, borde, nor)
+			# Se pavimenta SÓLO dejando delante la franja de pasto: el resto es
+			# terreno natural. Así vuelve a verse ciudad -> paseo -> pasto -> arena.
+			var ancho := clampf(hasta_arena - paseo_pasto_min, 0.0, paseo_ancho_max)
+			if ancho >= 2.0:
+				_poner_tramo_paseo(rel, padre, borde, dir, nor, ancho, paso)
+			d += paso
+
+
+## Distancia (m) del borde urbano a la ARENA (donde el terreno baja de la cota de
+## arena), avanzando hacia el mar, o -1 si ese tramo no es costa. Si antes de llegar
+## a la arena el terreno EMPIEZA A SUBIR (colinas del interior), no hay playa ahí y
+## no se construye paseo: así el borde urbano sólo se pavimenta donde da al mar.
+func _distancia_a_arena(rel: Relieve, borde: Vector2, nor: Vector2) -> float:
+	var a := 0.0
+	while a < 60.0:
+		var p: Vector2 = borde + nor * a
+		var h := rel.altura(p.x, p.y)
+		if h < Relieve.COTA_ARENA:
+			return a
+		if h > Relieve.COTA_CIUDAD + 1.0:
+			return -1.0
+		a += 1.0
+	return -1.0
+
+
+## Un tramo de paseo: losa ESTRECHA que SIGUE la cota del terreno (se inclina con la
+## pendiente entre su borde interior y el exterior), con colisión, y un arbusto
+## costero cada cuatro tramos sobre el borde que da al pasto.
+##
+## POR QUÉ INCLINADA Y NO HORIZONTAL: antes era una losa PLANA con la cara superior
+## a la altura del CENTRO del tramo. Como la rampa hacia la arena ya empieza dentro
+## de esa franja, el borde que daba al mar quedaba sobresaliendo hasta 25-28 cm por
+## encima de la arena: ese era el "escalón artificial" que cortaba el paso de la
+## ciudad a la playa (y que el trazador del velocista leía como muro). Siguiendo la
+## pendiente, la cara superior acompaña al terreno y no queda ningún labio.
+func _poner_tramo_paseo(rel: Relieve, padre: Node3D, borde: Vector2, dir: Vector2,
+		nor: Vector2, ancho: float, largo: float) -> void:
+	var alto := 0.18
+	var centro: Vector2 = borde + nor * (ancho * 0.5)
+	var giro := atan2(dir.x, dir.y)
+	# El +X local del cuerpo, en horizontal y en el mundo (según el giro).
+	var x_local := Vector3(dir.y, 0.0, -dir.x)
+	var p_mas: Vector2 = centro + Vector2(x_local.x, x_local.z) * (ancho * 0.5)
+	var p_menos: Vector2 = centro - Vector2(x_local.x, x_local.z) * (ancho * 0.5)
+	var h_mas := rel.altura(p_mas.x, p_mas.y)
+	var h_menos := rel.altura(p_menos.x, p_menos.y)
+	var base := Basis(Vector3.UP, giro)
+	# Inclinación sobre el eje Z local (el largo del tramo, a lo largo de la costa):
+	# la cara superior pasa exactamente por los dos bordes, así no sobresale ninguno.
+	base = Basis(base.z, atan2(h_mas - h_menos, maxf(ancho, 0.01))) * base
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "PaseoCostero"
+	cuerpo.transform = Transform3D(base, Vector3(centro.x,
+			(h_mas + h_menos) * 0.5 + 0.03 - alto * 0.5, centro.y))
+	var caja := BoxMesh.new()
+	caja.size = Vector3(ancho, alto, largo)
+	var mi := MeshInstance3D.new()
+	mi.mesh = caja
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = COLOR_LOSA
+	mat.roughness = 0.95
+	mi.material_override = mat
+	cuerpo.add_child(mi)
+	var forma := CollisionShape3D.new()
+	var caja_col := BoxShape3D.new()
+	caja_col.size = Vector3(ancho, alto, largo)
+	forma.shape = caja_col
+	cuerpo.add_child(forma)
+	padre.add_child(cuerpo)
+	var n := int(_est.get("paseo", 0)) + 1
+	_est["paseo"] = n
+	# Vegetación costera sobre el borde exterior del paseo (ya dentro del pasto).
+	if n % 4 == 0:
+		var v: Vector2 = borde + nor * (ancho + 0.8)
+		_colocar_arbusto(Vector3(v.x, rel.altura(v.x, v.y), v.y), 0.9, 1.7)
+
 
 func _generar_manzanas() -> void:
 	var parques := _elegir_parques()
