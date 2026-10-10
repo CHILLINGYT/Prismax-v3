@@ -499,7 +499,11 @@ func _physics_process(delta: float) -> void:
 
 	# Subida natural de los bordillos de las aceras (~15 cm): común a las cuatro
 	# formas, se ejecuta una vez por frame tras el move_and_slide() de cada una.
-	_resolver_escalon()
+	# Durante la EJECUCIÓN del trazado del Velocista NO se ejecuta aquí: ese estado
+	# usa _intentar_escalon_ejecucion() sobre su propia colisión con move_and_collide,
+	# y encadenar ambos podría provocar dobles ascensos o saltos de posición.
+	if estado != Estado.EJECUCION:
+		_resolver_escalon()
 
 # Menú abierto: sin control horizontal, sólo gravedad y pose quieta, para que
 # el personaje no se mueva ni quede flotando. La cámara no se modifica.
@@ -626,6 +630,72 @@ func _radio_capsula() -> float:
 	if capsula != null and capsula.shape is CapsuleShape3D:
 		return (capsula.shape as CapsuleShape3D).radius
 	return 0.4
+
+
+## Ascenso de bordillos durante la EJECUCIÓN del trazado del Velocista. Usa el
+## MISMO criterio y los MISMOS límites que _resolver_escalon() del movimiento
+## normal (ALTURA_ESCALON / AVANCE_ESCALON / MARGEN_ESCALON / DESNIVEL_MINIMO),
+## pero se dispara con la colisión real del move_and_collide() de la trayectoria
+## en lugar de is_on_wall(), porque la ejecución no usa move_and_slide() para
+## avanzar. Devuelve true si el obstáculo era un escalón transitable y se subió
+## (el recorrido continúa); false si no lo es (pared, edificio, desnivel
+## excesivo o ausencia de suelo válido) y debe cancelarse como antes.
+func _intentar_escalon_ejecucion(col: KinematicCollision3D, dir_mov: Vector3) -> bool:
+	if col == null:
+		return false
+	# Sólo se sube contra una cara vertical (un bordillo). Un suelo o techo
+	# (normal casi vertical) no es un escalón.
+	var normal := col.get_normal()
+	if absf(normal.y) >= 0.7:
+		return false
+	var horizontal := Vector3(normal.x, 0.0, normal.z)
+	if horizontal.length_squared() < 0.0001:
+		return false
+	horizontal = horizontal.normalized()
+
+	# Dirección de avance real: perpendicular a la pared. Se exige además que el
+	# desplazamiento previsto de la trayectoria apunte hacia la pared (no de lado
+	# ni en sentido contrario), para no escalar un borde que sólo roza de refilón.
+	var dir := -horizontal
+	var intencion := Vector3(dir_mov.x, 0.0, dir_mov.z)
+	if intencion.length_squared() > 0.0001 and intencion.normalized().dot(dir) < 0.2:
+		return false
+
+	var altura := ALTURA_ESCALON
+	# Avance suficiente para que el centro de la cápsula quede sobre el destino.
+	var avance_dist := maxf(AVANCE_ESCALON, _radio_capsula() + MARGEN_ESCALON)
+
+	# 1) ¿Cabe la elevación de la cápsula completa? (si hay techo bajo, no)
+	if test_move(global_transform, Vector3.UP * altura):
+		return false
+
+	# 2) ¿Hay paso libre por encima del borde? (muro/edificio alto -> no es un
+	#    escalón y no se intenta subir)
+	var elevado := global_transform
+	elevado.origin.y += altura
+	if test_move(elevado, dir * avance_dist):
+		return false
+
+	# 3) Superficie de destino: debe ser transitable, estar más alta que la actual
+	#    pero dentro del escalón. Distingue calzada a la misma cota (rechazar) de
+	#    bordillo (subir), y descarta pared/edificio o ausencia de suelo.
+	var desde := elevado.origin + dir * avance_dist + Vector3.UP * 0.05
+	var golpe := _rayo_suelo(desde, altura + 0.25)
+	if golpe.is_empty():
+		return false
+	var normal_suelo: Vector3 = golpe.get("normal", Vector3.UP)
+	if normal_suelo.dot(Vector3.UP) < cos(floor_max_angle):
+		return false
+	var desnivel: float = (golpe["position"] as Vector3).y - global_position.y
+	if desnivel <= DESNIVEL_MINIMO or desnivel > altura + 0.03:
+		return false
+
+	# 4) Ascenso con movimiento real (sin teletransporte): elevar, avanzar y
+	#    volver a apoyarse sobre la superficie de destino.
+	move_and_collide(Vector3.UP * (desnivel + 0.03))
+	move_and_collide(dir * avance_dist)
+	move_and_collide(Vector3.DOWN * (desnivel + 0.08))
+	return true
 
 
 func _on_menu_transformaciones_abierto() -> void:
@@ -1935,7 +2005,10 @@ func _procesar_ejecucion(delta: float) -> void:
 	_orientar_instant(dir)
 	velocity.x = dir.x * _vel_trayecto
 	velocity.z = dir.z * _vel_trayecto
-	if col != null:
+	# Ante una colisión no se cancela de inmediato: primero se comprueba si es un
+	# bordillo transitable (mismo criterio que _resolver_escalon()). Sólo si no lo
+	# es (pared, edificio, desnivel excesivo o sin suelo) se termina el recorrido.
+	if col != null and not _intentar_escalon_ejecucion(col, dir):
 		_terminar_ejecucion()
 		return
 
