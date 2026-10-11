@@ -172,6 +172,21 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 ## y la arena: ciudad/veredas -> paseo -> pasto -> transición natural -> arena.
 @export var paseo_pasto_min: float = 4.0
 
+@export_group("6b. Playa, costa y ventanas nocturnas")
+## Palmeras, sombrillas y reposeras repartidas por la arena de la costa urbana
+## (sigue la orilla real de `Relieve`; la cantidad se adapta al espacio).
+@export var playa_mobiliario: bool = true
+## Densidad del mobiliario de playa (1 = la repartida de referencia).
+@export_range(0.0, 2.0, 0.05) var playa_densidad: float = 1.0
+## Palmeras (borde de la playa y transición al pasto) y su densidad.
+@export_range(0.0, 2.0, 0.05) var palmeras_densidad: float = 1.0
+## Vegetación del prado costero junto a la playa (grupos moderados de árboles y
+## arbustos sobre el césped, sin macetas), en el frente de costa despejado.
+@export var costa_vegetacion: bool = true
+## Algunas ventanas de los edificios se encienden de noche en tonos cálidos.
+## Va en fase con el ciclo de día y noche, igual que las farolas de la calle.
+@export var ventanas_noche: bool = true
+
 @export_group("7. Colisiones")
 @export var colisiones_suelo: bool = true
 @export var colisiones_edificios: bool = true
@@ -241,6 +256,18 @@ var _tex_cesped: Texture2D = null          ## césped de los parques (si existe)
 var _tex_techo: Texture2D = null           ## membrana de grava de las azoteas
 var _maceta_modelo: String = ""            ## cantero del kit para árboles sobre pavimento
 var _pistas_maceta: Array[Transform3D] = []  ## macetas pendientes de volcar en MultiMesh
+# --- Playa y ventanas nocturnas ------------------------------------------------
+var _pistas_palmera: Array[Transform3D] = []       ## palmeras pendientes de volcar
+var _pistas_sombrilla: Array = [[], [], []]        ## sombrillas, por esquema de color
+var _pistas_reposera: Array[Transform3D] = []      ## reposeras pendientes de volcar
+var _tintes_reposera: Array[Color] = []            ## color de tela por reposera
+var _pistas_ventana: Array[Transform3D] = []       ## paños de ventana encendidos de noche
+var _datos_ventana: Array[Color] = []              ## (brillo, calidez) por paño encendido
+var _vent_medidas := {}                            ## pieza de ventana -> vidrio medido
+var _factor_ventanas_edificio := 0.5               ## "vida nocturna" del edificio en curso
+# --- Ruidos de agrupación de las plantas costeras ------------------------------
+var _ruido_costa: FastNoiseLite = null    ## manchas de arbolado del prado costero
+var _ruido_palmas: FastNoiseLite = null   ## grupos y claros de palmeras
 var _mat_techo := {}                       ## lado de la plancha -> material de membrana
 ## Vegetación: matrices y colores agrupados POR TEXTURA (tarjetas cruzadas de
 ## `Vegetacion`), para volcar una MultiMeshInstance3D por especie.
@@ -313,7 +340,9 @@ func generar_ciudad() -> void:
 	_crear_contenedores()
 	_est = {"prefabs": 0, "modulares": 0, "props": 0, "vegetacion": 0, "arboles": 0,
 			"parques": 0, "bancos": 0, "macetas": 0, "parcelas": 0, "plazas": 0,
-			"parcelas_vacias": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
+			"parcelas_vacias": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0,
+			"palmeras": 0, "sombrillas": 0, "reposeras": 0, "arboles_costa": 0,
+			"arbustos_costa": 0, "ventanas": 0, "ventanas_luz": 0}
 
 	# 3) Construcción de la ciudad -----------------------------------------
 	_configurar_escena()
@@ -321,10 +350,14 @@ func generar_ciudad() -> void:
 	_generar_calles()
 	_generar_manzanas()
 	_generar_paseo_costero()
+	_generar_playa()
+	_vegetacion_costera()
 	_generar_mobiliario()
 	_volcar_vegetacion()
 	_volcar_lotes()
 	_volcar_macetas()
+	_volcar_playa()
+	_volcar_ventanas()
 
 	# 4) Cierre -------------------------------------------------------------
 	if Engine.is_editor_hint():
@@ -404,7 +437,9 @@ func generar_ciudad_por_etapas() -> bool:
 	_crear_contenedores()
 	_est = {"prefabs": 0, "modulares": 0, "props": 0, "vegetacion": 0, "arboles": 0,
 			"parques": 0, "bancos": 0, "macetas": 0, "parcelas": 0, "plazas": 0,
-			"parcelas_vacias": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
+			"parcelas_vacias": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0,
+			"palmeras": 0, "sombrillas": 0, "reposeras": 0, "arboles_costa": 0,
+			"arbustos_costa": 0, "ventanas": 0, "ventanas_luz": 0}
 	_configurar_escena()
 
 	# --- 4) Suelo -----------------------------------------------------------
@@ -456,6 +491,8 @@ func generar_ciudad_por_etapas() -> bool:
 
 	# --- 7) Paseo costero, mobiliario y vegetación (un eje por lote) -------
 	_generar_paseo_costero()
+	_generar_playa()
+	_vegetacion_costera()
 	progreso_generacion.emit(0.74, "mobiliario urbano")
 	await get_tree().process_frame
 	if generar_props or generar_vegetacion:
@@ -482,6 +519,8 @@ func generar_ciudad_por_etapas() -> bool:
 	_lotes.clear()
 	_lote_padre.clear()
 	_volcar_macetas()
+	_volcar_playa()
+	_volcar_ventanas()
 
 	_informe(Time.get_ticks_msec() - t0)
 	progreso_generacion.emit(1.0, "listo")
@@ -502,6 +541,14 @@ func limpiar_ciudad() -> void:
 	_pistas_planta.clear()
 	_tintes_planta.clear()
 	_pistas_maceta.clear()
+	_pistas_palmera.clear()
+	for lista in _pistas_sombrilla:
+		(lista as Array).clear()
+	_pistas_reposera.clear()
+	_tintes_reposera.clear()
+	_pistas_ventana.clear()
+	_datos_ventana.clear()
+	_vent_medidas.clear()
 
 
 # =============================================================================
@@ -2007,6 +2054,12 @@ func _poner_modular(rect: Rect2) -> void:
 	var pisos := _rng.randi_range(pisos_min, pisos_max)
 	if _rng.randf() < prob_torre:
 		pisos += _rng.randi_range(1, 4)      # torre: rompe la línea del skyline
+	# "Vida nocturna" del edificio: unas fachadas quedan casi a oscuras y otras
+	# con bastantes ventanas encendidas. La usa `_quizas_ventana` para decidir,
+	# ventana a ventana, cuáles se iluminan de noche (irregular A PROPÓSITO).
+	_factor_ventanas_edificio = _rng.randf_range(0.30, 0.72)
+	if _rng.randf() < 0.20:
+		_factor_ventanas_edificio = _rng.randf_range(0.03, 0.12)
 	var centro := Vector3(rect.get_center().x, 0.0, rect.get_center().y)
 	var alto := float(pisos) * PLANTA_ALTO
 
@@ -2071,12 +2124,19 @@ func _poner_modular(rect: Rect2) -> void:
 					_colocar(m_baja, _t(pos, giro), _cont["Modulares"])
 			elif piso == 0:
 				_colocar(m_baja, _t(pos, giro), _cont["Modulares"])
+				# En la planta baja (locales) se encienden menos que arriba.
+				_quizas_ventana(m_baja, pos, giro, 0.55)
 			elif es_top:
 				_colocar(m_alto, _t(pos, giro), _cont["Modulares"])
+				_quizas_ventana(m_alto, pos, giro, 0.85)
 			elif (idx % 2) == desfase:
 				_colocar(m_ventana, _t(pos, giro), _cont["Modulares"])
+				_quizas_ventana(m_ventana, pos, giro, 1.0)
 			else:
 				_colocar(m_plano, _t(pos, giro), _cont["Modulares"])
+				# El muro elegido puede ser también una pieza con ventana (el
+				# kit mete las ventanas de ladrillo entre los muros lisos).
+				_quizas_ventana(m_plano, pos, giro, 1.0)
 
 		# Esquinas: bloque de 2x2 m, sólo si la familia trae piezas propias.
 		# Si no, las propias paredes de los lados ya llegan hasta la esquina.
@@ -2542,6 +2602,463 @@ func _volcar_macetas() -> void:
 	_pistas_maceta.clear()
 
 
+# =============================================================================
+#  Playa, prado costero y ventanas nocturnas
+# =============================================================================
+
+## Reparte el mobiliario de playa (palmeras, sombrillas y reposeras) por la
+## ARENA de la costa urbana. Sigue la orilla REAL de `Relieve` (igual que el
+## paseo costero): recorre los dos lados costeros del recinto urbano —y 60 m más
+## allá de las esquinas sureste y suroeste— y en cada tramo busca la franja de
+## arena que va del borde del pasto al agua.
+##
+## Reparto: sombrillas dispersas (sueltas y de a dos o tres) con sus reposeras
+## orientadas al mar, palmeras sólo en el borde de la playa (la transición al
+## pasto) y todo con espaciados mínimos y azar para que no se vea una fila.
+## Nada lleva colisión: es decoración, como las farolas.
+func _generar_playa() -> void:
+	if not playa_mobiliario and palmeras_densidad <= 0.0:
+		return
+	_preparar_ruido_plantas()
+	var rel := Relieve.new()
+	var semi := maxf(absf(_trazado.off.x), absf(_trazado.off.y))
+	var borde_urb := semi + float(_trazado.hw)
+	var lados: Array = [
+		{"desde": Vector2(borde_urb, -borde_urb), "dir": Vector2(0, 1),
+				"largo": borde_urb * 2.0 + 60.0},
+		{"desde": Vector2(-borde_urb - 60.0, borde_urb), "dir": Vector2(1, 0),
+				"largo": borde_urb * 2.0 + 60.0},
+	]
+	var paso := 4.0
+	var sombrillas: Array[Vector2] = []
+	var palmeras: Array[Vector2] = []
+	for lado: Dictionary in lados:
+		var base: Vector2 = lado["desde"]
+		var dir: Vector2 = lado["dir"]
+		var d := 0.0
+		while d <= float(lado["largo"]):
+			var borde: Vector2 = base + dir * d
+			# Dirección real hacia el mar: radial desde el centro de la ciudad
+			# (en las esquinas la búsqueda gira con la costa).
+			_playa_en_tramo(rel, borde, borde.normalized(), sombrillas, palmeras)
+			d += paso
+
+
+## Un tramo de playa: busca la arena (del borde del pasto al agua) avanzando
+## hacia el mar y reparte en ella sombrillas con reposeras, y palmeras en la
+## transición al pasto. Si el tramo no da al mar (colina), no hace nada.
+func _playa_en_tramo(rel: Relieve, borde: Vector2, hacia_mar: Vector2,
+		sombrillas: Array[Vector2], palmeras: Array[Vector2]) -> void:
+	# 1) Borde del pasto = donde el terreno baja de la cota de arena.
+	var a0 := -1.0
+	var a := 0.0
+	while a < 80.0:
+		var p: Vector2 = borde + hacia_mar * a
+		var h := rel.altura(p.x, p.y)
+		if h < Relieve.COTA_ARENA:
+			a0 = a
+			break
+		if h > Relieve.COTA_CIUDAD + 1.0:
+			return                      # colina: aquí no hay playa
+		a += 1.5
+	if a0 < 0.0:
+		return
+	# 2) Orilla del agua dentro de la arena (o fin del tramo si el mar tarda).
+	var a1 := -1.0
+	a = a0
+	while a < a0 + 60.0:
+		if rel.altura(borde.x + hacia_mar.x * a, borde.y + hacia_mar.y * a) < -1.60:
+			a1 = a
+			break
+		a += 1.5
+	if a1 < 0.0:
+		a1 = a0 + 40.0
+	var ancho := a1 - a0
+	# 3) Palmeras: muchas más que antes, en tres franjas y con grupos/ claros
+	#    marcados por el ruido `_ruido_palmas` (donde sube, salen 2-4 juntas;
+	#    donde baja, tramos largos sin ninguna). Franjas:
+	#      a) borde de la arena (transición pasto-arena),
+	#      b) franja de pasto entre el paseo y la arena (borde del paseo),
+	#      c) un poco dentro de la arena seca, como palmeras sueltas de playa.
+	if palmeras_densidad > 0.0:
+		var nucleo := _ruido_palmas.get_noise_2d(borde.x, borde.y) * 0.5 + 0.5
+		# a) Transición pasto-arena.
+		if _rng.randf() < 0.60 * nucleo * palmeras_densidad:
+			var ap := a0 + _rng.randf_range(-2.5, 4.5)
+			var pp: Vector2 = borde + hacia_mar * ap
+			var hp := rel.altura(pp.x, pp.y)
+			if hp < Relieve.COTA_ARENA + 0.6 and hp > -1.2 and not _cerca_de(pp, palmeras, 5.5):
+				_anadir_palmera(Vector3(pp.x, hp, pp.y))
+				palmeras.append(pp)
+		# b) Borde del paseo costero (entre el pavimento y la arena).
+		var ancho_paseo := clampf(a0 - paseo_pasto_min, 0.0, paseo_ancho_max)
+		if paseo_costero and ancho_paseo >= 2.0 \
+				and _rng.randf() < 0.46 * nucleo * palmeras_densidad:
+			var aq := ancho_paseo + _rng.randf_range(1.4, 3.6)
+			if aq < a0 - 0.8:
+				var pq: Vector2 = borde + hacia_mar * aq
+				if not _cerca_de(pq, palmeras, 5.5):
+					_anadir_palmera(Vector3(pq.x, rel.altura(pq.x, pq.y), pq.y))
+					palmeras.append(pq)
+		# c) Palmera suelta dentro de la arena seca (lejos del agua).
+		if ancho > 10.0 and _rng.randf() < 0.10 * nucleo * palmeras_densidad:
+			var ar := a0 + _rng.randf_range(4.0, 8.0)
+			if ar < a1 - 5.0:
+				var pr: Vector2 = borde + hacia_mar * ar
+				var hr := rel.altura(pr.x, pr.y)
+				if hr < Relieve.COTA_ARENA - 0.02 and hr > -1.0 \
+						and not _cerca_de(pr, palmeras, 5.5):
+					_anadir_palmera(Vector3(pr.x, hr, pr.y))
+					palmeras.append(pr)
+	# 4) Sombrillas: sólo si la franja de arena es ancha y seca de verdad.
+	if not playa_mobiliario or ancho < 9.0:
+		return
+	if _rng.randf() > 0.24 * playa_densidad:
+		return
+	var a_somb := _rng.randf_range(a0 + 3.0, a1 - 3.5)
+	var ps: Vector2 = borde + hacia_mar * a_somb
+	if _cerca_de(ps, sombrillas, 6.0):
+		return
+	var hs := rel.altura(ps.x, ps.y)
+	if hs > Relieve.COTA_ARENA or hs < -1.35:
+		return
+	_anadir_sombrilla(Vector3(ps.x, hs, ps.y))
+	sombrillas.append(ps)
+	# 5) Reposeras: normalmente un par junto a la sombrilla (mirando al mar),
+	# más alguna suelta lejos, como las deja la gente. Cada reposera se aparta
+	# lo suficiente del mástil (1,35-2,5 m) y de las otras (≥1,15 m), así que
+	# nunca atraviesan la sombrilla ni se pisan entre sí.
+	var cuantas := 1 + (1 if _rng.randf() < 0.75 else 0)
+	if _rng.randf() < 0.18:
+		cuantas += 1
+	var puestas: Array[Vector2] = []
+	for _k in cuantas:
+		var elegida := Vector2.ZERO
+		var hay := false
+		for _intento in 6:
+			var ang := hacia_mar.angle() + _rng.randf_range(-1.0, 1.0)
+			var dd := _rng.randf_range(1.35, 2.5)
+			var pr: Vector2 = ps + Vector2(cos(ang), sin(ang)) * dd
+			var hr := rel.altura(pr.x, pr.y)
+			if hr > Relieve.COTA_ARENA - 0.05 or hr < -1.45:
+				continue
+			var choque := false
+			for q in puestas:
+				if q.distance_to(pr) < 1.15:
+					choque = true
+					break
+			if choque:
+				continue
+			elegida = pr
+			hay = true
+			break
+		if hay:
+			puestas.append(elegida)
+			_anadir_reposera(Vector3(elegida.x, rel.altura(elegida.x, elegida.y), elegida.y),
+					hacia_mar.rotated(_rng.randf_range(-0.35, 0.35)))
+	if _rng.randf() < 0.13 * playa_densidad:
+		var ar := _rng.randf_range(a0 + 4.0, a1 - 4.0)
+		var pr2: Vector2 = borde + hacia_mar * ar
+		var hr2 := rel.altura(pr2.x, pr2.y)
+		if hr2 < Relieve.COTA_ARENA - 0.05 and hr2 > -1.45:
+			_anadir_reposera(Vector3(pr2.x, hr2, pr2.y),
+					hacia_mar.rotated(_rng.randf_range(-0.5, 0.5)))
+
+
+## Prepara (una sola vez) los dos ruidos que reparten la vegetación costera en
+## grupos con claros: `_ruido_costa` organiza las manchas de arbolado del prado
+## y `_ruido_palmas` los grupos de palmeras de la playa.
+func _preparar_ruido_plantas() -> void:
+	if _ruido_palmas == null:
+		_ruido_palmas = FastNoiseLite.new()
+		_ruido_palmas.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		_ruido_palmas.seed = 515151
+		_ruido_palmas.frequency = 0.028
+		_ruido_palmas.fractal_octaves = 2
+	if _ruido_costa == null:
+		_ruido_costa = FastNoiseLite.new()
+		_ruido_costa.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		_ruido_costa.seed = 909090
+		_ruido_costa.frequency = 0.011
+		_ruido_costa.fractal_octaves = 2
+
+
+## ¿Hay algún punto de 'lista' a menos de 'minimo' m de 'p'?
+func _cerca_de(p: Vector2, lista: Array[Vector2], minimo: float) -> bool:
+	for q in lista:
+		if q.distance_to(p) < minimo:
+			return true
+	return false
+
+
+## Añade una palmera a la lista de volcado. Malla adulta (8,5 m) con dos
+## clases de ejemplar: adultas grandes (la mayoría) y algunas jóvenes.
+func _anadir_palmera(pos: Vector3) -> void:
+	var alto := _rng.randf_range(1.02, 1.38)
+	if _rng.randf() < 0.22:
+		alto = _rng.randf_range(0.74, 0.98)
+	# Se hunde un poco para que la base no quede al aire en las pendientes.
+	_pistas_palmera.append(_t(pos - Vector3(0.0, 0.12, 0.0), _rng.randf_range(0.0, TAU), alto))
+	_est["palmeras"] = int(_est.get("palmeras", 0)) + 1
+
+
+## Añade una sombrilla (esquema de color al azar) a la lista de su color.
+func _anadir_sombrilla(pos: Vector3) -> void:
+	var esquema := _rng.randi_range(0, 2)
+	(_pistas_sombrilla[esquema] as Array).append(
+			_t(pos - Vector3(0.0, 0.05, 0.0), _rng.randf_range(0.0, TAU),
+			_rng.randf_range(0.90, 1.12)))
+	_est["sombrillas"] = int(_est.get("sombrillas", 0)) + 1
+
+
+## Añade una reposera orientada hacia el mar (el +Z local mira al mar).
+func _anadir_reposera(pos: Vector3, hacia_mar: Vector2) -> void:
+	var giro := atan2(hacia_mar.x, hacia_mar.y)
+	# Telas de la gente de playa: de blanco a azul suave, arena o verde agua.
+	var tinte := Color(0.94, 0.92, 0.88).lerp(
+			[Color(0.60, 0.72, 0.88), Color(0.90, 0.78, 0.70), Color(0.80, 0.86, 0.84)][_rng.randi_range(0, 2)],
+			_rng.randf_range(0.0, 0.75))
+	_pistas_reposera.append(_t(pos - Vector3(0.0, 0.035, 0.0), giro, _rng.randf_range(0.94, 1.06)))
+	_tintes_reposera.append(tinte)
+	_est["reposeras"] = int(_est.get("reposeras", 0)) + 1
+
+
+## Dibuja el mobiliario de playa: una MultiMeshInstance3D por modelo (las
+## palmeras, las tres lonas de sombrilla y las dos variantes de reposera).
+## Las mallas de `Playa` ya traen una superficie por material (hoja/tronco,
+## lona/herrajes, tela/bastidor): no se les pone material_override.
+func _volcar_playa() -> void:
+	if not _pistas_palmera.is_empty():
+		_cont["Props"].add_child(_crear_multi(Playa.malla_palmera(), _pistas_palmera, [],
+				null, "Palmeras"))
+		_pistas_palmera.clear()
+	for e in 3:
+		var lista: Array = _pistas_sombrilla[e]
+		if lista.is_empty():
+			continue
+		_cont["Props"].add_child(_crear_multi(Playa.malla_sombrilla(e), lista, [],
+				null, "Sombrillas_%d" % e))
+		lista.clear()
+	if _pistas_reposera.is_empty():
+		return
+	# Las reposeras van repartidas entre las dos variantes (tumbadas y
+	# reclinadas) para que no queden todas iguales.
+	var tumbadas: Array[Transform3D] = []
+	var tumbadas_color: Array[Color] = []
+	var reclinadas: Array[Transform3D] = []
+	var reclinadas_color: Array[Color] = []
+	for k in _pistas_reposera.size():
+		if (k % 2) == 0:
+			tumbadas.append(_pistas_reposera[k])
+			tumbadas_color.append(_tintes_reposera[k])
+		else:
+			reclinadas.append(_pistas_reposera[k])
+			reclinadas_color.append(_tintes_reposera[k])
+	if not tumbadas.is_empty():
+		_cont["Props"].add_child(_crear_multi(Playa.malla_reposera(0), tumbadas,
+				tumbadas_color, null, "Reposeras_tumbadas"))
+	if not reclinadas.is_empty():
+		_cont["Props"].add_child(_crear_multi(Playa.malla_reposera(1), reclinadas,
+				reclinadas_color, null, "Reposeras_reclinadas"))
+	_pistas_reposera.clear()
+	_tintes_reposera.clear()
+
+
+# --- Prado costero -------------------------------------------------------------
+
+## Reparte vegetación por las áreas verdes del COSTADO DE LA PLAYA (el sector
+## suroeste: la loma de césped que se ve junto a la arena delante de la montaña,
+## tal como aparece en las fotos de referencia): grupos de árboles y arbustos
+## con claros amplios de césped. Es la única zona que se toca: no se dispersan
+## árboles por el resto de la ciudad ni sobre la arena.
+##
+## Reglas del encargo:
+##   · sólo sobre césped (nunca en la arena, el agua ni las rocas altas),
+##   · sólo el frente de costa despejado del suroeste, cerca de la playa
+##     (fuera del anillo de la ciudad y de su paseo, y fuera del bosque),
+##   · fuera del anillo de la ciudad y de su paseo (no estorba calles, veredas
+##     ni accesos a la playa; además no lleva colisión),
+##   · nunca dentro del bosque que ya existe (`peso_bosque`), para no duplicar
+##     la vegetación de la isla,
+##   · sin macetas: es césped, como los árboles de los parques.
+func _vegetacion_costera() -> void:
+	if not costa_vegetacion or not generar_vegetacion or not usar_vegetacion_propia:
+		return
+	_preparar_ruido_plantas()
+	var rel := Relieve.new()
+	var semi := maxf(absf(_trazado.off.x), absf(_trazado.off.y))
+	var borde_urb := semi + float(_trazado.hw)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _rng.randi()
+	var paso := 7.0
+	var x := -320.0
+	while x <= 120.0:
+		var z := 100.0
+		while z <= 340.0:
+			var px := x + rng.randf_range(-paso, paso) * 0.5
+			var pz := z + rng.randf_range(-paso, paso) * 0.5
+			_costa_punto(rel, rng, _ruido_costa, Vector2(px, pz), borde_urb)
+			z += paso
+		x += paso
+
+
+## Un candidato del prado costero: decide si se planta algo y el qué.
+## Sólo el sector de las áreas verdes junto a la playa del suroeste (la loma de
+## las fotos de referencia): entre el sureste y el oeste manda el bosque que ya
+## existe, y el arco sur de la ciudad se deja libre como paseo.
+func _costa_punto(rel: Relieve, rng: RandomNumberGenerator, ruido: FastNoiseLite,
+		p: Vector2, borde_urb: float) -> void:
+	var ang := rad_to_deg(atan2(p.y - Relieve.CENTRO.y, p.x - Relieve.CENTRO.x))
+	if ang < 95.0 or ang > 165.0:
+		return
+	if rel.peso_bosque(p.x, p.y) > 0.05:
+		return
+	if maxf(absf(p.x), absf(p.y)) < borde_urb + 11.0:
+		return                      # el anillo de la ciudad y su paseo
+	var h := rel.altura(p.x, p.y)
+	if h < Relieve.COTA_ARENA + 0.15 or h > 45.0:
+		return                      # arena, agua o rocas altas
+	var dc := rel.distancia_costa(p.x, p.y)
+	if dc < 3.0 or dc > 135.0:
+		return                      # pegado a la orilla o ya lejos de la playa
+	if rel.pendiente(p.x, p.y, 4.0) > 30.0:
+		return                      # paredes de roca
+	# Densidad con manchas: grupos y claros (el prado respira).
+	var manchas := ruido.get_noise_2d(p.x, p.y) * 0.5 + 0.5
+	if rng.randf() > 0.58 * clampf(manchas * 1.65, 0.0, 1.25):
+		return
+	var pos := Vector3(p.x, h - 0.15, p.y)
+	# Cerca de la arena, a veces una palmera en vez de un árbol (transición).
+	if dc < 30.0 and palmeras_densidad > 0.0 and rng.randf() < 0.55 * palmeras_densidad:
+		_anadir_palmera(pos)
+		return
+	if rng.randf() < 0.80:
+		_colocar_arbol(pos, 5.0, 11.0, false)
+		_est["arboles_costa"] = int(_est.get("arboles_costa", 0)) + 1
+	else:
+		_colocar_arbusto(pos, 1.2, 2.4)
+		_est["arbustos_costa"] = int(_est.get("arbustos_costa", 0)) + 1
+
+
+# --- Ventanas encendidas de noche ----------------------------------------------
+
+## Mide el VIDRIO de una pieza de fachada (la superficie con material MI_Glass,
+## el vidrio oscuro del kit) y lo deja cacheado: {centro: Vector3, tam: Vector2}
+## en el espacio del módulo, con el plano un centímetro por delante del vidrio.
+## Devuelve {} si la pieza no trae vidrio (un muro liso).
+func _medir_ventana(pieza: String) -> Dictionary:
+	if _vent_medidas.has(pieza):
+		return _vent_medidas[pieza]
+	var resultado := {}
+	var escena: PackedScene = _modelos[pieza]["escena"]
+	var plantilla := escena.instantiate() as Node3D
+	if plantilla != null:
+		var pila: Array[Node] = [plantilla]
+		while not pila.is_empty() and resultado.is_empty():
+			var n: Node = pila.pop_back()
+			for c in n.get_children():
+				pila.append(c)
+			var mi := n as MeshInstance3D
+			if mi == null or mi.mesh == null:
+				continue
+			var xf := _transform_relativo(plantilla, mi)
+			for s in mi.mesh.get_surface_count():
+				var mat := mi.mesh.surface_get_material(s)
+				if mat == null or not String(mat.resource_name).to_lower().contains("glass"):
+					continue
+				var arrays := mi.mesh.surface_get_arrays(s)
+				var posiciones: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				if posiciones.is_empty():
+					continue
+				var caja := AABB(posiciones[0], Vector3.ZERO)
+				for v in posiciones:
+					caja = caja.expand(xf * v)
+				var tam := Vector2(caja.size.x, caja.size.y)
+				if tam.x < 0.15 or tam.y < 0.15:
+					continue
+				resultado = {
+					"centro": Vector3((caja.position.x + caja.end.x) * 0.5,
+							(caja.position.y + caja.end.y) * 0.5, caja.end.z + 0.012),
+					"tam": tam,
+				}
+				break
+		plantilla.free()
+	_vent_medidas[pieza] = resultado
+	return resultado
+
+
+## Registra una VENTANA de un edificio y decide si queda encendida de noche. Se
+## llama junto a cada pieza de fachada colocada; sólo las piezas con vidrio de
+## verdad cuentan como ventana. Ni todas se encienden (probabilidad por edificio
+## × el papel de la planta) ni todas brillan igual (brillo y calidez al azar).
+func _quizas_ventana(pieza: String, pos: Vector3, giro: float, multiplicador: float) -> void:
+	if not ventanas_noche or pieza == "":
+		return
+	var vidrio := _medir_ventana(pieza)
+	if vidrio.is_empty():
+		return
+	_est["ventanas"] = int(_est.get("ventanas", 0)) + 1
+	if _rng.randf() > _factor_ventanas_edificio * multiplicador:
+		return
+	var centro: Vector3 = vidrio["centro"]
+	var tam: Vector2 = vidrio["tam"]
+	var b := Basis(Vector3.UP, giro)
+	# El paño queda un pelo por delante del vidrio y algo más chico que el hueco
+	# (no toca el marco). La escala va en x/y locales: el plano es el +Z.
+	_pistas_ventana.append(Transform3D(b.scaled(Vector3(tam.x * 0.96, tam.y * 0.96, 1.0)),
+			pos + b * centro))
+	# Brillo y calidez al azar: la mayoría normales y algunas más vivas o tenues.
+	var brillo := _rng.randf_range(0.55, 1.15)
+	if _rng.randf() < 0.12:
+		brillo = _rng.randf_range(1.15, 1.35)
+	elif _rng.randf() < 0.15:
+		brillo = _rng.randf_range(0.40, 0.55)
+	_datos_ventana.append(Color(brillo, _rng.randf(), 0.0, 1.0))
+	_est["ventanas_luz"] = int(_est.get("ventanas_luz", 0)) + 1
+
+
+## Dibuja TODAS las ventanas encendidas en una sola MultiMeshInstance3D con el
+## shader `world/ventanas_noche.gdshader` y crea el nodo que lo pone EN FASE con
+## el ciclo de día y noche (`world/luces_ventanas.gd`: la misma curva que las
+## farolas). De día el shader queda a 0 y el nodo oculto: ni se ve.
+func _volcar_ventanas() -> void:
+	if _pistas_ventana.is_empty():
+		return
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	var material := ShaderMaterial.new()
+	material.shader = load("res://world/ventanas_noche.gdshader")
+	material.set_shader_parameter("noche", 0.0)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = quad
+	mm.set_instance_count(_pistas_ventana.size())
+	for k in _pistas_ventana.size():
+		mm.set_instance_transform(k, _pistas_ventana[k])
+		mm.set_instance_custom_data(k, _datos_ventana[k])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "VentanasNoche_x%d" % _pistas_ventana.size()
+	mmi.multimesh = mm
+	mmi.material_override = material
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.visible = false
+	_cont["Modulares"].add_child(mmi)
+	_pistas_ventana.clear()
+	_datos_ventana.clear()
+	# Controlador del fundido, enganchado al ciclo de día y noche de la escena.
+	var raiz := get_node_or_null(NODO_CIUDAD)
+	if raiz != null:
+		var control := Node.new()
+		control.name = "LucesVentanas"
+		control.set_script(load("res://world/luces_ventanas.gd"))
+		control.set("material", material)
+		control.set("mmi", mmi)
+		raiz.add_child(control)
+		if Engine.is_editor_hint() and not _vista_editor:
+			_marcar_owner(control)
+
+
 ## Convierte UN lote en su MultiMeshInstance3D (unidad de trabajo del cierre).
 func _volcar_lote(pieza: String) -> void:
 	var lista: Array = _lotes.get(pieza, [])
@@ -2603,6 +3120,12 @@ func _informe(ms: int) -> void:
 			% [_est.get("parques", 0), _est.get("arboles", 0), _est.get("vegetacion", 0)])
 	print("[GeneradorCiudad] Bancos en parques y plazas: %d" % _est.get("bancos", 0))
 	print("[GeneradorCiudad] Macetas (árboles sobre pavimento): %d" % _est.get("macetas", 0))
+	print("[GeneradorCiudad] Playa: palmeras %d | sombrillas %d | reposeras %d"
+			% [_est.get("palmeras", 0), _est.get("sombrillas", 0), _est.get("reposeras", 0)])
+	print("[GeneradorCiudad] Prado costero: árboles %d | arbustos %d (césped, sin macetas)"
+			% [_est.get("arboles_costa", 0), _est.get("arbustos_costa", 0)])
+	print("[GeneradorCiudad] Ventanas nocturnas: %d encendidas de %d ventanas (%d edificios)"
+			% [_est.get("ventanas_luz", 0), _est.get("ventanas", 0), _est.get("modulares", 0)])
 	# Invariante de manzanas: cada parcela acaba con edificio o con plaza (las
 	# incidencias del fallback se cuentan aparte); si no cuadra, hay solares
 	# sin resolver.
