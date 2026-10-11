@@ -67,6 +67,8 @@ signal resumed
 @onready var _hud_izq: Button = %HudIzq
 @onready var _hud_der: Button = %HudDer
 @onready var _hud_valor: Label = %HudValor
+# Contenido de la categoría CONTROLES (mismo panel derecho, sin duplicarlo).
+@onready var _controles_content: PanelControles = %ControlsContent
 
 var _selected: int = 0
 var _move_tween: Tween
@@ -99,6 +101,7 @@ func _ready() -> void:
 	_config_panel.visible = false
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
+	_controles_content.visible = false
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -133,6 +136,11 @@ func esta_abierto() -> bool:
 	return _abierto
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Mientras el panel CONTROLES espera una tecla, su _input ya ha consumido el
+	# evento: aquí no hay nada que hacer (ni cerrar la pausa ni mover la lista).
+	if _controles_content.visible and _controles_content.esta_capturando():
+		return
+
 	# ESC: interruptor. En la lista de pausa abre/cierra la pausa; en la pantalla
 	# de configuracion vuelve a la lista de pausa (no reanuda la partida).
 	if event.is_action_pressed("ui_cancel"):
@@ -146,6 +154,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if not _abierto:
+		return
+
+	# Con el panel CONTROLES a la vista, las flechas cambian de transformación y
+	# arriba/abajo recorren SU lista (manteniendo el foco dentro del panel).
+	if _controles_content.visible and _en_config:
+		if event.is_action_pressed("ui_left"):
+			_controles_content.cambiar_forma(-1)
+		elif event.is_action_pressed("ui_right"):
+			_controles_content.cambiar_forma(1)
+		elif event.is_action_pressed("menu_up"):
+			_controles_content.mover_seleccion(-1)
+		elif event.is_action_pressed("menu_down"):
+			_controles_content.mover_seleccion(1)
+		elif event.is_action_pressed("menu_accept"):
+			_controles_content.confirmar()
+		else:
+			return
+		get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("menu_up"):
@@ -174,6 +200,8 @@ func abrir() -> void:
 	_config_panel.visible = false
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
+	_controles_content.visible = false
+	_controles_content.desactivar()
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -277,6 +305,7 @@ func _entrar_config() -> void:
 	_config_panel.visible = false
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
+	_controles_content.visible = false
 	_categoria_abierta = -1
 	_title.text = TITULO_CONFIG
 	_refresh(true)
@@ -293,6 +322,8 @@ func _salir_config() -> void:
 	_config_panel.visible = false
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
+	_controles_content.visible = false
+	_controles_content.desactivar()
 	_categoria_abierta = -1
 	_title.text = TITULO_PAUSA
 	_refresh(true)
@@ -306,6 +337,8 @@ func _toggle_categoria(index: int, row: MenuOptionRes) -> void:
 		_config_panel.visible = false
 		_config_content.visible = false
 		_jugabilidad_content.visible = false
+		_controles_content.visible = false
+		_controles_content.desactivar()
 		return
 	_categoria_abierta = index
 	_config_title.text = _titulo_categoria(row)
@@ -355,18 +388,27 @@ func _actualizar_contenido_categoria() -> void:
 	if _categoria_abierta < 0:
 		_config_content.visible = false
 		_jugabilidad_content.visible = false
+		_controles_content.visible = false
 		return
 	var row := _config_items.get_child(_categoria_abierta) as MenuOptionRes
 	var nombre := String(row.name) if row != null else ""
 	var es_graficos := nombre == "GraficosOption"
 	var es_jugabilidad := nombre == "JugabilidadOption"
+	var es_controles := nombre == "ControlesOption"
 	_config_content.visible = es_graficos
 	_jugabilidad_content.visible = es_jugabilidad
+	_controles_content.visible = es_controles
 	if es_graficos:
 		AjustesGraficos.sincronizar_estado_ventana()
 		_actualizar_opciones_graficos()
 	elif es_jugabilidad:
 		_actualizar_opciones_jugabilidad()
+	elif es_controles:
+		# Abrir CONTROLES no transforma nada: el panel vuelve a Humano y genera la
+		# lista de esa forma. Cerrarlo cancela cualquier captura en curso.
+		_controles_content.activar()
+	else:
+		_controles_content.desactivar()
 
 # ---------------------------------------------------------------- JUGABILIDAD
 ## Conecta los controles del panel de JUGABILIDAD. Se hace UNA sola vez (en
