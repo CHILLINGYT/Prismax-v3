@@ -2,14 +2,15 @@ extends Node
 
 # Arnés de prueba del sistema de AUDIO (CONFIGURACIÓN > AUDIO).
 #
-# Comprueba, con el sistema REAL y en la ETAPA ACTUAL (sin sonido):
+# Comprueba, con el sistema REAL y con APLICAR_VOLUMEN_REAL = true (audio activo):
 #   1. El autoload AjustesAudio existe y arranca en sus valores por defecto.
 #   2. Los tres volúmenes se limitan a 0..100.
 #   3. La conversión porcentaje -> dB es correcta (0 = silencio, 100 = 0 dB).
-#   4. Los diálogos alternan SÍ/NO.
-#   5. Persistencia en user://ajustes_audio.cfg y relectura por un servicio nuevo.
-#   6. REGLA FUNDAMENTAL: mover los controles NO cambia ningún bus ni silencia
-#      nada: los buses siguen a 0 dB y sin mute (APLICAR_VOLUMEN_REAL = false).
+#   4. Los diálogos alternan SÍ/NO y silencian/reactivan el bus Dialogos.
+#   5. Los CONTROLES MODIFICAN DE VERDAD LOS BUSES (general->Master, música->Musica,
+#      efectos->Efectos) en tiempo real y de forma COMBINADA (Master x categoría).
+#   6. El volumen de efectos NO toca el bus del ambiente (Musica).
+#   7. Persistencia en user://ajustes_audio.cfg y relectura por un servicio nuevo.
 #
 # No forma parte del juego: vive en res://_tests/ y se ejecuta solo con las
 # pruebas. Al terminar deja los ajustes en sus valores por defecto.
@@ -49,7 +50,7 @@ func _ready() -> void:
 	_probar_limites()
 	_probar_conversion()
 	_probar_dialogos()
-	_probar_buses_intactos()
+	_probar_buses_reactivos()
 	await _probar_persistencia()
 
 	# Restaurar valores por defecto para el usuario.
@@ -86,31 +87,62 @@ func _probar_dialogos() -> void:
 	_A.alternar_desactivar_dialogos()
 	_listo("alternar diálogos vuelve a NO", not _A.desactivar_dialogos, "")
 
-func _probar_buses_intactos() -> void:
-	# Con APLICAR_VOLUMEN_REAL = false, mover los controles no debe tocar audio.
-	_A.poner_volumen_general(0)
-	_A.poner_volumen_musica(0)
-	_A.poner_volumen_efectos(0)
-	_A.poner_desactivar_dialogos(true)
-
+func _probar_buses_reactivos() -> void:
+	# Con APLICAR_VOLUMEN_REAL = true, mover los controles DEBE modificar los buses.
 	var idx_master := AudioServer.get_bus_index("Master")
 	var idx_musica := AudioServer.get_bus_index("Musica")
 	var idx_efectos := AudioServer.get_bus_index("Efectos")
 	var idx_dialogos := AudioServer.get_bus_index("Dialogos")
 	_listo("existen los buses Musica/Efectos/Dialogos",
 			idx_musica >= 0 and idx_efectos >= 0 and idx_dialogos >= 0, "")
-	_listo("Master sigue a 0 dB (no se modificó)",
+
+	# General -> bus Master.
+	_A.poner_volumen_general(0)
+	_listo("volumen general 0 % silencia el bus Master",
+			AudioServer.get_bus_volume_db(idx_master) <= -79.0,
+			"db=%.2f" % AudioServer.get_bus_volume_db(idx_master))
+	_A.poner_volumen_general(100)
+	_listo("volumen general 100 % deja Master a 0 dB",
 			is_equal_approx(AudioServer.get_bus_volume_db(idx_master), 0.0),
-			"db=%.3f" % AudioServer.get_bus_volume_db(idx_master))
-	_listo("Musica sigue a 0 dB (no se modificó)",
-			is_equal_approx(AudioServer.get_bus_volume_db(idx_musica), 0.0),
-			"db=%.3f" % AudioServer.get_bus_volume_db(idx_musica))
-	_listo("Efectos sigue a 0 dB (no se modificó)",
-			is_equal_approx(AudioServer.get_bus_volume_db(idx_efectos), 0.0),
-			"db=%.3f" % AudioServer.get_bus_volume_db(idx_efectos))
-	_listo("Dialogos NO se silenció (aunque SÍ esté marcado)",
-			not AudioServer.is_bus_mute(idx_dialogos),
-			"mute=%s" % AudioServer.is_bus_mute(idx_dialogos))
+			"db=%.2f" % AudioServer.get_bus_volume_db(idx_master))
+
+	# Música -> bus Musica (capa continua/ambiente).
+	_A.poner_volumen_musica(50)
+	_listo("volumen música 50 % -> Musica ≈ -6,02 dB",
+			absf(AudioServer.get_bus_volume_db(idx_musica) - (-6.02)) < 0.1,
+			"db=%.2f" % AudioServer.get_bus_volume_db(idx_musica))
+
+	# Efectos -> bus Efectos.
+	_A.poner_volumen_efectos(30)
+	_listo("volumen efectos 30 % -> Efectos ≈ -10,46 dB",
+			absf(AudioServer.get_bus_volume_db(idx_efectos) - (-10.46)) < 0.1,
+			"db=%.2f" % AudioServer.get_bus_volume_db(idx_efectos))
+
+	# Combinación general x efectos = producto lineal (0,5 * 0,3 = 0,15).
+	_A.poner_volumen_general(50)
+	var ganancia: float = db_to_linear(AudioServer.get_bus_volume_db(idx_master)) \
+			* db_to_linear(AudioServer.get_bus_volume_db(idx_efectos))
+	_listo("general 50 % + efectos 30 % se combinan (≈ 0,15 lineal)",
+			absf(ganancia - 0.15) < 0.02, "ganancia=%.3f" % ganancia)
+
+	# Independencia: el control de efectos NO toca el bus del ambiente (Musica).
+	var antes_musica := AudioServer.get_bus_volume_db(idx_musica)
+	_A.poner_volumen_efectos(0)
+	_listo("el volumen de efectos NO cambia el bus del ambiente (Musica)",
+			is_equal_approx(AudioServer.get_bus_volume_db(idx_musica), antes_musica),
+			"musica=%.2f" % AudioServer.get_bus_volume_db(idx_musica))
+
+	# Diálogos: SÍ = mute del bus, NO = sin mute.
+	_A.poner_desactivar_dialogos(true)
+	_listo("desactivar diálogos silencia el bus Dialogos (mute)",
+			AudioServer.is_bus_mute(idx_dialogos), "")
+	_A.poner_desactivar_dialogos(false)
+	_listo("reactivar diálogos quita el mute",
+			not AudioServer.is_bus_mute(idx_dialogos), "")
+
+	# Restaurar para no dejar el Master/efectos silenciados tras esta prueba.
+	_A.poner_volumen_general(100)
+	_A.poner_volumen_efectos(80)
 
 func _probar_persistencia() -> void:
 	_A.poner_volumen_general(42)

@@ -32,6 +32,7 @@
 [ext_resource type="Script" path="res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd" id="40_gestor_combate"]
 [ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="41_config_combate"]
 [ext_resource type="Script" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="42_gerente_enemigos"]
+[ext_resource type="Script" path="res://world/ambiente_dinamico.gd" id="43_ambiente"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -171,6 +172,10 @@ libraries/saltar = ExtResource("9_kcr08")
 libraries/superduper_velocidad = ExtResource("9_luf5j")
 
 [node name="Pausa" parent="." unique_id=263530486 instance=ExtResource("15_pausa")]
+
+[node name="AmbienteDinamico" type="Node" parent="."]
+script = ExtResource("43_ambiente")
+ruta_jugador = NodePath("../Jugador")
 
 [editable path="Jugador"]
 [editable path="Jugador/Visual/Pose/Volteo/Modelo"]
