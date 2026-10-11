@@ -30,21 +30,30 @@ extends Node3D
 ## =============================================================================
 
 @export_group("Tiempos")
-## Segundos de juego que dura el día (amanecer -> atardecer). 900 = 15 min.
-@export var duracion_dia_segundos: float = 900.0
-## Segundos de juego que dura la noche (atardecer -> amanecer).
-@export var duracion_noche_segundos: float = 900.0
+## Segundos de juego que dura la MITAD DIURNA del ciclo (0.25 -> 0.75), que incluye
+## el amanecer, la meseta de DÍA PLENO y el anochecer. 600 = 90 s de amanecer +
+## 420 s (7 min) de día pleno + 90 s de anochecer.
+@export var duracion_dia_segundos: float = 600.0
+## Segundos de juego que dura la MITAD NOCTURNA (0.75 -> 0.25), que incluye la
+## meseta de NOCHE y el amanecer. 420 = 7 min de noche plena + 90 s de amanecer.
+@export var duracion_noche_segundos: float = 420.0
 ## Duración REAL (s de juego) de la transición del AMANECER: del sol asomando al
-## día pleno. 420 = 7 min.
-@export var duracion_amanecer_segundos: float = 420.0
+## día pleno. 90 = 1,5 min.
+@export var duracion_amanecer_segundos: float = 90.0
 ## Duración REAL (s de juego) de la transición del ANOCHECER: de la luz de día a la
-## noche cerrada. 420 = 7 min. Termina en el atardecer (fase 0.75), que es donde los
+## noche cerrada. 90 = 1,5 min. Termina en el atardecer (fase 0.75), que es donde los
 ## faroles acaban de encenderse y la noche queda completa.
-@export var duracion_anochecer_segundos: float = 420.0
+@export var duracion_anochecer_segundos: float = 90.0
 ## Fase de arranque en [0, 1): 0.25 amanecer, 0.5 mediodía, 0.75 atardecer,
-## 0.0/1.0 medianoche. Por defecto arranca EN EL AMANECER: así el anochecer va del
-## minuto 8 al 15 de la partida y los faroles se encienden del 13 al 15.
+## 0.0/1.0 medianoche. Sólo se usa si `arrancar_en_dia` está apagado.
 @export_range(0.0, 1.0, 0.001) var fase_inicial: float = 0.25
+## ¿La partida arranca a PLENO DÍA? Es lo que se quiere en una PARTIDA NUEVA: el
+## sol ya está alto y la iluminación es diurna; a partir de ahí el ciclo corre solo
+## (7 min de día, 1,5 min de anochecer, 7 min de noche, 1,5 min de amanecer...) y se
+## repite indefinidamente. Se calcula desde las duraciones de arriba, así que
+## sigue siendo correcto si se cambian los tiempos. NO reinicia el ciclo cada vez
+## que se carga una escena: sólo se lee al entrar en el mapa.
+@export var arrancar_en_dia: bool = true
 
 @export_group("Referencias")
 ## Luz direccional que hace de sol (la que ve el shader del cielo).
@@ -96,10 +105,13 @@ const ALTURA_MEDIANOCHE := -0.90
 
 # Fase actual del ciclo en [0, 1). Avanza sola cada frame.
 var _fase: float = 0.0
+# Fase con la que arrancó ESTA partida (para el diagnóstico de minutos).
+var _fase_arranque: float = 0.25
 
 
 func _ready() -> void:
-	_fase = fase_inicial
+	_fase_arranque = fase_dia_pleno() if arrancar_en_dia else fase_inicial
+	_fase = _fase_arranque
 	if sol == null:
 		push_warning("CicloDiaNoche: falta la referencia a la luz del sol.")
 	if entorno == null:
@@ -146,6 +158,25 @@ func _tramos() -> Vector2:
 		a *= k
 		o *= k
 	return Vector2(a, o)
+
+
+## Primera fase de la MESETA DE DÍA PLENO: justo cuando acaba de terminar el
+## amanecer. Es la fase con la que arranca una partida nueva (`arrancar_en_dia`), de
+## modo que el juego empieza con el sol ya alto y la iluminación de día, sin
+## atravesar una transición.
+func fase_dia_pleno() -> float:
+	return fposmod(0.25 + _tramos().x, 1.0)
+
+
+## Fases de referencia del alumbrado público, para que las farolas NO tengan su
+## propio horario y sigan siempre al ciclo:
+##   x = fase en la que empiezan a encenderse (principio del anochecer),
+##   y = fase en la que están del todo encendidas (noche cerrada, 0.75),
+##   z = fase en la que empiezan a apagarse (principio del amanecer),
+##   w = fase en la que están del todo apagadas (día pleno).
+func fases_farolas() -> Vector4:
+	var tramos := _tramos()
+	return Vector4(0.75 - tramos.y, 0.75, 0.25, 0.25 + tramos.x)
 
 
 ## Altura del sol (-1..1) en esa fase: rampas de duración fija en el amanecer y el
@@ -273,7 +304,7 @@ func resumen_horario() -> String:
 ## avanzando por el ciclo. Es una comprobación del horario: sirve para saber en qué
 ## minuto de partida cae cada hito.
 func minutos_desde_arranque(fase: float) -> float:
-	return segundos_entre(fase_inicial, fase) / 60.0
+	return segundos_entre(_fase_arranque, fase) / 60.0
 
 
 ## Segundos de juego entre dos fases avanzando por el ciclo. La mitad diurna
