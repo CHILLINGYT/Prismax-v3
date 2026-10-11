@@ -34,7 +34,7 @@ signal menu_cerrado
 #   desbloqueada: true = seleccionable; false = bloqueada ("PRÓXIMAMENTE").
 #   angulo     : posición en el anillo, en grados (-90 = arriba; sentido horario).
 const TRANSFORMACIONES := [
-	{"id": &"combate",   "nombre": "Combate",   "icono": "res://personaje/ui_transformacion/iconos/combate.png",   "desbloqueada": false, "angulo": -90.0},
+	{"id": &"combate",   "nombre": "Combate",   "icono": "res://personaje/ui_transformacion/iconos/combate.png",   "desbloqueada": true,  "angulo": -90.0},
 	{"id": &"velocista", "nombre": "Velocista", "icono": "res://personaje/ui_transformacion/iconos/velocista.png", "desbloqueada": true,  "angulo": -18.0},
 	{"id": &"pes",       "nombre": "Pes",       "icono": "res://personaje/ui_transformacion/iconos/pes.png",       "desbloqueada": true,  "angulo": 54.0},
 	{"id": &"tanque",    "nombre": "Tanque",    "icono": "res://personaje/ui_transformacion/iconos/tanque.png",    "desbloqueada": true,  "angulo": 126.0},

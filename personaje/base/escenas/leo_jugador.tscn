@@ -37,6 +37,8 @@
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/fuerza/animations (1)/libraries/FuerzaUniversal.tres" id="35_fuerza_anims"]
 [ext_resource type="Script" path="res://personaje/base/efectos/burbujas_acuaticas.gd" id="36_burbujas"]
 [ext_resource type="Script" path="res://personaje/base/efectos/vista_submarina.gd" id="37_vista_sub"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -156,6 +158,16 @@ transform = Transform3D(-1.98, 0, 0, 0, 1.98, 0, 0, 0, -1.98, 0, 0, 0)
 [node name="AnimadorFuerza" type="AnimationPlayer" parent="Fuerza"]
 root_node = NodePath("..")
 libraries/ = ExtResource("35_fuerza_anims")
+
+[node name="Ataque" type="Node3D" parent="."]
+visible = false
+
+[node name="Modelo" parent="Ataque" instance=ExtResource("38_ataque_model")]
+transform = Transform3D(-184.5, 0, 0, 0, 184.5, 0, 0, 0, -184.5, 0, 0, 0)
+
+[node name="AnimadorAtaque" type="AnimationPlayer" parent="Ataque"]
+root_node = NodePath("../Modelo")
+libraries/ = ExtResource("39_ataque_anims")
 
 [node name="BurbujasAcuaticas" type="Node3D" parent="."]
 script = ExtResource("36_burbujas")

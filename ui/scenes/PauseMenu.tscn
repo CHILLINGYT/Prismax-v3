@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://ui/scripts/pause_menu.gd" id="1_menu"]
 [ext_resource type="Script" path="res://ui/scripts/menu_option.gd" id="2_option"]
 [ext_resource type="PackedScene" path="res://ui/scenes/GameLogo.tscn" id="3_logo"]
 [ext_resource type="Shader" path="res://ui/shaders/blur_pausa.gdshader" id="4_blur"]
+[ext_resource type="Script" path="res://ui/scripts/barra_valor.gd" id="5_barra"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_blur"]
 shader = ExtResource("4_blur")
@@ -61,15 +62,16 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Root/MenuPanel/Content"]
+unique_name_in_owner = true
 layout_mode = 0
 offset_left = 35.0
 offset_top = 16.0
-offset_right = 230.0
+offset_right = 270.0
 offset_bottom = 44.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
 theme_override_font_sizes/font_size = 20
-text = "PAUSED"
+text = "PAUSA"
 
 [node name="TitleLine" type="ColorRect" parent="Root/MenuPanel/Content"]
 layout_mode = 0
@@ -112,14 +114,14 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 0
-description = "CONTINUE: Resume the current game."
+description = "CONTINUAR: Reanuda la partida actual."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/ContinueOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "CONTINUE"
+text = "CONTINUAR"
 vertical_alignment = 1
 
 [node name="NewGameOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/Items"]
@@ -129,14 +131,31 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 1
-description = "NEW GAME: Start over from the beginning."
+description = "NUEVA PARTIDA: Empieza de nuevo desde el principio."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/NewGameOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "NEW GAME"
+text = "NUEVA PARTIDA"
+vertical_alignment = 1
+
+[node name="ConfigOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/Items"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 3
+description = "CONFIGURACIÓN: Ajusta las opciones del juego."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/ConfigOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "CONFIGURACIÓN"
 vertical_alignment = 1
 
 [node name="QuitOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/Items"]
@@ -146,14 +165,108 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 2
-description = "QUIT GAME: Exit the game."
+description = "SALIR DEL JUEGO: Cierra el juego."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/Items/QuitOption"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
-text = "QUIT GAME"
+text = "SALIR DEL JUEGO"
+vertical_alignment = 1
+
+[node name="ConfigItems" type="VBoxContainer" parent="Root/MenuPanel/Content/OptionsList"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 179.0
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="AudioOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "AUDIO: Ajustes de sonido (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/AudioOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> AUDIO"
+vertical_alignment = 1
+
+[node name="ControlesOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "CONTROLES: Ajustes de los controles (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/ControlesOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> CONTROLES"
+vertical_alignment = 1
+
+[node name="GraficosOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "GRÁFICOS: Ajustes gráficos (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/GraficosOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> GRÁFICOS"
+vertical_alignment = 1
+
+[node name="JugabilidadOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 4
+description = "JUGABILIDAD: Ajustes de jugabilidad (próximamente)."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/JugabilidadOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> JUGABILIDAD"
+vertical_alignment = 1
+
+[node name="VolverOption" type="MarginContainer" parent="Root/MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("2_option")
+action = 5
+description = "VOLVER: Regresa al menú de pausa."
+
+[node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/VolverOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "VOLVER"
 vertical_alignment = 1
 
 [node name="Description" type="Label" parent="Root/MenuPanel/Content"]
@@ -166,7 +279,7 @@ offset_bottom = 368.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.62, 0.64, 0.68, 1)
 theme_override_font_sizes/font_size = 15
-text = "CONTINUE: Resume the current game."
+text = "CONTINUAR: Reanuda la partida actual."
 
 [node name="GameLogo" parent="Root/MenuPanel/Content" instance=ExtResource("3_logo")]
 layout_mode = 1
@@ -178,3 +291,240 @@ offset_top = -300.0
 offset_bottom = -165.0
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="ConfigPanel" type="Control" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 556.0
+offset_top = 74.0
+offset_right = -140.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelBG" type="ColorRect" parent="Root/ConfigPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.031, 0.035, 0.047, 0.62)
+
+[node name="ConfigTitle" type="Label" parent="Root/ConfigPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 35.0
+offset_top = 16.0
+offset_right = -35.0
+offset_bottom = 44.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
+theme_override_font_sizes/font_size = 20
+text = "AUDIO"
+
+[node name="ConfigTitleLine" type="ColorRect" parent="Root/ConfigPanel"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 35.0
+offset_top = 52.0
+offset_right = -35.0
+offset_bottom = 53.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.45, 0.47, 0.52, 0.8)
+
+[node name="ConfigContent" type="VBoxContainer" parent="Root/ConfigPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 35.0
+offset_top = 74.0
+offset_right = -35.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="ModoFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/ModoFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "MODO DE PANTALLA"
+vertical_alignment = 1
+
+[node name="ModoIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/ModoFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="ModoValor" type="Label" parent="Root/ConfigPanel/ConfigContent/ModoFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "VENTANA"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ModoDer" type="Button" parent="Root/ConfigPanel/ConfigContent/ModoFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+
+[node name="ResolucionFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/ResolucionFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "RESOLUCIÓN"
+vertical_alignment = 1
+
+[node name="ResolucionIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/ResolucionFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="ResolucionValor" type="Label" parent="Root/ConfigPanel/ConfigContent/ResolucionFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "1280 x 720"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ResolucionDer" type="Button" parent="Root/ConfigPanel/ConfigContent/ResolucionFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+
+[node name="FpsFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/FpsFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "MOSTRAR FPS"
+vertical_alignment = 1
+
+[node name="FpsIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/FpsFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="FpsValor" type="Label" parent="Root/ConfigPanel/ConfigContent/FpsFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FpsDer" type="Button" parent="Root/ConfigPanel/ConfigContent/FpsFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+
+[node name="DistanciaFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/DistanciaFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "DISTANCIA DE VISIÓN"
+vertical_alignment = 1
+
+[node name="DistanciaBarra" type="Control" parent="Root/ConfigPanel/ConfigContent/DistanciaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 26)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 0
+script = ExtResource("5_barra")
+minimo = 0
+maximo = 10
+
+[node name="DistanciaValor" type="Label" parent="Root/ConfigPanel/ConfigContent/DistanciaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "5"
+horizontal_alignment = 2
+vertical_alignment = 1

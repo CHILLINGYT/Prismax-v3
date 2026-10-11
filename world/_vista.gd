@@ -59,6 +59,30 @@ var _filtro: bool = false
 var _fase_filtro: int = 0
 var _t_filtro: float = 0.0
 var _muestras_filtro: int = 0
+# Prueba de NADO RÁPIDO y COMBATE EN EL AGUA (tecla RETROCESO): mide la velocidad
+# de nado normal y con SHIFT, lanza la habilidad 1 nadando y da el golpe cuerpo a
+# cuerpo nadando, con maniquíes REALES del proyecto para comprobar el daño.
+var _agua2: bool = false
+var _fase_agua2: int = 0
+var _t_agua2: float = 0.0
+var _muestras_agua2: int = 0
+var _suma_normal: float = 0.0
+var _suma_rapido: float = 0.0
+var _n_normal: int = 0
+var _n_rapido: int = 0
+var _dummy_abil: Node3D
+var _en_tierra_agua2: bool = false
+var _corriendo_agua2: bool = false
+# Prueba del GOLPE cuerpo a cuerpo nadando (tecla INTRO), con el clic inyectado por
+# el ejecutor por la acción "atacar".
+var _golpe: bool = false
+var _fase_golpe: int = 0
+var _t_golpe: float = 0.0
+var _muestras_golpe: int = 0
+var _dummy_golpe: Node3D
+var _vida_antes: int = 100
+
+const RUTA_MANIQUI := "res://personaje/transformaciones/acuatica/scenes/training_dummy.gd"
 
 
 func _ready() -> void:
@@ -75,12 +99,40 @@ func _ready() -> void:
 
 func _aplicar(i: int) -> void:
 	_vista = clampi(i, 0, VISTAS.size() - 1)
+	if _vista == 9:
+		# Vista dinámica: apunta al SOL de día y a la LUNA de noche, siguiendo la
+		# posición real que marca el ciclo (para comprobar discos y colores).
+		_vista_astro()
+		return
 	var v: Dictionary = VISTAS[_vista]
 	_camara.fov = v["fov"]
 	_camara.global_position = v["pos"]
 	_camara.look_at(v["mira"], Vector3.UP)
 	_camara.make_current()
 	print("[vista] %d: %s  en %s" % [_vista + 1, v["nombre"], v["pos"]])
+
+
+## Coloca la cámara libre mirando al SOL (de día) o a la LUNA (de noche), leyendo su
+## dirección real de las luces del juego. Sirve para comprobar el tamaño de los
+## discos, su color y las transiciones del amanecer/atardecer.
+func _vista_astro() -> void:
+	var sol := find_child("Sol", true, false) as DirectionalLight3D
+	if sol == null:
+		return
+	var d: Vector3 = sol.global_transform.basis.z.normalized()
+	var luna := find_child("Luna3D", true, false) as DirectionalLight3D
+	var usar := d
+	if d.y < 0.0:
+		usar = -d                     # de noche, a la luna (que va opuesta al sol)
+	var dir := Vector3(usar.x, maxf(usar.y, -0.03), usar.z).normalized()
+	_camara.fov = 75.0
+	_camara.global_position = Vector3(0.0, 30.0, 30.0)
+	_camara.look_at(_camara.global_position + dir * 300.0, Vector3.UP)
+	_camara.make_current()
+	_camara_juego = true
+	print("[vista] mirando %s: dir=%s (altura %.1f°) luz luna=%s" % [
+		"al sol" if d.y >= 0.0 else "a la luna", usar, rad_to_deg(asin(clampf(usar.y, -1.0, 1.0))),
+		str(luna.light_energy) if luna != null else "-"])
 
 
 func _process(_delta: float) -> void:
@@ -99,6 +151,10 @@ func _process(_delta: float) -> void:
 		_procesar_espacio(_delta)
 	if _filtro:
 		_procesar_filtro(_delta)
+	if _agua2:
+		_procesar_agua2(_delta)
+	if _golpe:
+		_procesar_golpe(_delta)
 	# El juego también crea su cámara: se reafirma la nuestra unas cuantas veces.
 	if not _camara_juego and _cuadros in [2, 10, 30, 90] and not _camara.current:
 		_camara.make_current()
@@ -1026,6 +1082,297 @@ func _procesar_prueba(delta: float) -> void:
 				vel.x, vel.y, vel.z])
 
 
+## PRUEBA DE NADO RÁPIDO Y COMBATE EN EL AGUA (tecla RETROCESO): pone a la forma
+## acuática en mar abierto y (1) mide la velocidad de nado normal y con SHIFT, (2)
+## lanza la HABILIDAD 1 nadando y (3) da el GOLPE cuerpo a cuerpo (clic) nadando.
+## El daño se comprueba contra maniquíes REALES del proyecto ("damageable"), y al
+## final se vuelve a tierra para ver que SHIFT recupera su papel de correr.
+func _iniciar_prueba_agua2() -> void:
+	var jug := find_child("Jugador", true, false) as CharacterBody3D
+	if jug == null:
+		print("[agua2] no encuentro al jugador")
+		return
+	var rel := Relieve.new()
+	_jugador = jug
+	var x := 290.0
+	var z := 30.0
+	jug.global_position = Vector3(x, Relieve.NIVEL_MAR - 1.05, z)
+	jug.velocity = Vector3.ZERO
+	jug.call("_entrar_acuatico")
+	var pivote := jug.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.rotation.y = -PI / 2.0          # mirando a +X: mar abierto
+		if pivote.has_method("definir_pitch"):
+			pivote.call("definir_pitch", -0.05)
+	_camara_juego = true
+	_camara.current = false
+	var cam := find_child("Camara", true, false) as Camera3D
+	if cam != null:
+		cam.make_current()
+	_dummy_abil = null
+	_en_tierra_agua2 = false
+	_corriendo_agua2 = false
+	_agua2 = true
+	_fase_agua2 = 0
+	_t_agua2 = 0.0
+	_muestras_agua2 = 0
+	_suma_normal = 0.0
+	_suma_rapido = 0.0
+	_n_normal = 0
+	_n_rapido = 0
+	print("[agua2] arranca en (%.0f, %.0f): profundidad %.2f m" % [x, z, rel.profundidad_agua(x, z)])
+
+
+## Maniquí de entrenamiento REAL del proyecto, colocado en [param pos].
+func _crear_maniqui(pos: Vector3) -> Node3D:
+	var m := (load(RUTA_MANIQUI) as GDScript).new() as Node3D
+	if m == null:
+		return null
+	m.name = "ManiquiPrueba"
+	add_child(m)
+	m.global_position = pos
+	return m
+
+
+## Pulsa la habilidad acuática [param idx] (1..4) por la MISMA puerta que el teclado
+## del juego (el 1-4 del controlador), sin pasar por las teclas 1-4 del arnés, que
+## son las que cambian de punto de vista.
+func _pulsar_habilidad_agua(idx: int) -> void:
+	var ev := InputEventKey.new()
+	ev.keycode = (KEY_1 + (idx - 1)) as Key
+	ev.physical_keycode = (KEY_1 + (idx - 1)) as Key
+	ev.pressed = true
+	_jugador.call("_unhandled_input", ev)
+
+
+func _vel_horizontal() -> float:
+	return Vector2(_jugador.velocity.x, _jugador.velocity.z).length()
+
+
+func _vida(n: Node3D) -> int:
+	if n == null or not is_instance_valid(n):
+		return -1
+	return int(round(float(n.get("health"))))
+
+
+func _procesar_agua2(delta: float) -> void:
+	_t_agua2 += delta
+	var pivote := _jugador.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.set("permitir_look", false)
+		pivote.rotation.y = -PI / 2.0
+	match _fase_agua2:
+		0:                                     # asentar sobre la superficie
+			if _t_agua2 > 1.5:
+				_informe_agua2("reposo")
+				Input.action_press("mover_adelante")
+				_fase_agua2 = 1
+				_t_agua2 = 0.0
+				_muestras_agua2 = 0
+		1:                                     # nado NORMAL (sin SHIFT)
+			if _t_agua2 > 0.25:
+				_t_agua2 = 0.0
+				_muestras_agua2 += 1
+				_suma_normal += _vel_horizontal()
+				_n_normal += 1
+				if _muestras_agua2 >= 7:
+					_tecla_nado(KEY_SHIFT, true)
+					_fase_agua2 = 2
+					_t_agua2 = 0.0
+					_muestras_agua2 = 0
+		2:                                     # nado RÁPIDO (SHIFT mantenido)
+			_tecla_nado(KEY_SHIFT, true)
+			if _t_agua2 > 0.25:
+				_t_agua2 = 0.0
+				_muestras_agua2 += 1
+				_suma_rapido += _vel_horizontal()
+				_n_rapido += 1
+				_informe_agua2("nado RÁPIDO")
+				if _muestras_agua2 >= 7:
+					_tecla_nado(KEY_SHIFT, false)
+					Input.action_release("mover_adelante")
+					var vn := _suma_normal / maxf(float(_n_normal), 1.0)
+					var vr := _suma_rapido / maxf(float(_n_rapido), 1.0)
+					print("[agua2] velocidades medias: normal %.2f m/s | SHIFT %.2f m/s | factor %.2f" % [
+							vn, vr, vr / maxf(vn, 0.01)])
+					_fase_agua2 = 3
+					_t_agua2 = 0.0
+		3:                                     # HABILIDAD 1 nadando (maniquí a 8 m)
+			if _t_agua2 > 0.8:
+				var p: Vector3 = _jugador.global_position
+				_dummy_abil = _crear_maniqui(Vector3(p.x + 8.0, p.y, p.z))
+				_pulsar_habilidad_agua(1)
+				_informe_agua2("lanza habilidad 1")
+				print("[agua2] maniquí de la habilidad a 8 m: vida %d" % _vida(_dummy_abil))
+				_fase_agua2 = 4
+				_t_agua2 = 0.0
+				_muestras_agua2 = 0
+		4:                                     # seguimiento del proyectil
+			if _t_agua2 > 0.5:
+				_t_agua2 = 0.0
+				_muestras_agua2 += 1
+				_informe_agua2("habilidad 1")
+				if _muestras_agua2 >= 4:
+					print("[agua2] vida del maniquí tras la habilidad: %d de 100" % _vida(_dummy_abil))
+					# El GOLPE cuerpo a cuerpo nadando se comprueba en su propia prueba
+					# (tecla INTRO), donde el clic lo inyecta el ejecutor.
+					_fase_agua2 = 8
+					_t_agua2 = 0.0
+					_muestras_agua2 = 0
+		8:                                     # SUMERGIRSE con CTRL
+			_tecla_nado(KEY_CTRL, true)
+			if _t_agua2 > 0.5:
+				_t_agua2 = 0.0
+				_muestras_agua2 += 1
+				_informe_agua2("sumergiéndose")
+				if _muestras_agua2 >= 3:
+					_tecla_nado(KEY_CTRL, false)
+					_fase_agua2 = 9
+					_t_agua2 = 0.0
+					_muestras_agua2 = 0
+		9:                                     # habilidad SUMERGIDO (sin tocar nada más)
+			if _muestras_agua2 == 0:
+				_muestras_agua2 = 1
+				var p: Vector3 = _jugador.global_position
+				_dummy_abil = _crear_maniqui(Vector3(p.x + 8.0, p.y, p.z))
+				_pulsar_habilidad_agua(1)
+				_informe_agua2("lanza SUMERGIDO")
+				_t_agua2 = 0.0
+			elif _t_agua2 > 0.5:
+				_t_agua2 = 0.0
+				_muestras_agua2 += 1
+				_informe_agua2("habilidad sumergido")
+				if _muestras_agua2 >= 6:
+					print("[agua2] vida del maniquí tras la habilidad SUMERGIDO: %d de 100" % _vida(_dummy_abil))
+					_fase_agua2 = 7
+					_t_agua2 = 0.0
+		7:                                     # vuelta a tierra: SHIFT = correr otra vez
+			if _t_agua2 > 0.2 and not _en_tierra_agua2:
+				_en_tierra_agua2 = true
+				_jugador.global_position = Vector3(150.0, 1.0, 30.0)
+				_jugador.velocity = Vector3.ZERO
+				_t_agua2 = 0.0
+			elif _en_tierra_agua2 and not _corriendo_agua2 and _t_agua2 > 1.2:
+				_corriendo_agua2 = true
+				_t_agua2 = 0.0
+				Input.action_press("mover_adelante")
+				_tecla_nado(KEY_SHIFT, true)
+			elif _corriendo_agua2 and _t_agua2 > 1.5:
+				_informe_agua2("SHIFT en tierra")
+				Input.action_release("mover_adelante")
+				_tecla_nado(KEY_SHIFT, false)
+				_agua2 = false
+				print("[agua2] fin de la prueba")
+
+
+func _informe_agua2(etiqueta: String) -> void:
+	var p: Vector3 = _jugador.global_position
+	var ap := _jugador.get_node_or_null("Acuatico/AnimadorAcuatico") as AnimationPlayer
+	var clip := "-"
+	var escala := 0.0
+	if ap != null:
+		clip = ap.current_animation
+		escala = ap.speed_scale
+	print("[agua2] %-16s y=%6.2f nadando=%s ataque=%s habilidad=%s v=(%.2f, %.2f, %.2f) |v|=%.2f clip=%s x%.2f" % [
+			etiqueta, p.y, str(_jugador.get("a_nadando")), str(_jugador.get("a_ataque_activo")),
+			str(_jugador.get("a_en_habilidad")), _jugador.velocity.x, _jugador.velocity.y,
+			_jugador.velocity.z, _vel_horizontal(), clip, escala])
+
+
+## PRUEBA DEL GOLPE CUERPO A CUERPO NADANDO (tecla INTRO): deja a la forma acuática
+## nadando, inmóvil y con la cámara fija, y pone un maniquí REAL a 1,3 m por delante.
+## El clic lo inyecta el EJECUTOR por la acción "atacar" (la misma ruta que usa el
+## jugador con el ratón): el arnés sólo vigila la vida del maniquí, si el ataque se
+## activa y si al terminar el personaje sigue nadando.
+func _iniciar_prueba_golpe() -> void:
+	var jug := find_child("Jugador", true, false) as CharacterBody3D
+	if jug == null:
+		print("[golpe] no encuentro al jugador")
+		return
+	_jugador = jug
+	jug.global_position = Vector3(290.0, Relieve.NIVEL_MAR - 1.05, 30.0)
+	jug.velocity = Vector3.ZERO
+	jug.call("_entrar_acuatico")
+	var pivote := jug.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.rotation.y = -PI / 2.0
+		if pivote.has_method("definir_pitch"):
+			pivote.call("definir_pitch", -0.05)
+	_camara_juego = true
+	_camara.current = false
+	var cam := find_child("Camara", true, false) as Camera3D
+	if cam != null:
+		cam.make_current()
+	_golpe = true
+	_fase_golpe = 0
+	_t_golpe = 0.0
+	_muestras_golpe = 0
+	_dummy_golpe = null
+	_vida_antes = 100
+	print("[golpe] listo en (%.0f, %.0f); el maniquí se pondrá a 1,3 m por delante" % [
+			jug.global_position.x, jug.global_position.z])
+
+
+func _procesar_golpe(delta: float) -> void:
+	_t_golpe += delta
+	var pivote := _jugador.get_node_or_null("PivoteCamara") as Node3D
+	if pivote != null:
+		pivote.set("permitir_look", false)
+		pivote.rotation.y = -PI / 2.0
+	match _fase_golpe:
+		0:                                     # asentar y aparecer el maniquí
+			if _t_golpe > 1.6:
+				var p: Vector3 = _jugador.global_position
+				_dummy_golpe = _crear_maniqui(Vector3(p.x + 1.3, p.y, p.z))
+				_vida_antes = _vida(_dummy_golpe)
+				_informe_golpe("antes del clic")
+				print("[golpe] maniquí a 1,3 m con vida %d; esperando el clic (acción 'atacar')" % _vida_antes)
+				_fase_golpe = 1
+				_t_golpe = 0.0
+				_muestras_golpe = 0
+		1:                                     # vigilar el golpe
+			if _t_golpe > 0.4:
+				_t_golpe = 0.0
+				_muestras_golpe += 1
+				_informe_golpe("vigilando")
+				var ahora := _vida(_dummy_golpe)
+				if ahora < _vida_antes:
+					print("[golpe] GOLPE REGISTRADO: vida %d -> %d (daño %d)" % [
+							_vida_antes, ahora, _vida_antes - ahora])
+					_vida_antes = ahora
+					_fase_golpe = 2
+					_t_golpe = 0.0
+					_muestras_golpe = 0
+				elif _muestras_golpe >= 22:
+					print("[golpe] sin daño tras %.0f s de vigilancia" % (_muestras_golpe * 0.4))
+					_fase_golpe = 3
+					_t_golpe = 0.0
+					_muestras_golpe = 0
+		2:                                     # comprobar que vuelve a nadar
+			if _t_golpe > 0.6:
+				_t_golpe = 0.0
+				_muestras_golpe += 1
+				_informe_golpe("tras el golpe")
+				if _muestras_golpe >= 4:
+					_fase_golpe = 3
+					_t_golpe = 0.0
+		3:
+			_informe_golpe("final")
+			_golpe = false
+			print("[golpe] fin de la prueba")
+
+
+func _informe_golpe(etiqueta: String) -> void:
+	var ap := _jugador.get_node_or_null("Acuatico/AnimadorAcuatico") as AnimationPlayer
+	var clip := "-"
+	if ap != null:
+		clip = ap.current_animation
+	print("[golpe] %-16s vida=%3d nadando=%s ataque=%s habilidad=%s clip=%s v=(%.2f, %.2f, %.2f)" % [
+			etiqueta, _vida(_dummy_golpe), str(_jugador.get("a_nadando")),
+			str(_jugador.get("a_ataque_activo")), str(_jugador.get("a_en_habilidad")), clip,
+			_jugador.velocity.x, _jugador.velocity.y, _jugador.velocity.z])
+
+
 func _input(evento: InputEvent) -> void:
 	if evento is InputEventKey and (evento as InputEventKey).pressed and not (evento as InputEventKey).echo:
 		var k: int = (evento as InputEventKey).keycode
@@ -1045,7 +1392,9 @@ func _input(evento: InputEvent) -> void:
 		elif k == KEY_N:
 			_fase_ciclo(0.95)              # noche cerrada
 		elif k == KEY_F:
-			_fase_ciclo(0.70)              # minuto 13,5: las farolas empiezan a encenderse
+			_fase_ciclo(0.755)             # justo tras el ocaso: ventana del bug de la luna
+		elif k == KEY_E:
+			_fase_ciclo(0.746)             # atardecer: el sol toca el horizonte
 		elif k == KEY_D:
 			_fase_ciclo(0.55)              # pleno día: las farolas deben estar apagadas
 		elif k == KEY_G:
@@ -1073,6 +1422,10 @@ func _input(evento: InputEvent) -> void:
 			_iniciar_prueba_espacio()
 		elif k == KEY_X:
 			_iniciar_prueba_filtro()
+		elif k == KEY_BACKSPACE:
+			_iniciar_prueba_agua2()
+		elif k == KEY_ENTER:
+			_iniciar_prueba_golpe()
 		elif k == KEY_Z:
 			_diagnostico_union()
 		elif k == KEY_B:
