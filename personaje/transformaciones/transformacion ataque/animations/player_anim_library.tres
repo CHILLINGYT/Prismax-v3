@@ -1,4 +1,4 @@
-[gd_resource type="AnimationLibrary" format=3]
+[gd_resource type="AnimationLibrary" format=3 uid="uid://d3rj3sqsndim"]
 
 [sub_resource type="Animation" id="Animation_ot4pr"]
 resource_name = "combat_idle"

@@ -711,38 +711,36 @@ func _unhandled_input(event: InputEvent) -> void:
 	# pulsar los iconos: se anula el "clic para recapturar" durante ese tiempo.
 	if _menu_abierto:
 		return
-	# G: interruptor directo del cambio de forma (alternativa al menú radial F).
-	# is_action_pressed ya respeta "just_pressed": mantener G no re-transforma.
-	if event.is_action_pressed("transformacion_velocidad"):
-		_alternar_forma_con_efecto()
-		return
+	# El cambio de forma se hace EXCLUSIVAMENTE con el menú radial (F). El antiguo
+	# interruptor directo humano <-> velocista se eliminó del juego.
 	# K (sólo para probar el HUD): aplica daño al personaje.
 	if event.is_action_pressed("dano_prueba"):
 		estadisticas.recibir_danio(25.0)
 		return
-	# Pes (forma acuática): las teclas 1-4 lanzan sus 4 habilidades. Sólo se leen
-	# aquí: en las demás formas estas teclas conservan su significado (no se
-	# añaden acciones globales, así que no afectan a Leo/velocista/Fuerza).
-	if forma == Forma.ACUATICO and event is InputEventKey and event.pressed \
-			and not (event as InputEventKey).echo:
-		var k := (event as InputEventKey).keycode
-		if k == KEY_1 or k == KEY_2 or k == KEY_3 or k == KEY_4:
-			_intentar_habilidad_agua(k - KEY_1 + 1)
-			get_viewport().set_input_as_handled()
-			return
-	# Fuerza: R = embestida, E = pisotón (sólo en el aire), Q = arrancar roca.
-	if forma == Forma.FUERZA and event is InputEventKey and event.pressed \
-			and not (event as InputEventKey).echo:
-		var fk := (event as InputEventKey).keycode
-		if fk == KEY_R:
+	# Pes (forma acuática): las acciones de agua 1-4 lanzan sus 4 habilidades.
+	# Son acciones del Input Map (reasignables desde CONFIGURACIÓN > CONTROLES) y
+	# sólo se atienden en esta forma, así que en las demás conservan su sentido.
+	# is_action_pressed(action) sobre el PROPIO evento respeta la pulsación única
+	# (ignora los eventos "echo" de la tecla mantenida) igual que antes.
+	if forma == Forma.ACUATICO:
+		for i in ABIL_AGUA.size():
+			var accion_agua := StringName("agua_habilidad_%d" % (i + 1))
+			if event.is_action_pressed(accion_agua):
+				_intentar_habilidad_agua(i + 1)
+				get_viewport().set_input_as_handled()
+				return
+	# Fuerza: embestida (R), pisotón (E, sólo en el aire) y arrancar roca (Q).
+	# Igual que las habilidades de agua: acciones del Input Map, reasignables.
+	if forma == Forma.FUERZA:
+		if event.is_action_pressed("fuerza_embestida"):
 			_iniciar_embestida_fuerza()
 			get_viewport().set_input_as_handled()
 			return
-		elif fk == KEY_E:
+		elif event.is_action_pressed("fuerza_slam"):
 			_intentar_slam_fuerza()
 			get_viewport().set_input_as_handled()
 			return
-		elif fk == KEY_Q:
+		elif event.is_action_pressed("fuerza_roca"):
 			_intentar_roca_fuerza()
 			get_viewport().set_input_as_handled()
 			return
@@ -1126,13 +1124,6 @@ func _on_transformacion_elegida(id: StringName) -> void:
 			pass
 
 # =============================================================== TRANSFORMACIÓN
-func _alternar_forma() -> void:
-	# La tecla G alterna hacia VELOCISTA (desde humano o acuático) y de vuelta a humano.
-	if forma == Forma.VELOCISTA:
-		_entrar_humano()
-	else:
-		_entrar_velocista()
-
 # Transición visual al cambiar de forma. Reproduce el efecto de EfectoTransformacion
 # (el MISMO de la transformación velocista), cambia de forma en su pico y espera a
 # que el efecto termine antes de devolver el control. No duplica el sistema de efectos.
@@ -1178,11 +1169,6 @@ func _id_forma(id: int) -> StringName:
 			return &"combate"
 		_:
 			return &"humano"
-
-# Interruptor directo (tecla G): alterna humano <-> velocista.
-func _alternar_forma_con_efecto() -> void:
-	var destino := Forma.HUMANO if forma == Forma.VELOCISTA else Forma.VELOCISTA
-	_transicionar(destino)
 
 # Elige una forma desde el menú radial (F): si ya se está en esa forma, vuelve
 # a humano. Así cualquier transformación se puede "desactivar" desde el HUD.
@@ -1442,11 +1428,12 @@ func _procesar_humano(delta: float) -> void:
 	if h_salto_aire and is_on_floor():
 		h_salto_aire = false
 
-	# Agacharse con CTRL (misma mecánica que el Leo original): no mientras salta.
-	h_agachado = Input.is_key_pressed(KEY_CTRL) and not h_salto_aire
+	# Agacharse (acción "agacharse", reasignable desde CONTROLES; antes leía CTRL
+	# directo): no mientras salta.
+	h_agachado = Input.is_action_pressed("agacharse") and not h_salto_aire
 
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_key_pressed(KEY_SHIFT) and not h_agachado
+	var corriendo := Input.is_action_pressed("correr") and not h_agachado
 	var vel_objetivo := h_vel_caminar
 	if h_agachado:
 		vel_objetivo = H_VEL_AGACHADO
@@ -1506,7 +1493,7 @@ func _actualizar_anim_humano(delta: float) -> void:
 	anim_humano.speed_scale = 1.0
 	if rapidez < H_UMBRAL_MOVIMIENTO:
 		_reproducir_humano(ANIM_H_IDLE)
-	elif Input.is_key_pressed(KEY_SHIFT):
+	elif Input.is_action_pressed("correr"):
 		_reproducir_humano(_clip_humano([ANIM_H_RUN, ANIM_H_WALK]))
 	else:
 		_reproducir_humano(ANIM_H_WALK)
@@ -1599,10 +1586,10 @@ func _procesar_acuatico(delta: float) -> void:
 	if a_salto_aire and is_on_floor():
 		a_salto_aire = false
 
-	a_agachado = Input.is_key_pressed(KEY_CTRL) and not a_salto_aire
+	a_agachado = Input.is_action_pressed("agacharse") and not a_salto_aire
 
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_key_pressed(KEY_SHIFT) and not a_agachado
+	var corriendo := Input.is_action_pressed("correr") and not a_agachado
 	var vel_objetivo := h_vel_caminar
 	if a_agachado:
 		vel_objetivo = H_VEL_AGACHADO
@@ -1692,7 +1679,7 @@ func _cota_flotacion() -> float:
 ## usa tanto nadando como durante una habilidad lanzada desde el agua, para que el
 ## personaje no se hunda mientras la reproduce.
 func _aplicar_vertical_acuatico(delta: float) -> void:
-	if Input.is_key_pressed(KEY_CTRL):
+	if Input.is_action_pressed("agacharse"):
 		velocity.y = move_toward(velocity.y, -A_VEL_VERTICAL_NADO, A_ACEL_NADO * 2.0 * delta)
 		return
 	# "Saltar" bajo el agua ES nadar hacia arriba, pero ACOTADO a la cota de
@@ -1720,9 +1707,10 @@ func _procesar_nado(delta: float) -> void:
 	a_salto_aire = false
 	a_agachado = false
 	var dir := _direccion_entrada()
-	# SHIFT nadando = NADO RÁPIDO. Sólo cambia el horizontal: la vertical la siguen
-	# mandando flotar (espacio) y bucear (CTRL), así que no se despega del agua.
-	var rapido := Input.is_key_pressed(KEY_SHIFT)
+	# Mantener "correr" nadando = NADO RÁPIDO. Sólo cambia el horizontal: la vertical
+	# la siguen mandando flotar (saltar) y bucear (agacharse), así que no se
+	# despega del agua.
+	var rapido := Input.is_action_pressed("correr")
 	var vel_nado := A_VEL_NADO_RAPIDO if rapido else A_VEL_NADO
 	var acel_nado := A_ACEL_NADO_RAPIDO if rapido else A_ACEL_NADO
 	# Al SOLTAR SHIFT el cuerpo no vuelve de golpe al nado normal: desacelera con
@@ -1981,7 +1969,7 @@ func _duracion_clip_acuatico(nombre: String) -> float:
 ## vertical acuática). Se usa para no sacar el cuerpo a flote, sin querer, mientras
 ## lanza una habilidad nadando.
 func _tecla_vertical_agua() -> bool:
-	return Input.is_action_pressed("saltar") or Input.is_key_pressed(KEY_CTRL)
+	return Input.is_action_pressed("saltar") or Input.is_action_pressed("agacharse")
 
 
 ## Daño del golpe acuático (clic). Es un golpe corto por DELANTE del cuerpo contra el
@@ -2087,7 +2075,7 @@ func _actualizar_anim_acuatico(delta: float) -> void:
 	anim_acuatico.speed_scale = 1.0
 	if rapidez < H_UMBRAL_MOVIMIENTO:
 		_reproducir_acuatico(ANIM_A_IDLE)
-	elif Input.is_key_pressed(KEY_SHIFT):
+	elif Input.is_action_pressed("correr"):
 		_reproducir_acuatico(ANIM_A_RUN)
 	else:
 		_reproducir_acuatico(ANIM_A_WALK)
@@ -2336,9 +2324,9 @@ func _procesar_fuerza(delta: float) -> void:
 	if f_salto_aire and is_on_floor():
 		f_salto_aire = false
 
-	f_agachado = Input.is_key_pressed(KEY_CTRL) and not f_salto_aire
+	f_agachado = Input.is_action_pressed("agacharse") and not f_salto_aire
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_key_pressed(KEY_SHIFT) and not f_agachado
+	var corriendo := Input.is_action_pressed("correr") and not f_agachado
 	var vel := F_VEL_CAMINAR
 	if f_agachado:
 		vel = F_VEL_CAMINAR * 0.6
@@ -2487,7 +2475,7 @@ func _clip_fuerza() -> String:
 	# Locomoción normal.
 	if _rapidez_horizontal() < H_UMBRAL_MOVIMIENTO:
 		return ANIM_F_IDLE
-	return ANIM_F_RUN if Input.is_key_pressed(KEY_SHIFT) else ANIM_F_WALK
+	return ANIM_F_RUN if Input.is_action_pressed("correr") else ANIM_F_WALK
 
 func _rapidez_horizontal() -> float:
 	return Vector2(velocity.x, velocity.z).length()
