@@ -13,6 +13,10 @@ config_version=5
 run/main_scene="res://ui/scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7")
 
+[autoload]
+
+AjustesGraficos="*res://ui/scripts/ajustes_graficos.gd"
+
 [display]
 
 window/stretch/mode="canvas_items"
