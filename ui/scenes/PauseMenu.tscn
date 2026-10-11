@@ -186,7 +186,7 @@ theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 script = ExtResource("2_option")
 action = 4
-description = "AUDIO: Ajustes de sonido (próximamente)."
+description = "AUDIO: Volumen general, música, efectos y diálogos."
 
 [node name="Label" type="Label" parent="Root/MenuPanel/Content/OptionsList/ConfigItems/AudioOption" unique_id=358059480]
 layout_mode = 2
@@ -876,3 +876,157 @@ text = "CANCELAR"
 unique_name_in_owner = true
 layout_mode = 2
 text = "RESTABLECER"
+
+[node name="AudioContent" type="VBoxContainer" parent="Root/ConfigPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 35.0
+offset_top = 74.0
+offset_right = -35.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="VolumenGeneralFila" type="HBoxContainer" parent="Root/ConfigPanel/AudioContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/AudioContent/VolumenGeneralFila"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "VOLUMEN GENERAL"
+vertical_alignment = 1
+
+[node name="VolumenGeneralBarra" type="Control" parent="Root/ConfigPanel/AudioContent/VolumenGeneralFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+script = ExtResource("5_barra")
+maximo = 100
+
+[node name="VolumenGeneralValor" type="Label" parent="Root/ConfigPanel/AudioContent/VolumenGeneralFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "100"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="VolumenMusicaFila" type="HBoxContainer" parent="Root/ConfigPanel/AudioContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/AudioContent/VolumenMusicaFila"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "VOLUMEN DE MÚSICA"
+vertical_alignment = 1
+
+[node name="VolumenMusicaBarra" type="Control" parent="Root/ConfigPanel/AudioContent/VolumenMusicaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+script = ExtResource("5_barra")
+maximo = 100
+
+[node name="VolumenMusicaValor" type="Label" parent="Root/ConfigPanel/AudioContent/VolumenMusicaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "80"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="VolumenEfectosFila" type="HBoxContainer" parent="Root/ConfigPanel/AudioContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/AudioContent/VolumenEfectosFila"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "VOLUMEN DE EFECTOS"
+vertical_alignment = 1
+
+[node name="VolumenEfectosBarra" type="Control" parent="Root/ConfigPanel/AudioContent/VolumenEfectosFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+script = ExtResource("5_barra")
+maximo = 100
+
+[node name="VolumenEfectosValor" type="Label" parent="Root/ConfigPanel/AudioContent/VolumenEfectosFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "80"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="DialogosFila" type="HBoxContainer" parent="Root/ConfigPanel/AudioContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/AudioContent/DialogosFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "DESACTIVAR DIÁLOGOS"
+vertical_alignment = 1
+
+[node name="DialogosIzq" type="Button" parent="Root/ConfigPanel/AudioContent/DialogosFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+flat = true
+
+[node name="DialogosValor" type="Label" parent="Root/ConfigPanel/AudioContent/DialogosFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DialogosDer" type="Button" parent="Root/ConfigPanel/AudioContent/DialogosFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+flat = true
