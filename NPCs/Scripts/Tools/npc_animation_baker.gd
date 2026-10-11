@@ -93,6 +93,13 @@ const UAL_MAP := {
 const ARP_TARGET := "res://Assets NPCS/UrbanMan_PolyMate_alstrainfinite/GLB/UrbanMan_CityFolks_PolyMate.glb"
 const OUT_LIBRARY_ARP := "res://NPCs/Animations/Citizen_Animations_ARP.res"
 
+## Rig de los modelos que usa el juego AHORA (los 7 FBX de Mixamo de la carpeta del usuario).
+## Importa que la librería se hornee contra ESTE rig: las poses guardan el roll del reposo del
+## destino, así que una librería horneada para otro reposo deja a estos modelos con el cuerpo
+## girado 90° (ver la nota de build_mixamo()).
+const TARGET_RIG_MIXAMO := "res://modelos 3d npcs/Ch01_nonPBR.fbx"
+const OUT_LIBRARY_MIXAMO := "res://NPCs/Animations/Citizen_Animations_Mixamo.res"
+
 const ARP_NAME_OF := {
 	"mixamorig_Hips": "root.x",
 	"mixamorig_Spine": "spine_01.x",
@@ -236,11 +243,33 @@ var _rig_cache: Dictionary = {}
 var _report: Array[String] = []
 
 
-## Hornea la librería del rig Mixamo (modelos PSX: es la de siempre) más los tres clips de aire y
-## los de vida cotidiana. Se mantiene como superconjunto de lo que pide el árbol de estados, así
-## que ningún rig se queda sin los clips que la máquina de estados conoce.
+## Clips de POSTURA (etapa de peatones): sentarse en un banco y recostarse en una reposera.
+## Son animaciones REALES de los packs, no poses inventadas:
+##   · UAL1 "Sitting_Enter/Idle/Talking/Exit" (1,03-2,93 s): sentarse, estar sentado, hablar
+##     sentado y levantarse. El horneador ya las había medido y descartado para deambular
+##     («necesitan un objeto o un sitio donde sentarse»); ahora ese sitio EXISTE (bancos y
+##     reposeras de la ciudad), que es justo lo que les faltaba.
+##   · UAL2 "LayToIdle": empieza TUMBADO y acaba de pie. Se hornea dos veces:
+##       lie_down  = invertido (de pie -> tumbado; se queda en la pose tumbada al terminar),
+##       lie_up    = tal cual   (tumbado -> de pie, para levantarse de la reposera).
+const JOBS_POSTURA := [
+	{"clip": "sit_enter", "rig": DIR_UAL1, "anim": "Sitting_Enter", "map": UAL_MAP, "loop": false, "kind": "sit"},
+	{"clip": "sit_idle", "rig": DIR_UAL1, "anim": "Sitting_Idle", "map": UAL_MAP, "loop": true, "kind": "sit"},
+	{"clip": "sit_talk", "rig": DIR_UAL1, "anim": "Sitting_Talking", "map": UAL_MAP, "loop": true, "kind": "sit"},
+	{"clip": "sit_exit", "rig": DIR_UAL1, "anim": "Sitting_Exit", "map": UAL_MAP, "loop": false, "kind": "sit"},
+	{"clip": "lie_down", "rig": DIR_UAL2, "anim": "LayToIdle", "map": UAL_MAP, "loop": false, "kind": "lie", "invertir": true},
+	{"clip": "lie_up", "rig": DIR_UAL2, "anim": "LayToIdle", "map": UAL_MAP, "loop": false, "kind": "lie"},
+]
+
+
+## Hornea la librería del rig Mixamo (modelos PSX: es la de siempre) más los tres clips de aire,
+## los de vida cotidiana y los de postura (bancos y reposeras). Se mantiene como superconjunto de
+## lo que pide el árbol de estados, así que ningún rig se queda sin los clips que la máquina de
+## estados conoce.
 static func build_all() -> Array[String]:
-	return NPCAnimationBaker.new()._build_all(TARGET_RIG, {}, OUT_LIBRARY, JOBS + JOBS_AIR + JOBS_SOCIAL, true)
+	return NPCAnimationBaker.new()._build_all(
+		TARGET_RIG, {}, OUT_LIBRARY, JOBS + JOBS_AIR + JOBS_SOCIAL + JOBS_POSTURA, true
+	)
 
 
 ## Hornea la librería del rig Auto-Rig Pro (City Folks / Urban Man): los mismos clips validados
@@ -251,13 +280,58 @@ static func build_all_arp() -> Array[String]:
 	)
 
 
-func _build_all(target_path: String, name_of: Dictionary, out_library: String, jobs: Array, with_extras: bool) -> Array[String]:
+## Hornea la librería del rig de los modelos Mixamo que usa el juego (Ch01..Ch33).
+##
+## POR QUÉ HACE FALTA: el retarget copia la DIRECCIÓN de cada hueso y su twist, pero el resultado
+## se expresa en el marco del REPOSO del rig destino. La librería vieja se horneó contra
+## "PSX/Male/Character_01.fbx": aplicada a estos modelos (reposo Mixamo estándar) el cuerpo sale
+## torsionado 90° — el pecho mira al costado mientras las piernas avanzan hacia +Z. Horneando
+## contra el rig real, el roll vuelve a coincidir y el cuerpo mira hacia donde camina.
+## Los huesos del destino se canonizan ("mixamorig7_Hips" -> "mixamorig_Hips") para que UNA sola
+## librería sirva a los siete modelos: en juego cada ciudadano renombra sus huesos a esa forma.
+static func build_mixamo() -> Array[String]:
+	var baker := NPCAnimationBaker.new()
+	var rep: Array[String] = baker._build_all(
+		TARGET_RIG_MIXAMO, {}, OUT_LIBRARY_MIXAMO, JOBS + JOBS_AIR + JOBS_SOCIAL + JOBS_POSTURA,
+		false, true
+	)
+	# Los tres clips de AIRE salían del pack RPG, que ya no está en el proyecto. Se copian de la
+	# librería anterior para no perder el salto del personaje de prueba (los ciudadanos no saltan).
+	rep.append_array(baker._heredar_clips(OUT_LIBRARY_MIXAMO, OUT_LIBRARY,
+			["jump_m1", "fall_m1", "land_m1"]))
+	return rep
+
+
+## Copia clips sueltos de una librería a otra (los que no se pudieron hornear por falta de fuente).
+func _heredar_clips(destino: String, origen: String, clips: Array) -> Array[String]:
+	var out: Array[String] = []
+	var lib := load(destino) as AnimationLibrary
+	var vieja := load(origen) as AnimationLibrary
+	if lib == null or vieja == null:
+		out.append("ERROR  no se pudieron heredar clips (%s / %s)" % [destino, origen])
+		return out
+	for c: String in clips:
+		if lib.has_animation(c):
+			continue
+		var a: Animation = vieja.get_animation(c)
+		if a == null:
+			continue
+		lib.add_animation(c, a)
+		out.append("heredado %-9s de la librería anterior (%.2fs)" % [c, a.length])
+	out.append("library -> %s (%d clips, err=%d)" % [destino, lib.get_animation_list().size(),
+			ResourceSaver.save(lib, destino)])
+	return out
+
+
+func _build_all(target_path: String, name_of: Dictionary, out_library: String, jobs: Array, with_extras: bool, canonizar := false) -> Array[String]:
 	for out: String in [out_library, OUT_TREE, OUT_NAVMESH]:
 		DirAccess.make_dir_recursive_absolute(out.get_base_dir())
 	var target: Dictionary = _load_rig(target_path, "target")
 	if target.is_empty():
 		_report.append("ERROR  no se pudo cargar el rig destino %s" % target_path)
 		return _report
+	if canonizar:
+		_canonizar_nombres(target)
 	target["name_of"] = name_of
 	var library := AnimationLibrary.new()
 	for job: Dictionary in jobs:
@@ -269,7 +343,8 @@ func _build_all(target_path: String, name_of: Dictionary, out_library: String, j
 		if anim == null:
 			_report.append("ERROR  sin animación en %s (%s)" % [job["rig"], job["anim"]])
 			continue
-		var clip: Animation = _retarget(target, src, anim, job["map"], job["loop"], String(job.get("kind", "")))
+		var clip: Animation = _retarget(target, src, anim, job["map"], job["loop"],
+				String(job.get("kind", "")), bool(job.get("invertir", false)))
 		if clip == null:
 			_report.append("ERROR  no se pudo retargetear %s" % job["clip"])
 			continue
@@ -289,6 +364,21 @@ func _build_all(target_path: String, name_of: Dictionary, out_library: String, j
 
 
 # ---------------------------------------------------------------- carga de rigs
+
+## Deja los nombres de hueso del rig destino en su forma canónica ("mixamorig7_Hips" ->
+## "mixamorig_Hips"). Los FBX de Mixamo numeran el prefijo según el personaje, y en juego cada
+## ciudadano renombra sus huesos a esa misma forma antes de entrar al árbol, así que una única
+## librería horneada con los nombres canónicos vale para los siete modelos.
+func _canonizar_nombres(rig: Dictionary) -> void:
+	var names: PackedStringArray = rig["names"]
+	for i in names.size():
+		var n := String(names[i])
+		if not n.begins_with("mixamorig"):
+			continue
+		var pos := n.find("_")
+		if pos > 0:
+			names[i] = "mixamorig_" + n.substr(pos + 1)
+
 
 func _load_rig(path: String, role: String) -> Dictionary:
 	if _rig_cache.has(path):
@@ -502,7 +592,10 @@ func _sample_vec(anim: Animation, track: int, time: float) -> Vector3:
 
 # ---------------------------------------------------------------- retarget
 
-func _retarget(target: Dictionary, src: Dictionary, anim: Animation, bone_map: Dictionary, loop: bool, kind: String) -> Animation:
+## `invertir` muestrea el clip al revés (de su final a su principio): así "LayToIdle" da el
+## movimiento de tumbarse (de pie -> tumbado) con la pose tumbada al final. El clip resultante
+## se reproduce hacia adelante como cualquier otro.
+func _retarget(target: Dictionary, src: Dictionary, anim: Animation, bone_map: Dictionary, loop: bool, kind: String, invertir: bool = false) -> Animation:
 	# Índices de track por hueso de origen
 	var rot_tracks: Dictionary = {}
 	var pos_tracks: Dictionary = {}
@@ -564,7 +657,7 @@ func _retarget(target: Dictionary, src: Dictionary, anim: Animation, bone_map: D
 	var tgt_fwd_axis := _forward_dir(target).normalized()
 
 	for frame in frames + 1:
-		var t := frame * step
+		var t := (length - frame * step) if invertir else frame * step
 		# --- globals del rig de origen
 		var sg: Array[Transform3D] = []
 		sg.resize(src["names"].size())
@@ -738,6 +831,15 @@ func _build_tree() -> void:
 		"turn_l": Vector2(380, 420),
 		"turn_r": Vector2(380, 580),
 		"react": Vector2(120, 420),
+		# Postura: sentarse en un banco (entrar, estar, cambiar de postura, salir) y tumbarse
+		# en una reposera (bajar y subir). Los usan los ciudadanos de la ciudad; el jugador de
+		# prueba nunca entra aquí, así que son estados inofensivos para él.
+		"sit_enter": Vector2(380, 780),
+		"sit_idle": Vector2(560, 780),
+		"sit_talk": Vector2(740, 780),
+		"sit_exit": Vector2(920, 780),
+		"lie_down": Vector2(560, 940),
+		"lie_up": Vector2(760, 940),
 		# Aire: los usan sólo los personajes con salto (el jugador de prueba). Los ciudadanos
 		# nunca piden estos estados, así que para ellos son estados muertos que no molestan.
 		"jump": Vector2(640, 100),
@@ -773,6 +875,24 @@ func _build_tree() -> void:
 		["fall", "land", 0.10, false],
 		["land", "idle", 0.25, false],
 		["land", "walk", 0.25, true],
+		# Postura en un banco: se entra desde el caminar (o desde un quieto), se pasa de
+		# "sentarse" a "sentado" (y a "hablando sentado"), y se sale a andar o a quieto.
+		# Fundidos cortos: el clip ya trae el movimiento de bajar y subir el cuerpo.
+		["walk", "sit_enter", 0.30, false],
+		["jog", "sit_enter", 0.30, false],
+		["sit_enter", "sit_idle", 0.30, false],
+		["sit_idle", "sit_talk", 0.60, true],
+		["sit_talk", "sit_idle", 0.60, true],
+		["sit_idle", "sit_exit", 0.25, false],
+		["sit_talk", "sit_exit", 0.25, false],
+		["sit_exit", "walk", 0.30, false],
+		["sit_exit", "idle", 0.30, false],
+		# Postura en una reposera: tumbarse desde el caminar o el quieto, y levantarse.
+		["walk", "lie_down", 0.50, false],
+		["jog", "lie_down", 0.50, false],
+		["lie_down", "lie_up", 0.20, false],
+		["lie_up", "walk", 0.35, false],
+		["lie_up", "idle", 0.35, false],
 	]
 	# Cruces de los cuatro huecos de idle: de cualquiera a cualquiera (fundido largo, 0,60 s, para
 	# que el cambio de postura no se note como un salto), salida a andar y a saltar desde todos, y
@@ -785,6 +905,8 @@ func _build_tree() -> void:
 		links.append([a, "walk", 0.25, true])
 		links.append([a, "react", 0.30, true])
 		links.append([a, "jump", 0.10, false])
+		links.append([a, "sit_enter", 0.35, false])
+		links.append([a, "lie_down", 0.50, false])
 		links.append(["walk", a, 0.30, false])
 	for link: Array in links:
 		var transition := AnimationNodeStateMachineTransition.new()
