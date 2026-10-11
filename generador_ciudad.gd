@@ -187,6 +187,26 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 ## Va en fase con el ciclo de día y noche, igual que las farolas de la calle.
 @export var ventanas_noche: bool = true
 
+@export_group("6c. Peatones (la ciudad habitada)")
+## Ciudadanos que recorren la ciudad por la RED PEATONAL (veredas y pasos de
+## peatones pintados; la calzada no es superficie válida). Configuración
+## centralizada: cantidad, reparto por plazas y por la costa, y topes de
+## ocupación de bancos y reposeras.
+@export var peatones_activos: bool = true
+## Ciudadanos totales (los que reparte este generador).
+@export_range(0, 200) var peatones_total: int = 52
+## Fracción de ciudadanos cuyo destino son plazas y parques.
+@export_range(0.0, 1.0) var peatones_plaza: float = 0.28
+## Peatones del frente costero (paseo, arena y reposeras).
+@export_range(0, 60) var peatones_playa: int = 12
+## Asientos de banco ocupados como máximo (el resto quedan libres).
+@export_range(0, 100) var peatones_sentados: int = 14
+## Reposeras ocupadas como máximo (siempre quedan reposeras vacías).
+@export_range(0, 100) var peatones_tumbados: int = 9
+## Auditoría de seguridad en ejecución: comprueba cada segundo que ningún
+## peatón esté sobre el asfalto fuera de un paso de peatones (queda en consola).
+@export var peatones_auditoria: bool = false
+
 @export_group("7. Colisiones")
 @export var colisiones_suelo: bool = true
 @export var colisiones_edificios: bool = true
@@ -268,6 +288,21 @@ var _factor_ventanas_edificio := 0.5               ## "vida nocturna" del edific
 # --- Ruidos de agrupación de las plantas costeras ------------------------------
 var _ruido_costa: FastNoiseLite = null    ## manchas de arbolado del prado costero
 var _ruido_palmas: FastNoiseLite = null   ## grupos y claros de palmeras
+# --- Datos para los peatones (los llena la generación, los usa el DirectorPeatones) ---
+var _cruces_peatones: Array = []          ## brazos con paso de peatones pintado
+var _bancos_datos: Array = []             ## {pos, giro} de cada banco colocado
+var _plazas_datos: Array[Rect2] = []      ## solares resueltos como plaza
+var _parques_datos: Array[Rect2] = []     ## manzanas-parque
+var _paseo_datos: Array = []              ## cadenas de centros de tramo del paseo
+var _playa_tramos: Array = []             ## {borde, hacia_mar, a0, a1, lado} de la arena seca
+var _arena_datos: Array = []              ## cadenas de nodos de la calle de arena elegida
+var _reposeras_datos: Array = []          ## {pos, yaw, variante} de cada reposera
+var _obstaculos_plantas: Array[Vector3] = []  ## base de cada planta (peatones: rodearlas)
+## Obstáculos sólidos para los peatones (círculos en planta: {x, z, r}): troncos, canteros,
+## bancos, reposeras y postes de sombrilla. El DirectorPeatones los usa para la evitación
+## local; aquí se apuntan en el momento de colocar cada pieza.
+var _obstaculos_peatones: Array = []
+var director_peatones: Node = null        ## DirectorPeatones de la ciudad actual
 var _mat_techo := {}                       ## lado de la plancha -> material de membrana
 ## Vegetación: matrices y colores agrupados POR TEXTURA (tarjetas cruzadas de
 ## `Vegetacion`), para volcar una MultiMeshInstance3D por especie.
@@ -358,6 +393,7 @@ func generar_ciudad() -> void:
 	_volcar_macetas()
 	_volcar_playa()
 	_volcar_ventanas()
+	_generar_peatones()
 
 	# 4) Cierre -------------------------------------------------------------
 	if Engine.is_editor_hint():
@@ -521,10 +557,51 @@ func generar_ciudad_por_etapas() -> bool:
 	_volcar_macetas()
 	_volcar_playa()
 	_volcar_ventanas()
+	_generar_peatones()
 
 	_informe(Time.get_ticks_msec() - t0)
 	progreso_generacion.emit(1.0, "listo")
 	return true
+
+
+## Crea el DirectorPeatones de esta ciudad: la ciudad habitada. Le pasa los datos
+## reales del mapa (trazado, plazas, parques, cruces pintados, paseo, arena, bancos
+## y reposeras) y la configuración centralizada del grupo "6c. Peatones".
+##
+## El director construye la RED PEATONAL (veredas, cruces pintados, plazas, parques,
+## paseo y arena) y coloca a los ciudadanos sobre ella: se mueven sólo por sus
+## aristas y cruzan la calzada únicamente por los pasos que el generador ha pintado.
+func _generar_peatones() -> void:
+	director_peatones = null
+	if not peatones_activos:
+		return
+	var raiz := get_node_or_null(NODO_CIUDAD)
+	if raiz == null:
+		return
+	var jefe := Node3D.new()
+	jefe.name = "Peatones"
+	jefe.set_script(load("res://NPCs/Scripts/director_peatones.gd"))
+	raiz.add_child(jefe)
+	jefe.set("cantidad_total", peatones_total)
+	jefe.set("cantidad_playa", mini(peatones_playa, peatones_total))
+	jefe.set("proporcion_plaza", peatones_plaza)
+	jefe.set("max_sentados", peatones_sentados)
+	jefe.set("max_tumbados", peatones_tumbados)
+	jefe.set("auditoria", peatones_auditoria)
+	jefe.call("instalar", {
+		"trazado": _trazado,
+		"manzanas": Vector2i(manzanas_x, manzanas_z),
+		"plazas": _plazas_datos,
+		"parques": _parques_datos,
+		"cruces": _cruces_peatones,
+		"paseo": _paseo_datos,
+		"arena": _arena_datos,
+		"bancos": _bancos_datos,
+		"reposeras": _reposeras_datos,
+		"obstaculos": _obstaculos_plantas,
+		"mobiliario": _obstaculos_peatones,
+	})
+	director_peatones = jefe
 
 
 ## Elimina los nodos de la ciudad generada y limpia las cachés.
@@ -549,6 +626,18 @@ func limpiar_ciudad() -> void:
 	_pistas_ventana.clear()
 	_datos_ventana.clear()
 	_vent_medidas.clear()
+	# Datos de los peatones: cada generación los vuelve a llenar desde cero.
+	_cruces_peatones.clear()
+	_bancos_datos.clear()
+	_plazas_datos.clear()
+	_parques_datos.clear()
+	_paseo_datos.clear()
+	_playa_tramos.clear()
+	_arena_datos.clear()
+	_reposeras_datos.clear()
+	_obstaculos_plantas.clear()
+	_obstaculos_peatones.clear()
+	director_peatones = null
 
 
 # =============================================================================
@@ -1561,6 +1650,8 @@ func _interseccion(px: float, pz: float, i: int, j: int) -> void:
 				var z := pz + sz * (calzada * 0.5 + 2.27)
 				_colocar(paso_pieza, _t(Vector3(px, Y_ACERA, z), PI * 0.5), cont_marcas)
 				_est["marcas"] = int(_est.get("marcas", 0)) + 1
+				# Paso de peatones REAL: los peatones sólo cruzarán por aquí.
+				_cruces_peatones.append({"i": i, "j": j, "lado": "N" if sz > 0.0 else "S"})
 		for sx: float in [-1.0, 1.0]:
 			if i + int(sx) < 0 or i + int(sx) > manzanas_x:
 				continue
@@ -1568,6 +1659,7 @@ func _interseccion(px: float, pz: float, i: int, j: int) -> void:
 				var x := px + sx * (calzada * 0.5 + 2.27)
 				_colocar(paso_pieza, _t(Vector3(x, Y_ACERA, pz), 0.0), cont_marcas)
 				_est["marcas"] = int(_est.get("marcas", 0)) + 1
+				_cruces_peatones.append({"i": i, "j": j, "lado": "E" if sx > 0.0 else "W"})
 
 
 # =============================================================================
@@ -1604,6 +1696,8 @@ func _generar_paseo_costero() -> void:
 		var base: Vector2 = lado["desde"]
 		var dir: Vector2 = lado["dir"]
 		var nor: Vector2 = lado["nor"]
+		# Cada lado costero es una cadena propia de paseo para la red peatonal.
+		_paseo_datos.append([])
 		var d := 0.0
 		while d <= largo_lado:
 			var borde: Vector2 = base + dir * d
@@ -1680,6 +1774,10 @@ func _poner_tramo_paseo(rel: Relieve, padre: Node3D, borde: Vector2, dir: Vector
 	padre.add_child(cuerpo)
 	var n := int(_est.get("paseo", 0)) + 1
 	_est["paseo"] = n
+	# Nodo de la red peatonal en el eje del tramo (con la cota real del paseo).
+	if not _paseo_datos.is_empty():
+		(_paseo_datos[_paseo_datos.size() - 1] as Array).append(Vector3(
+				centro.x, (h_mas + h_menos) * 0.5 + 0.03, centro.y))
 	# Vegetación costera sobre el borde exterior del paseo (ya dentro del pasto).
 	if n % 4 == 0:
 		var v: Vector2 = borde + nor * (ancho + 0.8)
@@ -1780,6 +1878,7 @@ func _parque(rect: Rect2) -> void:
 	var centro := rect.get_center()
 	var cont_aceras: Node3D = _cont["Aceras"]
 	_est["parques"] = int(_est.get("parques", 0)) + 1
+	_parques_datos.append(rect)          # los peatones pasean por aquí
 
 	# --- Césped: losa con colisión, 15 cm por debajo de la acera -------------
 	var alto := Y_PARQUE - Y_SUELO
@@ -1894,6 +1993,8 @@ func _bancos_parque(rect: Rect2) -> Array[Vector2]:
 		cuerpo.name = "BancoParque_%d" % (int(_est.get("bancos", 0)) + 1)
 		_marcar_owner(cuerpo)
 		_est["bancos"] = int(_est.get("bancos", 0)) + 1
+		_bancos_datos.append({"pos": Vector3(x, Y_PARQUE, z), "giro": giro})
+		_anadir_obstaculo_banco(Vector3(x, Y_PARQUE, z), giro)
 		puestos.append(Vector2(x, z))
 	return puestos
 
@@ -1910,6 +2011,7 @@ func _lejos_de_bancos(bancos: Array, x: float, z: float) -> bool:
 ## edificios que ocupan su parcela entera, tampoco deja huecos ocultos.
 func _plaza(rect: Rect2) -> void:
 	_est["plazas"] = int(_est.get("plazas", 0)) + 1
+	_plazas_datos.append(rect)           # los peatones pasean por aquí
 	# Pavimento a cota de acera con las losas sin bordillo del kit.
 	if pavimentar_manzanas and not _acera_pavimento.is_empty():
 		var n_x := maxi(1, int(round(rect.size.x / 3.0)))
@@ -1931,11 +2033,13 @@ func _plaza(rect: Rect2) -> void:
 		var bx := centro_plaza.x + _rng.randf_range(-0.8, 0.8)
 		var bz := centro_plaza.y + lado * (rect.size.y * 0.5 - 3.2)
 		var giro := PI if lado < 0.0 else 0.0
-		var cuerpo := Bancos.colocar(_cont["Props"],
-				_t(Vector3(bx, Y_ACERA, bz), giro + _rng.randf_range(-0.06, 0.06)))
+		var giro_final := giro + _rng.randf_range(-0.06, 0.06)
+		var cuerpo := Bancos.colocar(_cont["Props"], _t(Vector3(bx, Y_ACERA, bz), giro_final))
 		cuerpo.name = "BancoPlaza_%d" % (int(_est.get("bancos", 0)) + 1)
 		_marcar_owner(cuerpo)
 		_est["bancos"] = int(_est.get("bancos", 0)) + 1
+		_bancos_datos.append({"pos": Vector3(bx, Y_ACERA, bz), "giro": giro_final})
+		_anadir_obstaculo_banco(Vector3(bx, Y_ACERA, bz), giro_final)
 		bancos.append(Vector2(bx, bz))
 	var margen := 2.5
 	if generar_vegetacion and not _vegetacion.is_empty():
@@ -2403,6 +2507,9 @@ func _colocar_maceta(pos: Vector3, alto_arbol: float) -> void:
 	# (la malla del cantero trae DOS superficies — cemento y tierra —, así que
 	# no pasa por el lote normal de piezas).
 	_pistas_maceta.append(_t(p, giro, escala))
+	_obstaculos_plantas.append(p)
+	# El cantero es ancho (≈1,4 m con la escala de la acera): los peatones lo rodean.
+	_obstaculos_peatones.append({"x": p.x, "z": p.z, "r": 0.75})
 	_est["macetas"] = int(_est.get("macetas", 0)) + 1
 
 
@@ -2424,13 +2531,25 @@ func _colocar_arbusto(pos: Vector3, alto_min: float, alto_max: float) -> bool:
 	return true
 
 
-## Guarda una planta en el grupo de su textura (una MultiMesh por especie).
+## Apunta un banco como obstáculo para los peatones: dos círculos a lo ancho (el banco mide
+## 1,94 m de largo y 0,51 de fondo), uno por plaza de asiento.
+func _anadir_obstaculo_banco(pos: Vector3, giro: float) -> void:
+	var eje := Vector2(sin(giro + PI * 0.5), cos(giro + PI * 0.5))   # a lo largo del banco
+	for k: float in [-0.5, 0.5]:
+		_obstaculos_peatones.append({"x": pos.x + eje.x * k, "z": pos.z + eje.y * k, "r": 0.6})
+
+
+## Guarda una planta en el grupo de su textura (una MultiMesh por especie). También
+## apunta su posición en `_obstaculos_plantas`: los peatones deben poder rodearla
+## (vértices de plaza y parque apartados de los troncos).
 func _anadir_planta(ruta: String, xf: Transform3D, color: Color) -> void:
 	if not _pistas_planta.has(ruta):
 		_pistas_planta[ruta] = []
 		_tintes_planta[ruta] = []
 	(_pistas_planta[ruta] as Array).append(xf)
 	(_tintes_planta[ruta] as Array).append(color)
+	_obstaculos_plantas.append(xf.origin)
+	_obstaculos_peatones.append({"x": xf.origin.x, "z": xf.origin.z, "r": 0.5})
 
 
 ## Vuelca la vegetación en una MultiMeshInstance3D por ESPECIE (tarjetas cruzadas
@@ -2635,6 +2754,8 @@ func _generar_playa() -> void:
 	for lado: Dictionary in lados:
 		var base: Vector2 = lado["desde"]
 		var dir: Vector2 = lado["dir"]
+		# Cada lado de costa es una cadena propia de arena para la red peatonal.
+		_playa_tramos.append([])
 		var d := 0.0
 		while d <= float(lado["largo"]):
 			var borde: Vector2 = base + dir * d
@@ -2642,6 +2763,73 @@ func _generar_playa() -> void:
 			# (en las esquinas la búsqueda gira con la costa).
 			_playa_en_tramo(rel, borde, borde.normalized(), sombrillas, palmeras)
 			d += paso
+	# Con el mobiliario ya repartido se elige por dónde caminarán los peatones por
+	# la arena (la calle de arena) y se guarda cada reposera para las actividades.
+	_calcular_calle_arena(rel)
+	_tomar_datos_reposeras()
+
+
+## La "calle de arena" de la red peatonal: para cada tramo de playa seca se prueban tres
+## profundidades y se toma la que más se aparta de sombrillas, palmeras y reposeras, de
+## modo que los peatones caminan por la arena sin atravesar el mobiliario.
+func _calcular_calle_arena(rel: Relieve) -> void:
+	var obstaculos: Array[Vector2] = []
+	for e in 3:
+		for t: Transform3D in _pistas_sombrilla[e]:
+			obstaculos.append(Vector2(t.origin.x, t.origin.z))
+	for t2: Transform3D in _pistas_reposera:
+		obstaculos.append(Vector2(t2.origin.x, t2.origin.z))
+	for p: Transform3D in _pistas_palmera:
+		obstaculos.append(Vector2(p.origin.x, p.origin.z))
+	_arena_datos.clear()
+	var tramos_saltados := 0
+	for lado: Array in _playa_tramos:
+		var cadena: Array = []
+		for tramo: Dictionary in lado:
+			var borde: Vector2 = tramo["borde"]
+			var hacia: Vector2 = tramo["hacia_mar"]
+			var a0: float = tramo["a0"]
+			var a1: float = tramo["a1"]
+			if a1 - a0 < 10.0:
+				continue
+			var mejor := Vector3.ZERO
+			var mejor_d := -1.0
+			# Cinco profundidades: se busca la que deja más hueco libre de sombrillas, palmeras
+			# y reposeras. Si ni así hay 0,6 m de paso, este tramo no lleva calle de arena (los
+			# peatones saltan al siguiente tramo enlazado) antes que meterse en el mobiliario.
+			for f: float in [0.25, 0.35, 0.45, 0.55, 0.65]:
+				var a := lerpf(a0 + 1.5, a1 - 3.5, f)
+				var p: Vector2 = borde + hacia * a
+				var h := rel.altura(p.x, p.y)
+				if h > Relieve.COTA_ARENA or h < -1.2:
+					continue
+				var libre := 99.0
+				for o: Vector2 in obstaculos:
+					libre = minf(libre, p.distance_to(o))
+				if libre > mejor_d:
+					mejor_d = libre
+					mejor = Vector3(p.x, h, p.y)
+			if mejor_d >= 0.6:
+				cadena.append(mejor)
+			else:
+				tramos_saltados += 1
+		if not cadena.is_empty():
+			_arena_datos.append(cadena)
+	if tramos_saltados > 0:
+		print("[GeneradorCiudad] Calle de arena: %d tramos sin hueco libre suficiente (se saltan)" % tramos_saltados)
+
+
+## Guarda posición, giro y variante de cada reposera (para las actividades de playa).
+## Se toma ANTES de vaciar las pistas al volcar el mobiliario.
+func _tomar_datos_reposeras() -> void:
+	_reposeras_datos.clear()
+	for k in _pistas_reposera.size():
+		var t: Transform3D = _pistas_reposera[k]
+		_reposeras_datos.append({
+			"pos": t.origin,
+			"yaw": t.basis.get_euler().y,
+			"variante": 0 if (k % 2) == 0 else 1,
+		})
 
 
 ## Un tramo de playa: busca la arena (del borde del pasto al agua) avanzando
@@ -2674,6 +2862,10 @@ func _playa_en_tramo(rel: Relieve, borde: Vector2, hacia_mar: Vector2,
 	if a1 < 0.0:
 		a1 = a0 + 40.0
 	var ancho := a1 - a0
+	# Tramo de playa real: la red peatonal le pondrá una calle de arena.
+	if not _playa_tramos.is_empty():
+		(_playa_tramos[_playa_tramos.size() - 1] as Array).append({
+			"borde": borde, "hacia_mar": hacia_mar, "a0": a0, "a1": a1})
 	# 3) Palmeras: muchas más que antes, en tres franjas y con grupos/ claros
 	#    marcados por el ruido `_ruido_palmas` (donde sube, salen 2-4 juntas;
 	#    donde baja, tramos largos sin ninguna). Franjas:
@@ -2800,6 +2992,7 @@ func _anadir_palmera(pos: Vector3) -> void:
 	# Se hunde un poco para que la base no quede al aire en las pendientes.
 	_pistas_palmera.append(_t(pos - Vector3(0.0, 0.12, 0.0), _rng.randf_range(0.0, TAU), alto))
 	_est["palmeras"] = int(_est.get("palmeras", 0)) + 1
+	_obstaculos_peatones.append({"x": pos.x, "z": pos.z, "r": 0.55})
 
 
 ## Añade una sombrilla (esquema de color al azar) a la lista de su color.
@@ -2809,6 +3002,8 @@ func _anadir_sombrilla(pos: Vector3) -> void:
 			_t(pos - Vector3(0.0, 0.05, 0.0), _rng.randf_range(0.0, TAU),
 			_rng.randf_range(0.90, 1.12)))
 	_est["sombrillas"] = int(_est.get("sombrillas", 0)) + 1
+	# El poste de la sombrilla sí molesta a quien camina (la lona queda por encima).
+	_obstaculos_peatones.append({"x": pos.x, "z": pos.z, "r": 0.35})
 
 
 ## Añade una reposera orientada hacia el mar (el +Z local mira al mar).
@@ -2821,6 +3016,10 @@ func _anadir_reposera(pos: Vector3, hacia_mar: Vector2) -> void:
 	_pistas_reposera.append(_t(pos - Vector3(0.0, 0.035, 0.0), giro, _rng.randf_range(0.94, 1.06)))
 	_tintes_reposera.append(tinte)
 	_est["reposeras"] = int(_est.get("reposeras", 0)) + 1
+	# La reposera es un obstáculo para los peatones: tres círculos a lo largo del lecho.
+	var eje := Vector2(sin(giro), cos(giro))
+	for k: float in [-0.6, 0.0, 0.6]:
+		_obstaculos_peatones.append({"x": pos.x + eje.x * k, "z": pos.z + eje.y * k, "r": 0.5})
 
 
 ## Dibuja el mobiliario de playa: una MultiMeshInstance3D por modelo (las
@@ -3157,6 +3356,12 @@ func _informe(ms: int) -> void:
 	print("[GeneradorCiudad] MultiMeshInstance3D: %d | nodos instanciados: %d | tiempo: %.2f s"
 			% [multi, sueltos, float(ms) / 1000.0])
 	print("[GeneradorCiudad] Contenedores en nodo '%s'." % NODO_CIUDAD)
+	if director_peatones != null:
+		var rp: Dictionary = director_peatones.call("resumen")
+		print("[GeneradorCiudad] Peatones: %d ciudadanos | caminando %d · sentados %d · tumbados %d | bancos libres %d/%d reposeras libres %d/%d | cruces pintados %d" % [
+			rp.get("total", 0), rp.get("caminando", 0), rp.get("sentados", 0), rp.get("tumbados", 0),
+			rp.get("banco_libre", 0), _bancos_datos.size() * 2,
+			rp.get("reposera_libre", 0), _reposeras_datos.size(), _cruces_peatones.size()])
 
 
 ## Cuenta [MultiMeshInstance3D, piezas instanciadas] bajo un nodo.
