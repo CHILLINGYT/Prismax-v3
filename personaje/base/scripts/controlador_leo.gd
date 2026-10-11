@@ -693,6 +693,12 @@ func _exit_tree() -> void:
 	_indicador_objetivo = null
 
 func _ready() -> void:
+	# El personaje jugable se identifica con el grupo "player": lo esperan el
+	# módulo de NPC de la partida (peatones que reaccionan a Leo, director que no
+	# siembra gente encima del punto de inicio), el gestor del encuentro y el
+	# gerente de enemigos. Es la MISMA convención que usan los jugadores de los
+	# módulos, así que aquí no se crea ningún sistema nuevo.
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
 	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
@@ -3350,7 +3356,19 @@ func _puede_iniciar_golpe(action: String) -> bool:
 func _gestor_encuentro() -> Node:
 	if _gestor_combate == null or not is_instance_valid(_gestor_combate):
 		_gestor_combate = get_tree().get_first_node_in_group("combat_manager")
+		# El gestor ya avisa cuando un enemigo muere: con eso el objetivo se suelta
+		# al instante y nunca queda una referencia a un nodo liberado.
+		if _gestor_combate != null and _gestor_combate.has_signal("enemy_died") \
+				and not _gestor_combate.enemy_died.is_connected(_on_enemigo_combate_muerto):
+			_gestor_combate.enemy_died.connect(_on_enemigo_combate_muerto)
 	return _gestor_combate
+
+## Enemigo del encuentro que acaba de morir: si era el objetivo del FreeFlow se
+## suelta la referencia (y se apaga el indicador) sin esperar al siguiente fotograma.
+func _on_enemigo_combate_muerto(enemigo: Node3D) -> void:
+	if enemigo == c_objetivo:
+		c_objetivo = null
+		_actualizar_indicador_objetivo()
 
 ## Config vigente: la del gestor si existe; si no, la del propio módulo de
 ## ataque (los MISMOS valores del sistema FreeFlow: no se inventa ninguno).
@@ -3614,7 +3632,7 @@ func _actualizar_indicador_objetivo(delta: float = 0.0) -> void:
 	# Un enemigo puede morir y liberarse mientras era el objetivo: se limpia AQUÍ,
 	# antes de que nadie más lea la referencia, para que no quede una colgada (con
 	# ella el siguiente ataque fallaba al convertirla a Node3D).
-	if c_objetivo != null and not is_instance_valid(c_objetivo):
+	if not is_instance_valid(c_objetivo):
 		c_objetivo = null
 	if forma != Forma.COMBATE or not _objetivo_valido():
 		if _indicador_objetivo != null and is_instance_valid(_indicador_objetivo):
