@@ -236,11 +236,33 @@ var _rig_cache: Dictionary = {}
 var _report: Array[String] = []
 
 
-## Hornea la librería del rig Mixamo (modelos PSX: es la de siempre) más los tres clips de aire y
-## los de vida cotidiana. Se mantiene como superconjunto de lo que pide el árbol de estados, así
-## que ningún rig se queda sin los clips que la máquina de estados conoce.
+## Clips de POSTURA (etapa de peatones): sentarse en un banco y recostarse en una reposera.
+## Son animaciones REALES de los packs, no poses inventadas:
+##   · UAL1 "Sitting_Enter/Idle/Talking/Exit" (1,03-2,93 s): sentarse, estar sentado, hablar
+##     sentado y levantarse. El horneador ya las había medido y descartado para deambular
+##     («necesitan un objeto o un sitio donde sentarse»); ahora ese sitio EXISTE (bancos y
+##     reposeras de la ciudad), que es justo lo que les faltaba.
+##   · UAL2 "LayToIdle": empieza TUMBADO y acaba de pie. Se hornea dos veces:
+##       lie_down  = invertido (de pie -> tumbado; se queda en la pose tumbada al terminar),
+##       lie_up    = tal cual   (tumbado -> de pie, para levantarse de la reposera).
+const JOBS_POSTURA := [
+	{"clip": "sit_enter", "rig": DIR_UAL1, "anim": "Sitting_Enter", "map": UAL_MAP, "loop": false, "kind": "sit"},
+	{"clip": "sit_idle", "rig": DIR_UAL1, "anim": "Sitting_Idle", "map": UAL_MAP, "loop": true, "kind": "sit"},
+	{"clip": "sit_talk", "rig": DIR_UAL1, "anim": "Sitting_Talking", "map": UAL_MAP, "loop": true, "kind": "sit"},
+	{"clip": "sit_exit", "rig": DIR_UAL1, "anim": "Sitting_Exit", "map": UAL_MAP, "loop": false, "kind": "sit"},
+	{"clip": "lie_down", "rig": DIR_UAL2, "anim": "LayToIdle", "map": UAL_MAP, "loop": false, "kind": "lie", "invertir": true},
+	{"clip": "lie_up", "rig": DIR_UAL2, "anim": "LayToIdle", "map": UAL_MAP, "loop": false, "kind": "lie"},
+]
+
+
+## Hornea la librería del rig Mixamo (modelos PSX: es la de siempre) más los tres clips de aire,
+## los de vida cotidiana y los de postura (bancos y reposeras). Se mantiene como superconjunto de
+## lo que pide el árbol de estados, así que ningún rig se queda sin los clips que la máquina de
+## estados conoce.
 static func build_all() -> Array[String]:
-	return NPCAnimationBaker.new()._build_all(TARGET_RIG, {}, OUT_LIBRARY, JOBS + JOBS_AIR + JOBS_SOCIAL, true)
+	return NPCAnimationBaker.new()._build_all(
+		TARGET_RIG, {}, OUT_LIBRARY, JOBS + JOBS_AIR + JOBS_SOCIAL + JOBS_POSTURA, true
+	)
 
 
 ## Hornea la librería del rig Auto-Rig Pro (City Folks / Urban Man): los mismos clips validados
@@ -269,7 +291,8 @@ func _build_all(target_path: String, name_of: Dictionary, out_library: String, j
 		if anim == null:
 			_report.append("ERROR  sin animación en %s (%s)" % [job["rig"], job["anim"]])
 			continue
-		var clip: Animation = _retarget(target, src, anim, job["map"], job["loop"], String(job.get("kind", "")))
+		var clip: Animation = _retarget(target, src, anim, job["map"], job["loop"],
+				String(job.get("kind", "")), bool(job.get("invertir", false)))
 		if clip == null:
 			_report.append("ERROR  no se pudo retargetear %s" % job["clip"])
 			continue
@@ -502,7 +525,10 @@ func _sample_vec(anim: Animation, track: int, time: float) -> Vector3:
 
 # ---------------------------------------------------------------- retarget
 
-func _retarget(target: Dictionary, src: Dictionary, anim: Animation, bone_map: Dictionary, loop: bool, kind: String) -> Animation:
+## `invertir` muestrea el clip al revés (de su final a su principio): así "LayToIdle" da el
+## movimiento de tumbarse (de pie -> tumbado) con la pose tumbada al final. El clip resultante
+## se reproduce hacia adelante como cualquier otro.
+func _retarget(target: Dictionary, src: Dictionary, anim: Animation, bone_map: Dictionary, loop: bool, kind: String, invertir: bool = false) -> Animation:
 	# Índices de track por hueso de origen
 	var rot_tracks: Dictionary = {}
 	var pos_tracks: Dictionary = {}
@@ -564,7 +590,7 @@ func _retarget(target: Dictionary, src: Dictionary, anim: Animation, bone_map: D
 	var tgt_fwd_axis := _forward_dir(target).normalized()
 
 	for frame in frames + 1:
-		var t := frame * step
+		var t := (length - frame * step) if invertir else frame * step
 		# --- globals del rig de origen
 		var sg: Array[Transform3D] = []
 		sg.resize(src["names"].size())
@@ -738,6 +764,15 @@ func _build_tree() -> void:
 		"turn_l": Vector2(380, 420),
 		"turn_r": Vector2(380, 580),
 		"react": Vector2(120, 420),
+		# Postura: sentarse en un banco (entrar, estar, cambiar de postura, salir) y tumbarse
+		# en una reposera (bajar y subir). Los usan los ciudadanos de la ciudad; el jugador de
+		# prueba nunca entra aquí, así que son estados inofensivos para él.
+		"sit_enter": Vector2(380, 780),
+		"sit_idle": Vector2(560, 780),
+		"sit_talk": Vector2(740, 780),
+		"sit_exit": Vector2(920, 780),
+		"lie_down": Vector2(560, 940),
+		"lie_up": Vector2(760, 940),
 		# Aire: los usan sólo los personajes con salto (el jugador de prueba). Los ciudadanos
 		# nunca piden estos estados, así que para ellos son estados muertos que no molestan.
 		"jump": Vector2(640, 100),
@@ -773,6 +808,24 @@ func _build_tree() -> void:
 		["fall", "land", 0.10, false],
 		["land", "idle", 0.25, false],
 		["land", "walk", 0.25, true],
+		# Postura en un banco: se entra desde el caminar (o desde un quieto), se pasa de
+		# "sentarse" a "sentado" (y a "hablando sentado"), y se sale a andar o a quieto.
+		# Fundidos cortos: el clip ya trae el movimiento de bajar y subir el cuerpo.
+		["walk", "sit_enter", 0.30, false],
+		["jog", "sit_enter", 0.30, false],
+		["sit_enter", "sit_idle", 0.30, false],
+		["sit_idle", "sit_talk", 0.60, true],
+		["sit_talk", "sit_idle", 0.60, true],
+		["sit_idle", "sit_exit", 0.25, false],
+		["sit_talk", "sit_exit", 0.25, false],
+		["sit_exit", "walk", 0.30, false],
+		["sit_exit", "idle", 0.30, false],
+		# Postura en una reposera: tumbarse desde el caminar o el quieto, y levantarse.
+		["walk", "lie_down", 0.50, false],
+		["jog", "lie_down", 0.50, false],
+		["lie_down", "lie_up", 0.20, false],
+		["lie_up", "walk", 0.35, false],
+		["lie_up", "idle", 0.35, false],
 	]
 	# Cruces de los cuatro huecos de idle: de cualquiera a cualquiera (fundido largo, 0,60 s, para
 	# que el cambio de postura no se note como un salto), salida a andar y a saltar desde todos, y
@@ -785,6 +838,8 @@ func _build_tree() -> void:
 		links.append([a, "walk", 0.25, true])
 		links.append([a, "react", 0.30, true])
 		links.append([a, "jump", 0.10, false])
+		links.append([a, "sit_enter", 0.35, false])
+		links.append([a, "lie_down", 0.50, false])
 		links.append(["walk", a, 0.30, false])
 	for link: Array in links:
 		var transition := AnimationNodeStateMachineTransition.new()
