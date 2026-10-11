@@ -239,6 +239,8 @@ var _pasos_anchos: Array[String] = []       ## pasos que cubren la calzada enter
 var _pintura_esquinas: Array[String] = []
 var _tex_cesped: Texture2D = null          ## césped de los parques (si existe)
 var _tex_techo: Texture2D = null           ## membrana de grava de las azoteas
+var _maceta_modelo: String = ""            ## cantero del kit para árboles sobre pavimento
+var _pistas_maceta: Array[Transform3D] = []  ## macetas pendientes de volcar en MultiMesh
 var _mat_techo := {}                       ## lado de la plancha -> material de membrana
 ## Vegetación: matrices y colores agrupados POR TEXTURA (tarjetas cruzadas de
 ## `Vegetacion`), para volcar una MultiMeshInstance3D por especie.
@@ -310,7 +312,8 @@ func generar_ciudad() -> void:
 	_preparar_trazado()
 	_crear_contenedores()
 	_est = {"prefabs": 0, "modulares": 0, "props": 0, "vegetacion": 0, "arboles": 0,
-			"parques": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
+			"parques": 0, "bancos": 0, "macetas": 0, "parcelas": 0, "plazas": 0,
+			"parcelas_vacias": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
 
 	# 3) Construcción de la ciudad -----------------------------------------
 	_configurar_escena()
@@ -321,6 +324,7 @@ func generar_ciudad() -> void:
 	_generar_mobiliario()
 	_volcar_vegetacion()
 	_volcar_lotes()
+	_volcar_macetas()
 
 	# 4) Cierre -------------------------------------------------------------
 	if Engine.is_editor_hint():
@@ -399,7 +403,8 @@ func generar_ciudad_por_etapas() -> bool:
 	_preparar_trazado()
 	_crear_contenedores()
 	_est = {"prefabs": 0, "modulares": 0, "props": 0, "vegetacion": 0, "arboles": 0,
-			"parques": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
+			"parques": 0, "bancos": 0, "macetas": 0, "parcelas": 0, "plazas": 0,
+			"parcelas_vacias": 0, "marcas": 0, "suelos": 0, "tramos": 0, "portales": 0}
 	_configurar_escena()
 
 	# --- 4) Suelo -----------------------------------------------------------
@@ -476,6 +481,7 @@ func generar_ciudad_por_etapas() -> bool:
 			await get_tree().process_frame
 	_lotes.clear()
 	_lote_padre.clear()
+	_volcar_macetas()
 
 	_informe(Time.get_ticks_msec() - t0)
 	progreso_generacion.emit(1.0, "listo")
@@ -495,6 +501,7 @@ func limpiar_ciudad() -> void:
 	_mallas_limpias.clear()
 	_pistas_planta.clear()
 	_tintes_planta.clear()
+	_pistas_maceta.clear()
 
 
 # =============================================================================
@@ -753,8 +760,16 @@ func _construir_listas() -> void:
 		# Vegetación del kit: las jardineras con reja (Prop_Planter_Single,
 		# Sidewalk_Planter) se descartan a propósito: dejan el suelo liso y
 		# continuo, y la vegetación la ponen los árboles y arbustos 3D.
-		if _modelos[clave]["categoria"] == "vegetacion" and not ln.contains("planter"):
-			_vegetacion.append(nombre)
+		if _modelos[clave]["categoria"] == "vegetacion":
+			if ln.contains("planter"):
+				# Canteros del kit: antes se descartaban por completo. El de acera
+				# (Sidewalk_Planter: cemento con tierra) se guarda como MACETA
+				# para los árboles plantados sobre pavimento (aceras y plazas
+				# duras); en el césped y los jardines los árboles van sin maceta.
+				if _maceta_modelo == "" or ln.contains("sidewalk"):
+					_maceta_modelo = nombre
+			else:
+				_vegetacion.append(nombre)
 
 		# --- Módulos de fachada (firma 2.00 x 3.00 m, poco fondo) ---
 		var es_muro := absf(s.x - MODULO_ANCHO) < 0.06 and absf(s.y - PLANTA_ALTO) < 0.06 \
@@ -949,7 +964,7 @@ func _transform_relativo(raiz: Node, nodo: Node) -> Transform3D:
 
 ## Devuelve {malla, local} si el modelo es un único MeshInstance3D (agrupable
 ## en MultiMesh, ya que los materiales viven en las superficies de la malla).
-func _malla_unica(escena: PackedScene) -> Dictionary:
+func _malla_unica(escena: PackedScene, permitir_multi_superficie: bool = false) -> Dictionary:
 	var raiz := escena.instantiate()
 	var mallas: Array[Node] = []
 	var pila: Array[Node] = [raiz]
@@ -961,10 +976,12 @@ func _malla_unica(escena: PackedScene) -> Dictionary:
 			mallas.append(n)
 	var datos := {}
 	# Sólo es agrupable si tiene UNA malla de UN solo material (las mallas con
-	# varias capas — calzada + pintura — se instancian una a una).
+	# varias capas — calzada + pintura — se instancian una a una). Con
+	# permitir_multi_superficie se aceptan mallas de varias superficies (cada
+	# una con su material), como el cantero Sidewalk_Planter (cemento + tierra).
 	if mallas.size() == 1:
 		var mi := mallas[0] as MeshInstance3D
-		if mi.mesh != null and mi.mesh.get_surface_count() == 1:
+		if mi.mesh != null and (mi.mesh.get_surface_count() == 1 or permitir_multi_superficie):
 			datos = {"malla": mi.mesh, "local": _transform_relativo(raiz, mi)}
 	raiz.free()
 	return datos
@@ -1239,7 +1256,11 @@ func _configurar_escena() -> void:
 		env.fog_light_color = Color(0.73, 0.76, 0.81)
 		env.fog_density = 0.00035
 		entorno.environment = env
-		raiz.add_child(entorno)
+		# Diferido: este método puede correr dentro del _ready del generador
+		# (generar al iniciar) y el padre rechaza add_child mientras monta sus
+		# hijos ("Parent node is busy setting up children"). Con call_deferred
+		# la cámara, el sol y el cielo aparecen igual, un fotograma después.
+		raiz.add_child.call_deferred(entorno)
 		_preparar_para_guardar(entorno, raiz)
 
 	if raiz.get_node_or_null("Sol") == null:
@@ -1256,7 +1277,7 @@ func _configurar_escena() -> void:
 		sol.shadow_normal_bias = 2.0
 		sol.shadow_blur = 1.2
 		sol.directional_shadow_blend_splits = true
-		raiz.add_child(sol)
+		raiz.add_child.call_deferred(sol)
 		_preparar_para_guardar(sol, raiz)
 
 	if raiz.get_node_or_null("CamaraCiudad") == null:
@@ -1267,7 +1288,7 @@ func _configurar_escena() -> void:
 		cam.current = true
 		if camara_libre and ResourceLoader.exists("res://camara_libre.gd"):
 			cam.set_script(ResourceLoader.load("res://camara_libre.gd"))
-		raiz.add_child(cam)
+		raiz.add_child.call_deferred(cam)
 		_preparar_para_guardar(cam, raiz)
 
 
@@ -1666,6 +1687,7 @@ func _poblar_manzana(rect: Rect2, _i: int, _j: int) -> void:
 			var origen := Vector2(rect.position.x + rect.size.x * float(a) / float(div_x),
 					rect.position.y + rect.size.y * float(b) / float(div_z))
 			var parcela := Rect2(origen, Vector2(rect.size.x / float(div_x), rect.size.y / float(div_z)))
+			_est["parcelas"] = int(_est.get("parcelas", 0)) + 1
 			if _rng.randf() < prob_solar_vacio:
 				_plaza(parcela)
 			else:
@@ -1747,6 +1769,11 @@ func _parque(rect: Rect2) -> void:
 				_colocar(_elegir(_acera_pavimento), _t(Vector3(centro.x, Y_ACERA, z), PI * 0.5),
 						cont_aceras)
 
+	# --- Bancos: dos a cada lado del sendero E-O y uno a cada lado del N-S,
+	# mirando al sendero. Van ANTES que árboles y jardineras para que éstos se
+	# aparten de ellos (ver _lejos_de_bancos): nunca un banco dentro de un árbol.
+	var bancos := _bancos_parque(rect)
+
 	# --- Árboles: por el césped, sin pisar los senderos ----------------------
 	var puestos := 0
 	var intentos := 0
@@ -1755,6 +1782,8 @@ func _parque(rect: Rect2) -> void:
 		var x := _rng.randf_range(rect.position.x + 2.2, rect.end.x - 2.2)
 		var z := _rng.randf_range(rect.position.y + 2.2, rect.end.y - 2.2)
 		if absf(x - centro.x) < 2.1 or absf(z - centro.y) < 2.1:
+			continue
+		if not _lejos_de_bancos(bancos, x, z):
 			continue
 		if _colocar_arbol(Vector3(x, Y_PARQUE, z), 5.0, 7.5):
 			puestos += 1
@@ -1778,6 +1807,8 @@ func _parque(rect: Rect2) -> void:
 			var z2 := _rng.randf_range(rect.position.y + 2.5, rect.end.y - 2.5)
 			if absf(x2 - centro.x) < 2.1 or absf(z2 - centro.y) < 2.1:
 				continue
+			if not _lejos_de_bancos(bancos, x2, z2):
+				continue
 			_colocar_vegetacion(Vector3(x2, Y_PARQUE, z2), _rng.randf_range(0.9, 1.1), Y_PARQUE)
 
 	# --- Bolardos en las cuatro bocas de los senderos ------------------------
@@ -1793,9 +1824,45 @@ func _parque(rect: Rect2) -> void:
 				_colocar_prop(pieza, boca_z, true, 1.0)
 
 
+## Coloca seis bancos de parque: dos a cada lado del sendero este-oeste y uno a
+## cada lado del norte-sur, mirando siempre al sendero. Devuelve sus posiciones
+## (x, z globales) para que árboles y jardineras del mismo parque se aparten.
+func _bancos_parque(rect: Rect2) -> Array[Vector2]:
+	var centro := rect.get_center()
+	var puestos: Array[Vector2] = []
+	# (x, z, giro): el modelo del banco mira a -Z con giro 0 (world/bancos.gd).
+	var sitios: Array = [
+		[centro.x - 6.05, centro.y + 3.85, 0.0],
+		[centro.x + 6.05, centro.y + 3.85, 0.0],
+		[centro.x - 6.05, centro.y - 3.85, PI],
+		[centro.x + 6.05, centro.y - 3.85, PI],
+		[centro.x + 4.05, centro.y - 7.5, PI * 0.5],
+		[centro.x - 4.05, centro.y + 7.5, -PI * 0.5],
+	]
+	for sitio in sitios:
+		var x: float = sitio[0] + _rng.randf_range(-0.30, 0.30)
+		var z: float = sitio[1] + _rng.randf_range(-0.30, 0.30)
+		var giro: float = sitio[2] + _rng.randf_range(-0.06, 0.06)
+		var cuerpo := Bancos.colocar(_cont["Props"], _t(Vector3(x, Y_PARQUE, z), giro))
+		cuerpo.name = "BancoParque_%d" % (int(_est.get("bancos", 0)) + 1)
+		_marcar_owner(cuerpo)
+		_est["bancos"] = int(_est.get("bancos", 0)) + 1
+		puestos.append(Vector2(x, z))
+	return puestos
+
+
+## ¿Está el punto (x, z) lo bastante lejos de todos los bancos ya colocados?
+func _lejos_de_bancos(bancos: Array, x: float, z: float) -> bool:
+	for b: Vector2 in bancos:
+		if Vector2(x, z).distance_squared_to(b) < 3.61:   # 1.9 m entre centros
+			return false
+	return true
+
+
 ## Solar vacío: plaza pavimentada y con vegetación. Al estar rodeada de
 ## edificios que ocupan su parcela entera, tampoco deja huecos ocultos.
 func _plaza(rect: Rect2) -> void:
+	_est["plazas"] = int(_est.get("plazas", 0)) + 1
 	# Pavimento a cota de acera con las losas sin bordillo del kit.
 	if pavimentar_manzanas and not _acera_pavimento.is_empty():
 		var n_x := maxi(1, int(round(rect.size.x / 3.0)))
@@ -1807,24 +1874,47 @@ func _plaza(rect: Rect2) -> void:
 				_colocar(_elegir(_acera_pavimento),
 						_t(Vector3(x, Y_ACERA, z), PI * 0.5 * float(_rng.randi_range(0, 3))),
 						_cont["Aceras"])
+	# Bancos: uno (o dos si el solar es amplio) mirando al centro de la plaza.
+	# Van antes que árboles, arbustos y jardineras para que éstos se aparten.
+	var bancos: Array[Vector2] = []
+	var centro_plaza := rect.get_center()
+	var n_bancos := 2 if minf(rect.size.x, rect.size.y) >= 15.0 else 1
+	for k in n_bancos:
+		var lado := -1.0 if k == 0 else 1.0
+		var bx := centro_plaza.x + _rng.randf_range(-0.8, 0.8)
+		var bz := centro_plaza.y + lado * (rect.size.y * 0.5 - 3.2)
+		var giro := PI if lado < 0.0 else 0.0
+		var cuerpo := Bancos.colocar(_cont["Props"],
+				_t(Vector3(bx, Y_ACERA, bz), giro + _rng.randf_range(-0.06, 0.06)))
+		cuerpo.name = "BancoPlaza_%d" % (int(_est.get("bancos", 0)) + 1)
+		_marcar_owner(cuerpo)
+		_est["bancos"] = int(_est.get("bancos", 0)) + 1
+		bancos.append(Vector2(bx, bz))
 	var margen := 2.5
 	if generar_vegetacion and not _vegetacion.is_empty():
 		for k in _rng.randi_range(1, 3):
 			var x := _rng.randf_range(rect.position.x + margen, rect.end.x - margen)
 			var z := _rng.randf_range(rect.position.y + margen, rect.end.y - margen)
+			if not _lejos_de_bancos(bancos, x, z):
+				continue
 			_colocar_vegetacion(Vector3(x, Y_ACERA, z), _rng.randf_range(0.85, 1.05))
 	# Algún árbol y algún arbusto para que el hueco no quede pelado.
 	for k in _rng.randi_range(1, 2):
 		var xa := _rng.randf_range(rect.position.x + margen, rect.end.x - margen)
 		var za := _rng.randf_range(rect.position.y + margen, rect.end.y - margen)
-		_colocar_arbol(Vector3(xa, Y_ACERA, za), 4.5, 6.5)
+		if not _lejos_de_bancos(bancos, xa, za):
+			continue
+		# En la plaza dura (pavimento) el árbol también lleva cantero.
+		_colocar_arbol(Vector3(xa, Y_ACERA, za), 4.5, 6.5, true)
 	if _rng.randf() < 0.7:
 		var xb := _rng.randf_range(rect.position.x + margen, rect.end.x - margen)
 		var zb := _rng.randf_range(rect.position.y + margen, rect.end.y - margen)
-		_colocar_arbusto(Vector3(xb, Y_ACERA, zb), 0.8, 1.2)
+		if _lejos_de_bancos(bancos, xb, zb):
+			_colocar_arbusto(Vector3(xb, Y_ACERA, zb), 0.8, 1.2)
 
 
 func _poner_edificio(rect: Rect2) -> void:
+	var antes := int(_est.get("modulares", 0)) + int(_est.get("prefabs", 0))
 	var cabe_prefab := minf(rect.size.x, rect.size.y) >= 13.0
 	# En solares grandes se intenta siempre el edificio completo del kit; si no
 	# encaja (o están desactivados) se cae al edificio modular.
@@ -1835,6 +1925,12 @@ func _poner_edificio(rect: Rect2) -> void:
 		_poner_modular(rect)
 	elif usar_prefabricados:
 		_poner_prefab(rect)
+	# Red de seguridad: si pese a todo la parcela quedó sin construcción (p. ej.
+	# una parcela por debajo del mínimo de 6 m), se resuelve como plaza con
+	# vegetación en lugar de dejar un solar pelado sin nada.
+	if int(_est.get("modulares", 0)) + int(_est.get("prefabs", 0)) == antes:
+		_est["parcelas_vacias"] = int(_est.get("parcelas_vacias", 0)) + 1
+		_plaza(rect)
 
 
 ## Coloca uno de los edificios completos del kit (Building_*). Se estira en
@@ -2215,14 +2311,39 @@ func _colocar_vegetacion(pos: Vector3, escala: float, base_y: float = Y_ACERA) -
 ## Antes se construía con tronco cilíndrico y masas de esferas o conos, que es lo
 ## que daba siluetas de "círculos y triángulos"; el reparto (dónde va cada árbol)
 ## no cambia en absoluto.
-func _colocar_arbol(pos: Vector3, alto_min: float, alto_max: float) -> bool:
+## Con `con_maceta` (árboles plantados sobre pavimento: aceras de calle y plazas
+## duras) se coloca además el cantero del kit alrededor de la base; sobre césped
+## y jardines el árbol va sin maceta.
+func _colocar_arbol(pos: Vector3, alto_min: float, alto_max: float, con_maceta: bool = false) -> bool:
 	if not generar_vegetacion or not usar_vegetacion_propia:
 		return false
 	var alto := _rng.randf_range(alto_min, alto_max)
 	var ruta: String = Vegetacion.ARBOLES[_rng.randi_range(0, Vegetacion.ARBOLES.size() - 1)]
 	_anadir_planta(ruta, Vegetacion.matriz(pos, ruta, alto, _rng.randf_range(0.0, TAU)), _color_hoja())
+	if con_maceta:
+		_colocar_maceta(pos, alto)
 	_est["arboles"] = int(_est.get("arboles", 0)) + 1
 	return true
+
+
+## Cantero urbano para un árbol plantado sobre pavimento. Reutiliza el modelo
+## Sidewalk_Planter del kit (cemento + tierra, 1.97 x 0.51 x 1.77 m, base en
+## y = 0): se apoya en la misma cota que el árbol y se escala según su altura.
+## En las aceras el árbol va arrimado al bordillo, así que la escala se limita
+## para que el cantero no pise la calzada ni invada el paso peatonal.
+func _colocar_maceta(pos: Vector3, alto_arbol: float) -> void:
+	if _maceta_modelo == "":
+		return
+	var escala := clampf(0.56 + (alto_arbol - 4.5) * 0.09, 0.56, 0.72)
+	var caja: AABB = _modelos[_maceta_modelo]["caja"]
+	var p := pos
+	p.y = pos.y - caja.position.y * escala
+	var giro := PI * 0.5 * float(_rng.randi_range(0, 3))
+	# Se acumulan y se vuelcan todas juntas en un MultiMesh al cerrar la ciudad
+	# (la malla del cantero trae DOS superficies — cemento y tierra —, así que
+	# no pasa por el lote normal de piezas).
+	_pistas_maceta.append(_t(p, giro, escala))
+	_est["macetas"] = int(_est.get("macetas", 0)) + 1
 
 
 ## Color de hoja: verde con variación por árbol.
@@ -2335,7 +2456,7 @@ func _generar_mobiliario_ejes(verticales: Array) -> void:
 						# Árbol de alineación, arrimado al bordillo.
 						var lat_a := centro_lat - lado * (acera * 0.5 - 0.8)
 						var pos_a := Vector3(lat_a, Y_ACERA, c) if vertical else Vector3(c, Y_ACERA, lat_a)
-						_colocar_arbol(pos_a, 4.5, 6.5)
+						_colocar_arbol(pos_a, 4.5, 6.5, true)
 					elif _rng.randf() < 0.28:
 						_colocar_vegetacion(pos, _rng.randf_range(0.85, 1.05))
 					elif _rng.randf() < 0.35 and generar_props and not _bolardos.is_empty():
@@ -2390,6 +2511,37 @@ func _volcar_lotes() -> void:
 	_lote_padre.clear()
 
 
+## Vuelca todas las macetas de árbol en UN único MultiMeshInstance3D (un solo
+## dibujado para las ~220 macetas de la ciudad). El cantero trae dos superficies
+## (cemento y tierra): MultiMesh las dibuja con sus propios materiales.
+func _volcar_macetas() -> void:
+	if _pistas_maceta.is_empty():
+		return
+	if _maceta_modelo == "":
+		_pistas_maceta.clear()
+		return
+	var datos := _malla_unica(_modelos[_maceta_modelo]["escena"], true)
+	if datos.is_empty():
+		# Sin agrupación posible, se instancian una a una (no debería pasar).
+		for xf: Transform3D in _pistas_maceta:
+			_instanciar_pieza(_maceta_modelo, xf, _cont["Props"], _maceta_modelo)
+		_pistas_maceta.clear()
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = datos["malla"]
+	mm.set_instance_count(_pistas_maceta.size())
+	var local: Transform3D = datos["local"]
+	for k in _pistas_maceta.size():
+		mm.set_instance_transform(k, _pistas_maceta[k] * local)
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "Macetas_x%d" % _pistas_maceta.size()
+	mmi.multimesh = mm
+	_cont["Props"].add_child(mmi)
+	_marcar_owner(mmi)
+	_pistas_maceta.clear()
+
+
 ## Convierte UN lote en su MultiMeshInstance3D (unidad de trabajo del cierre).
 func _volcar_lote(pieza: String) -> void:
 	var lista: Array = _lotes.get(pieza, [])
@@ -2421,7 +2573,10 @@ func _volcar_lote(pieza: String) -> void:
 func _marcar_owner(nodo: Node) -> void:
 	if nodo == null or _vista_editor:
 		return
-	var raiz := get_tree().edited_scene_root
+	var arbol := get_tree()
+	if arbol == null:
+		return
+	var raiz := arbol.edited_scene_root
 	if raiz != null and nodo != raiz:
 		nodo.owner = raiz
 	for c in nodo.get_children():
@@ -2446,6 +2601,15 @@ func _informe(ms: int) -> void:
 			% [_est.get("suelos", 0), _est.get("tramos", 0), _est.get("marcas", 0)])
 	print("[GeneradorCiudad] Parques: %d | árboles: %d | arbustos y jardineras: %d"
 			% [_est.get("parques", 0), _est.get("arboles", 0), _est.get("vegetacion", 0)])
+	print("[GeneradorCiudad] Bancos en parques y plazas: %d" % _est.get("bancos", 0))
+	print("[GeneradorCiudad] Macetas (árboles sobre pavimento): %d" % _est.get("macetas", 0))
+	# Invariante de manzanas: cada parcela acaba con edificio o con plaza (las
+	# incidencias del fallback se cuentan aparte); si no cuadra, hay solares
+	# sin resolver.
+	print("[GeneradorCiudad] Parcelas: %d = edificios %d + plazas %d (fallbacks: %d)"
+			% [_est.get("parcelas", 0),
+			int(_est.get("modulares", 0)) + int(_est.get("prefabs", 0)),
+			_est.get("plazas", 0), _est.get("parcelas_vacias", 0)])
 	print("[GeneradorCiudad] Edificios: %d (%d prefabricados + %d modulares) | props: %d | vegetación: %d"
 			% [int(_est.get("prefabs", 0)) + int(_est.get("modulares", 0)), _est.get("prefabs", 0),
 			_est.get("modulares", 0), _est.get("props", 0), _est.get("vegetacion", 0)])
