@@ -33,6 +33,11 @@ func _ready() -> void:
 	_siyno = _cargar(RUTA_SIYNO)
 	_reproductor = AudioStreamPlayer.new()
 	_reproductor.name = "ReproductorUI"
+	# Los sonidos de interfaz son EFECTOS: van al bus "Efectos", de modo que el
+	# control "VOLUMEN DE EFECTOS" los regula junto al resto de efectos, y el
+	# "VOLUMEN GENERAL" (bus Master) los afecta a todos. Una sola cadena de control
+	# centralizada: no se multiplica el volumen a mano en cada sonido.
+	_reproductor.bus = &"Efectos"
 	# Suena aunque el árbol esté pausado (menú de pausa durante la partida).
 	_reproductor.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_reproductor)
