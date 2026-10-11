@@ -10,6 +10,18 @@ uniform vec2 color_correction = vec2(0.0, 1.0);
 uniform vec4 ground_color: source_color = vec4(0.3, 0.3, 0.3, 1.0);
 uniform float horizon_offset = 0.0;
 
+// --- Direcciones y visibilidad del sol y de la luna ---------------------------
+// El asset tomaba el sol y la luna de LIGHT0_DIRECTION / LIGHT1_DIRECTION (las dos
+// luces direccionales de la escena). Es FRÁGIL: si una de esas luces sale del cielo,
+// su dirección vale (0,0,0) y el disco correspondiente se dibuja alrededor de esa
+// dirección con su radio, es decir, LLENA EL CIELO (la "luna gigante" del
+// anochecer). Ahora las direcciones las manda el juego por estos uniformes, que
+// además permiten fundir la aparición y la desaparición de cada astro.
+uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0);   // de la escena hacia el sol
+uniform vec3 moon_direction = vec3(0.0, -1.0, 0.0); // de la escena hacia la luna
+uniform float sun_visibility = 1.0;                 // 0..1
+uniform float moon_visibility = 1.0;                // 0..1
+
 group_uniforms atmosphere;
 uniform float atm_darkness = 0.5;
 uniform float atm_sun_intensity = 18.0;
@@ -350,7 +362,7 @@ vec3 render_sky(vec3 world_pos, vec3 clouds_pos, vec3 sun_pos, vec3 moon_pos, fl
 
 	// Sun
 	vec3 sun_disk = calc_disk_mask(world_pos, sun_pos, sun_disk_size) * sun_disk_color.rgb * scatter.rgb;
-	sun_disk *= sun_disk_intensity;
+	sun_disk *= sun_disk_intensity * sun_visibility;
 
 	// Moon
 	float moon_intersect = simple_sphere_intersect(world_pos, moon_pos, moon_size);
@@ -359,7 +371,7 @@ vec3 render_sky(vec3 world_pos, vec3 clouds_pos, vec3 sun_pos, vec3 moon_pos, fl
 
 	float moon_ndotl = clamp(dot(moon_normal, sun_pos), 0.0, 1.0);
 	vec3 moon_tex = sample_moon_texture(moon_normal);
-	vec3 moon_output = moon_mask * moon_ndotl * exp2(1.0) * moon_tex * moon_color.rgb;
+	vec3 moon_output = moon_mask * moon_ndotl * exp2(1.0) * moon_tex * moon_color.rgb * moon_visibility;
 	float moonMask = (1.0 - moon_mask);
 
 	// Deep space
@@ -491,8 +503,8 @@ void sky() {
 	vec3 col = vec3(0.0); // Set up the initial sky color which will be added to later to produce the final result.
 	vec3 world_pos = EYEDIR; // Original shader set this up in the vertex() function. For sky shaders the overall equivalent is EYEDIR.
 	vec3 clouds_pos = EYEDIR; // The same is used for cloud rendering.
-	vec3 sun_pos = LIGHT0_DIRECTION; // Redefined from now-deprecated _sun_direction.
-	vec3 moon_pos = LIGHT1_DIRECTION; // Redefined from now-deprecated _moon_direction.
+	vec3 sun_pos = normalize(sun_direction);   // Dirección del sol: la manda el juego.
+	vec3 moon_pos = normalize(moon_direction); // Dirección de la luna: la manda el juego.
 
 	if (sky_visible) {
 		col = render_sky(world_pos, clouds_pos, sun_pos, moon_pos, current_time);

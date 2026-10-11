@@ -80,6 +80,23 @@ const A_FLOTABILIDAD := 9.0
 const A_CALADO_FLOTANDO := 1.05
 ## Amortiguación vertical bajo el agua: evita oscilar alrededor de la superficie.
 const A_AMORTIGUA_VERTICAL := 4.0
+## Velocidad (m/s) de nado RÁPIDO, con SHIFT mantenido mientras se nada de verdad:
+## un 80 % más que la normal, que es lo que pide un pez que se lanza. Afecta SÓLO al
+## nado (y sólo en horizontal), así que en cuanto el cuerpo sale del agua SHIFT
+## recupera su significado de siempre (correr en tierra, dash en el velocista).
+const A_VEL_NADO_RAPIDO := 8.3
+## Aceleración (m/s²) del nado rápido: algo mayor que la normal para que se note el
+## empujón del aleteo sin perder la inercia de pez.
+const A_ACEL_NADO_RAPIDO := 9.0
+## Golpe acuático (el MISMO botón de ataque, clic izquierdo) mientras se nada o se
+## está sumergido: alcance (m) desde el centro del cuerpo, radio (m) de detección,
+## daño, empuje y fracción del clip `attack` en la que el golpe conecta de verdad.
+## Reutiliza el contrato de daño que ya usan las habilidades de agua.
+const A_GOLPE_ALCANCE := 1.1
+const A_GOLPE_RADIO := 0.7
+const A_GOLPE_DANIO := 10.0
+const A_GOLPE_EMPUJE := 4.0
+const A_GOLPE_IMPACTO_U := 0.35
 ## Duración (s) de los clips de entrada y salida del agua (miden 1,90 s en la
 ## librería). Sólo son transiciones visuales: la lógica de nado manda desde el
 ## primer fotograma.
@@ -386,6 +403,10 @@ var a_salto_aire: bool = false
 var a_agachado: bool = false
 var a_ataque_activo: bool = false
 var a_t_ataque: float = 0.0
+# Duración (s) del clip de ataque acuático en curso y si su golpe ya ha conectado:
+# se golpea UNA sola vez, cuando el brazo llega a su extensión dentro del clip.
+var a_ataque_dur: float = 0.0
+var a_golpe_dado: bool = false
 # NATACIÓN: true mientras el cuerpo está en agua honda y nada en vez de andar.
 var a_nadando: bool = false
 # Tiempo (s) que le queda al clip de transición de entrar o salir del agua.
@@ -1023,6 +1044,8 @@ func _entrar_acuatico() -> void:
 	a_agachado = false
 	a_ataque_activo = false
 	a_t_ataque = 0.0
+	a_ataque_dur = 0.0
+	a_golpe_dado = false
 	pivote.position.y = h_pivote_y_base
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
@@ -1057,6 +1080,8 @@ func _detener_acuatico() -> void:
 	a_agachado = false
 	a_ataque_activo = false
 	a_t_ataque = 0.0
+	a_ataque_dur = 0.0
+	a_golpe_dado = false
 	# Natación: al salir de la forma no queda anotado que estaba nadando.
 	a_nadando = false
 	a_t_transicion = 0.0
@@ -1298,7 +1323,14 @@ func _procesar_acuatico(delta: float) -> void:
 		_actualizar_habilidad_agua(delta)
 		velocity.x = 0.0
 		velocity.z = 0.0
-		_aplicar_vertical_acuatico(delta)
+		# NADANDO, lanzar una habilidad NO saca el cuerpo a flote: se mantiene la cota
+		# a la que estaba, así que un hechizo lanzado sumergido sale sumergido. Con
+		# "saltar" o CTRL sí se sube o se bucea, como siempre. Haciendo pie, la
+		# vertical es la de siempre (flotar/bucear sobre el suelo).
+		if a_nadando and not _tecla_vertical_agua():
+			velocity.y = move_toward(velocity.y, 0.0, A_AMORTIGUA_VERTICAL * delta)
+		else:
+			_aplicar_vertical_acuatico(delta)
 		move_and_slide()
 		return
 
@@ -1339,9 +1371,11 @@ func _procesar_acuatico(delta: float) -> void:
 		a_salto_aire = true
 		_reproducir_acuatico(ANIM_A_JUMP, H_MEZCLA, true)
 
-	# Ataque propio del personaje acuático: sólo reproduce SU animación. No crea
-	# un sistema de combate nuevo ni usa el sistema de combate del velocista.
-	if is_on_floor() and Input.is_action_just_pressed("atacar") and not a_ataque_activo and not a_agachado:
+	# Ataque propio del personaje acuático: reproduce SU animación y aplica su golpe
+	# corto por delante (grupo "damageable"), sin crear un sistema de combate nuevo.
+	# No se solapa con las habilidades 1-4.
+	if is_on_floor() and Input.is_action_just_pressed("atacar") and not a_ataque_activo \
+			and not a_agachado and not a_en_habilidad:
 		_iniciar_ataque_acuatico()
 
 	move_and_slide()
@@ -1430,15 +1464,25 @@ func _procesar_nado(delta: float) -> void:
 	a_salto_aire = false
 	a_agachado = false
 	var dir := _direccion_entrada()
+	# SHIFT nadando = NADO RÁPIDO. Sólo cambia el horizontal: la vertical la siguen
+	# mandando flotar (espacio) y bucear (CTRL), así que no se despega del agua.
+	var rapido := Input.is_key_pressed(KEY_SHIFT)
+	var vel_nado := A_VEL_NADO_RAPIDO if rapido else A_VEL_NADO
+	var acel_nado := A_ACEL_NADO_RAPIDO if rapido else A_ACEL_NADO
 	var horiz := Vector3(velocity.x, 0.0, velocity.z)
 	if dir.length() > 0.05:
-		horiz = horiz.move_toward(dir * A_VEL_NADO, A_ACEL_NADO * delta)
+		horiz = horiz.move_toward(dir * vel_nado, acel_nado * delta)
 	else:
-		horiz = horiz.move_toward(Vector3.ZERO, A_ACEL_NADO * 0.7 * delta)
+		horiz = horiz.move_toward(Vector3.ZERO, acel_nado * 0.7 * delta)
 	velocity.x = horiz.x
 	velocity.z = horiz.z
 
 	_aplicar_vertical_acuatico(delta)
+
+	# Ataque cuerpo a cuerpo con el botón de SIEMPRE, también nadando o sumergido. No
+	# se solapa con las habilidades 1-4: si hay una en curso, el clic no hace nada.
+	if not a_ataque_activo and not a_en_habilidad and Input.is_action_just_pressed("atacar"):
+		_iniciar_ataque_acuatico()
 
 	move_and_slide()
 	_orientar_acuatico(delta, dir)
@@ -1447,7 +1491,14 @@ func _procesar_nado(delta: float) -> void:
 
 func _iniciar_ataque_acuatico() -> void:
 	a_ataque_activo = true
-	a_t_ataque = _duracion_clip_acuatico(ANIM_A_ATTACK)
+	a_ataque_dur = _duracion_clip_acuatico(ANIM_A_ATTACK)
+	a_t_ataque = a_ataque_dur
+	a_golpe_dado = false
+	# El golpe sale hacia donde mira la CÁMARA (la misma dirección que usan las
+	# habilidades 1-4), así que el cuerpo se orienta ahí: la animación, el alcance y
+	# el daño coinciden aunque se esté nadando de lado.
+	var adelante := _direccion_camara_horizontal()
+	acuatico.rotation.y = atan2(-adelante.x, -adelante.z)
 	_reproducir_acuatico(ANIM_A_ATTACK, BLEND_ATAQUE, true)
 
 func _duracion_clip_acuatico(nombre: String) -> float:
@@ -1455,6 +1506,47 @@ func _duracion_clip_acuatico(nombre: String) -> float:
 		return 0.3
 	var a := anim_acuatico.get_animation(nombre)
 	return a.length if a != null else 0.3
+
+
+## ¿El jugador está pidiendo subir o bucear? (misma pareja de teclas que gobierna la
+## vertical acuática). Se usa para no sacar el cuerpo a flote, sin querer, mientras
+## lanza una habilidad nadando.
+func _tecla_vertical_agua() -> bool:
+	return Input.is_action_pressed("saltar") or Input.is_key_pressed(KEY_CTRL)
+
+
+## Daño del golpe acuático (clic). Es un golpe corto por DELANTE del cuerpo contra el
+## grupo "damageable", con el mismo contrato de daño que las habilidades de agua
+## (apply_damage y, si el objetivo habla el del paquete Fuerza, take_damage). Vale
+## igual en tierra, nadando y sumergido: por eso la comprobación es horizontal, como
+## la del golpe del propio módulo acuático, con un margen vertical para alcanzar a
+## quien esté de pie justo en la orilla o en el fondo.
+func _aplicar_impacto_golpe_acuatico() -> void:
+	var adelante := -acuatico.global_transform.basis.z
+	adelante.y = 0.0
+	adelante = adelante.normalized() if adelante.length_squared() > 0.0001 else Vector3.FORWARD
+	var centro := global_position + adelante * A_GOLPE_ALCANCE
+	var empuje_dir := Vector3(adelante.x, 0.0, adelante.z)
+	for nodo_arbol in get_tree().get_nodes_in_group("damageable"):
+		var objetivo := nodo_arbol as Node3D
+		if objetivo == null or objetivo == self or not objetivo.is_inside_tree():
+			continue
+		var radio := A_GOLPE_RADIO
+		if objetivo.has_method("get_hit_radius"):
+			radio += float(objetivo.call("get_hit_radius"))
+		var plano := Vector3(objetivo.global_position.x - centro.x, 0.0,
+				objetivo.global_position.z - centro.z)
+		if plano.length() > radio:
+			continue
+		if absf(objetivo.global_position.y - global_position.y) > A_GOLPE_ALCANCE + 1.0:
+			continue
+		if objetivo.has_method("apply_damage"):
+			objetivo.call("apply_damage", A_GOLPE_DANIO, centro, &"melee")
+		elif objetivo.has_method("take_damage"):
+			var dir := plano
+			dir = dir.normalized() if dir.length_squared() > 0.0001 else empuje_dir
+			objetivo.call("take_damage", A_GOLPE_DANIO, centro,
+					(dir + Vector3.UP * 0.3).normalized() * A_GOLPE_EMPUJE)
 
 func _orientar_acuatico(delta: float, dir: Vector3) -> void:
 	if dir.length() < 0.05:
@@ -1469,8 +1561,18 @@ func _actualizar_anim_acuatico(delta: float) -> void:
 		a_t_ataque -= delta
 		anim_acuatico.speed_scale = 1.0
 		_reproducir_acuatico(ANIM_A_ATTACK)
+		# El daño cae en la EXTENSIÓN REAL del brazo dentro del clip (u medida sobre
+		# el propio clip), una sola vez por golpe; no en el primer fotograma.
+		if not a_golpe_dado and a_ataque_dur > 0.0 \
+				and anim_acuatico.current_animation == ANIM_A_ATTACK \
+				and anim_acuatico.current_animation_position >= a_ataque_dur * A_GOLPE_IMPACTO_U:
+			a_golpe_dado = true
+			_aplicar_impacto_golpe_acuatico()
+		# Al acabar el clip el golpe se cierra solo y el estado vuelve a ser el que
+		# toque: nadando si sigue en el agua, o de pie si está en tierra.
 		if a_t_ataque <= 0.0:
 			a_ataque_activo = false
+			a_ataque_dur = 0.0
 		return
 	# NATACIÓN: la animación la manda la velocidad REAL (horizontal y vertical), así
 	# el personaje no nada quieto ni se desliza por el agua con un clip de caminar.
@@ -1491,7 +1593,10 @@ func _actualizar_anim_acuatico(delta: float) -> void:
 				_reproducir_acuatico(ANIM_A_SWIM_BACK)
 			else:
 				_reproducir_acuatico(ANIM_A_SWIM_FORWARD)
-				anim_acuatico.speed_scale = clampf(vel / A_VEL_NADO, 0.6, 1.6)
+				# El clip de avance sigue la velocidad REAL, y con el nado rápido llega
+				# a 1,8x: el aleteo se ve claramente más rápido (no hay clip de nado
+				# veloz en la librería, así que no se inventa ninguno).
+				anim_acuatico.speed_scale = clampf(vel / A_VEL_NADO, 0.6, 2.0)
 		else:
 			_reproducir_acuatico(ANIM_A_SWIM_IDLE)
 		return
@@ -1538,11 +1643,14 @@ func _intentar_habilidad_agua(idx: int) -> void:
 		return
 	if idx < 1 or idx > ABIL_AGUA.size():
 		return
-	if a_en_habilidad or a_pendiente > 0:
+	if a_en_habilidad or a_pendiente > 0 or a_ataque_activo:
 		return
 	if float(a_cooldowns.get(idx, 0.0)) > 0.0:
 		return
-	if not is_on_floor():
+	# En tierra hace falta estar de pie; NADANDO (o sumergido) también se puede lanzar:
+	# es justo lo que pide el combate en el agua. El resto del lanzamiento (mano,
+	# dirección de la cámara, carga, cooldown, animación) es exactamente el de siempre.
+	if not is_on_floor() and not a_nadando:
 		return
 	var nombre_estado := "ability_%d" % idx
 	if anim_acuatico == null or not anim_acuatico.has_animation(nombre_estado):
@@ -1642,7 +1750,9 @@ func _iniciar_carga_agua(idx: int) -> void:
 		return
 	carga.set("player", self)
 	carga.set("duration", float(ABIL_AGUA[idx - 1]["release"]))
-	carga.set("underwater", false)
+	# El VFX del módulo sabe verse bajo el agua: se le dice si toca, para que la carga
+	# lanzada sumergida se dibuje como tal (mismo efecto, sin duplicarlo).
+	carga.set("underwater", a_nadando and global_position.y < SUPERFICIE_MAR - 0.25)
 	carga.set("radius", float(ABIL_AGUA[idx - 1]["carga"]))
 	host.add_child(carga)
 	a_carga = carga
