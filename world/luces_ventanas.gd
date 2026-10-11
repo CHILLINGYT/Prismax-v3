@@ -75,7 +75,7 @@ func _buscar_en(nodo: Node) -> Node:
 func _factor_actual() -> float:
 	if _ciclo == null:
 		return 0.0
-	return Farolas.factor_noche(float(_ciclo.get("_fase")))
+	return Farolas.factor_para(_ciclo, float(_ciclo.get("_fase")))
 
 
 ## Resumen del estado, para las comprobaciones en el juego.

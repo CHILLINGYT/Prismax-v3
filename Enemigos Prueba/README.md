@@ -8,10 +8,9 @@ juego: son maniquíes de combate con IA de cerco.
 
 | Tecla | Acción |
 |---|---|
-| **G** | Aparece un grupo de **6 enemigos** alrededor del jugador (`enemigos_prueba`). Con un grupo activo, G lo retira para poder regenerarlo limpio. |
-| **H** | Transformación rápido Humano ↔ Velocista (`transformacion_velocidad`). **Antes era G**; se movió a H para liberar G. |
-| **F** | Menú radial de transformaciones (incluye Combate). |
-| **K** | Daño de prueba al jugador (25) — sirve para ver la viñeta de daño. |
+| **G** | Aparece un grupo de **6 enemigos** alrededor del jugador (`enemigos_prueba`; es una tecla libre en el Input Map de main). Con un grupo activo, G lo retira para poder regenerarlo limpio. |
+| **F** | Menú radial de transformaciones de main (incluye Combate). Las transformaciones se eligen ahí: la antigua alternancia directa con tecla (`transformacion_velocidad`) ya no existe. |
+| **K** | Daño de prueba al jugador (`dano_prueba`) — sirve para ver la viñeta de daño. |
 
 ## Estructura
 
@@ -65,15 +64,21 @@ media pantalla y no aporta nada), y reaparece pasados 2,6 m para no parpadear.
 
 ## Cómo comprobarlo
 
-- **Suite headless** (no abre ventana, deja 51 comprobaciones en consola):
+- **Suite automática** (no abre ventana; deja las comprobaciones en consola). Se
+  ejecuta como escena, igual que las suites de main (`controles_test`,
+  `jugabilidad_test`), que es lo que garantiza que los autoloads del proyecto ya
+  existan al compilar el controlador:
 
   ```
-  godot --headless --path . -s res://_tests/prueba_enemigos_prueba.gd
+  godot --headless --path . res://_tests/prueba_enemigos_prueba.tscn
   ```
+
+  (También se puede abrir `res://_tests/prueba_enemigos_prueba.tscn` en el editor
+  y pulsar F6.)
 
 - **En vivo**, con el jugador real y una pista plana: abre
   `res://_tests/escena_verificacion_enemigos.tscn` y pulsa **G** en el juego. El
   monitor imprime cada medio segundo cuántos enemigos hay, cuántos atacan a la
   vez, el estado de la viñeta y la vida/escudo del jugador.
 
-Ninguno de los dos forma parte del juego: viven en `res://_tests/`.
+Ninguna de las dos forma parte del juego: viven en `res://_tests/`.

@@ -332,10 +332,9 @@ func _buscar_jugador() -> Node3D:
 	var por_grupo := get_tree().get_first_node_in_group(GRUPO_JUGADOR)
 	if por_grupo is ControladorLeo:
 		return por_grupo as Node3D
-	var raiz := get_tree().current_scene
-	if raiz == null:
-		raiz = get_tree().root
-	for n in raiz.find_children("*", "CharacterBody3D", true, false):
+	# Sin grupo: se busca por TIPO en todo el árbol (nunca por una ruta rígida),
+	# así funciona tanto en la partida como en cualquier escena de prueba.
+	for n in get_tree().root.find_children("*", "CharacterBody3D", true, false):
 		if n is ControladorLeo:
 			return n as Node3D
 	return null

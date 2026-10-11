@@ -1,8 +1,8 @@
-[gd_resource type="AnimationLibrary" format=3]
+[gd_resource type="AnimationLibrary" format=3 uid="uid://cei3n17koc4ax"]
 
 [sub_resource type="Animation" id="Animation_ycr6v"]
 resource_name = "mixamo_com"
-length = 0.9333333333333333
+length = 0.9333333333333332
 tracks/0/type = "position_3d"
 tracks/0/imported = true
 tracks/0/enabled = true

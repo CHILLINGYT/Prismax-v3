@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" path="res://ui/scenes/VideoBackground.tscn" id="1_bg"]
 [ext_resource type="PackedScene" path="res://ui/scenes/GameLogo.tscn" id="2_logo"]
 [ext_resource type="Script" path="res://ui/scripts/main_menu.gd" id="3_menu"]
 [ext_resource type="Script" path="res://ui/scripts/menu_option.gd" id="4_option"]
+[ext_resource type="Texture2D" path="res://assets/generated/lock_story.png" id="5_lock"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -146,6 +147,30 @@ theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
 text = "SALIR DEL JUEGO"
 vertical_alignment = 1
+
+[node name="StoryLabel" type="Label" parent="MenuPanel/Content"]
+layout_mode = 0
+offset_left = 86.0
+offset_top = 250.0
+offset_right = 320.0
+offset_bottom = 276.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.42, 0.44, 0.48, 1)
+theme_override_font_sizes/font_size = 20
+text = "MODO HISTORIA"
+vertical_alignment = 1
+
+[node name="StoryLock" type="TextureRect" parent="MenuPanel/Content"]
+layout_mode = 0
+offset_left = 62.0
+offset_top = 252.0
+offset_right = 82.0
+offset_bottom = 272.0
+mouse_filter = 2
+modulate = Color(0.42, 0.44, 0.48, 1)
+texture = ExtResource("5_lock")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Description" type="Label" parent="MenuPanel/Content"]
 unique_name_in_owner = true

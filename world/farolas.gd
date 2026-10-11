@@ -35,14 +35,17 @@ const RADIO_LUZ := 17.0         ## alcance de la luz de cada farola
 const ENERGIA_MAX := 2.4        ## energía de la luz con la farola del todo encendida
 const EMISION_MAX := 2.6        ## brillo del vidrio encendido
 
-## Fases del ciclo (0 arranque, 0.25 amanecer, 0.5 mediodía, 0.75 atardecer):
-## minuto 13 de juego = 780 s = 0.25 + 0.5 * 780/900 = 0.6833 (empieza a subir)
-## minuto 15 = 900 s = 0.75 (atardecer: ya encendidas del todo)
-## amanecer = 0.25 (se apagan en los 126 s anteriores, es decir desde 0.18).
-const ENCENDIDO_INICIO := 0.68333
+## Fases del ciclo (0 arranque, 0.25 amanecer, 0.5 mediodía, 0.75 atardecer).
+## Son sólo el RESPALDO por si no hubiera ciclo en la escena: lo normal es que los
+## hitos se lean del propio ciclo (`CicloDiaNoche.fases_farolas()`), así las farolas
+## y las ventanas nocturnas van SIEMPRE en fase con el cielo, sin horario propio.
+## Con el horario actual (7 min de día pleno, 1,5 min de anochecer, 7 min de noche
+## y 1,5 min de amanecer): el anochecer va de 0.675 a 0.75 y el amanecer de 0.25 a
+## 0.325, que es justo cuando las farolas suben y bajan.
+const ENCENDIDO_INICIO := 0.675
 const ATARDECER := 0.75
-const APAGADO_INICIO := 0.18
-const AMANECER := 0.25
+const APAGADO_INICIO := 0.25
+const AMANECER := 0.325
 
 @export_group("Referencias")
 ## Nodo del generador de ciudad (para leer su trazado y sus parques).
@@ -345,7 +348,7 @@ func _volcar(pistas: Array[Transform3D], malla_metal: ArrayMesh, malla_vidrio: A
 ## bajada duran minutos de juego, el cambio por fotograma es diminuto y el fundido
 ## se ve suave. Cuando el factor no cambia (día o noche cerrada) no se toca nada.
 func _actualizar_luz(_delta: float) -> void:
-	var objetivo := factor_noche(_fase_ciclo())
+	var objetivo := factor_para(ciclo, _fase_ciclo())
 	if not is_equal_approx(objetivo, _factor):
 		_factor = objetivo
 		_aplicar(_factor)
@@ -360,20 +363,36 @@ func _aplicar(factor: float) -> void:
 		luz.light_energy = ENERGIA_MAX * factor
 
 
-## Factor de encendido (0..1) para una fase del ciclo. Sin temporizadores: sale
+## Factor de encendido (0..1) para una fase del ciclo, SIN temporizador propio: sale
 ## entero de la fase que ya avanza el ciclo de día y noche del juego.
-static func factor_noche(f: float) -> float:
-	if f >= ENCENDIDO_INICIO and f < ATARDECER:
-		# Del minuto 13 al 15 de juego: suben poco a poco hasta el atardecer.
-		return smoothstep(ENCENDIDO_INICIO, ATARDECER, f)
-	if f >= ATARDECER and f < 1.0:
+## Si se le pasa el nodo del ciclo, usa SUS hitos reales (fases_farolas()), de modo
+## que cualquier cambio de horario del cielo arrastra al alumbrado sin tocar nada.
+static func factor_para(ciclo_nodo: Node, f: float) -> float:
+	if f < 0.0:
+		return 0.0
+	if ciclo_nodo != null and ciclo_nodo.has_method("fases_farolas"):
+		var v: Vector4 = ciclo_nodo.call("fases_farolas")
+		return factor_entre(f, v.x, v.y, v.z, v.w)
+	return factor_noche(f)
+
+
+## Factor genérico de encendido: sube de 0 a 1 entre `ini_enc` y `pleno`, se queda
+## encendido toda la noche, baja de 1 a 0 entre `ini_apag` y `apagado`, y queda
+## apagado el resto del día.
+static func factor_entre(f: float, ini_enc: float, pleno: float, ini_apag: float,
+		apagado: float) -> float:
+	if f >= ini_enc and f < pleno:
+		return smoothstep(ini_enc, pleno, f)
+	if f >= pleno or f < ini_apag:
 		return 1.0                       # toda la noche encendidas
-	if f < AMANECER:
-		# Pasada la medianoche: se apagan al amanecer, poco a poco.
-		if f < APAGADO_INICIO:
-			return 1.0
-		return 1.0 - smoothstep(APAGADO_INICIO, AMANECER, f)
+	if f < apagado:
+		return 1.0 - smoothstep(ini_apag, apagado, f)
 	return 0.0                           # de día, apagadas
+
+
+## Respaldo con los hitos fijos de este archivo (se usa sólo si no hay ciclo).
+static func factor_noche(f: float) -> float:
+	return factor_entre(f, ENCENDIDO_INICIO, ATARDECER, APAGADO_INICIO, AMANECER)
 
 
 func _fase_ciclo() -> float:

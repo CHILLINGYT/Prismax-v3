@@ -1,4 +1,7 @@
-[gd_resource type="AnimationLibrary" format=3 uid="uid://chvk7ak2d0aqa"]
+[gd_resource type="AnimationLibrary" format=3]
+
+[ext_resource type="Animation" path="res://personaje/transformaciones/acuatica/animations/climb_ladder.tres" id="1_j8jw2"]
+[ext_resource type="Animation" path="res://personaje/transformaciones/acuatica/animations/idle_stand.tres" id="2_4nr1g"]
 
 [sub_resource type="Animation" id="Animation_jafpu"]
 resource_name = "ability_1"
@@ -17727,6 +17730,7 @@ _data = {
 &"aim_walk_right": SubResource("Animation_ugwjr"),
 &"attack": SubResource("Animation_jqasb"),
 &"attack_2": SubResource("Animation_xqxap"),
+&"climb_ladder": ExtResource("1_j8jw2"),
 &"crouch_idle": SubResource("Animation_ku38h"),
 &"crouch_walk": SubResource("Animation_15jfq"),
 &"death": SubResource("Animation_6wn5n"),
@@ -17741,6 +17745,7 @@ _data = {
 &"hit_light": SubResource("Animation_0fu63"),
 &"hit_side": SubResource("Animation_qyam0"),
 &"idle": SubResource("Animation_gl37c"),
+&"idle_stand": ExtResource("2_4nr1g"),
 &"jump": SubResource("Animation_qypin"),
 &"knockdown": SubResource("Animation_6gk6b"),
 &"landing": SubResource("Animation_wcx3g"),

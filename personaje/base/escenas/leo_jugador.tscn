@@ -133,7 +133,7 @@ tiempo_bajada = 0.3
 [node name="Estadisticas" type="Node" parent="." unique_id=984732758]
 script = ExtResource("28_stats")
 
-[node name="HUD" parent="." unique_id=2008386120 instance=ExtResource("29_hud")]
+[node name="HUD" parent="." groups=["hud_juego"] unique_id=2008386120 instance=ExtResource("29_hud")]
 
 [node name="Acuatico" type="Node3D" parent="." unique_id=321920416]
 script = ExtResource("33_receptor_acuatico")

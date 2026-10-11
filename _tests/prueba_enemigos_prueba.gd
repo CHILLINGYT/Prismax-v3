@@ -1,9 +1,10 @@
-extends SceneTree
+extends Node3D
 
-# Suite headless (SceneTree) del sistema de ENEMIGOS DE PRUEBA y de la viñeta de
-# daño del jugador. Comprueba, sobre el jugador REAL y con el CombatManager del
-# módulo FreeFlow, la lista de pruebas del encargo:
-#   1. el mapa de entrada: G = enemigos_prueba (sin duplicados) y H = transformación;
+# Suite automática (se ejecuta como ESCENA) del sistema de ENEMIGOS DE PRUEBA y
+# de la viñeta de daño del jugador. Comprueba, sobre el jugador REAL y con el
+# CombatManager del módulo FreeFlow, la lista de pruebas del encargo:
+#   1. el mapa de entrada de main: G = enemigos_prueba (sin duplicados), el menú
+#      radial de transformaciones sigue en F y la acción directa antigua no vuelve;
 #   2. pulsar G genera exactamente 6 enemigos distribuidos alrededor del jugador;
 #   3. todos quedan en los grupos "enemigos_prueba" y "damageable" y registrados;
 #   4. el anillo de cerco reparte 6 posiciones (formación del módulo);
@@ -17,9 +18,12 @@ extends SceneTree
 #  11. G con un grupo activo lo retira (sin duplicar) y permite regenerar;
 #  12. la escena principal del proyecto no cambia y contiene el sistema.
 #
-# No forma parte del juego: vive en res://_tests/ y se ejecuta con
-#   godot --headless --path <proyecto> -s res://_tests/prueba_enemigos_prueba.gd
-# (no con --script-free: necesita el mundo en marcha para la física).
+# No forma parte del juego: vive en res://_tests/ y se ejecuta como una ESCENA
+# (igual que las suites de main: controles_test, jugabilidad_test...). Es lo que
+# garantiza que los autoloads del proyecto ya existan cuando se compila el
+# controlador de main, que ahora los usa:
+#   godot --headless --path <proyecto> res://_tests/prueba_enemigos_prueba.tscn
+# También se puede abrir y ejecutar desde el editor (F6).
 
 const JUGADOR := preload("res://personaje/base/escenas/leo_jugador.tscn")
 const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
@@ -40,7 +44,7 @@ var _gerente: Node3D
 var _mgr: Node
 var _danios: Array[float] = []
 
-func _initialize() -> void:
+func _ready() -> void:
 	call_deferred("_correr")
 
 func _check(nombre: String, ok: bool, detalle: String = "") -> void:
@@ -54,7 +58,7 @@ func _check(nombre: String, ok: bool, detalle: String = "") -> void:
 
 func _esperar_frames(n: int) -> void:
 	for _i in n:
-		await physics_frame
+		await get_tree().physics_frame
 
 func _tecla_de(accion: StringName) -> int:
 	for ev in InputMap.action_get_events(accion):
@@ -68,18 +72,18 @@ func _pulsar_tecla(codigo: Key) -> void:
 	ev.physical_keycode = codigo
 	ev.pressed = true
 	Input.parse_input_event(ev)
-	await physics_frame
-	await physics_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 	var suelta := InputEventKey.new()
 	suelta.physical_keycode = codigo
 	suelta.pressed = false
 	Input.parse_input_event(suelta)
-	await physics_frame
-	await physics_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 
 func _enemigos() -> Array:
 	var lista: Array = []
-	for n in get_nodes_in_group(&"enemigos_prueba"):
+	for n in get_tree().get_nodes_in_group(&"enemigos_prueba"):
 		if is_instance_valid(n) and n is ClaseEnemigo:
 			lista.append(n)
 	return lista
@@ -89,12 +93,17 @@ func _contar_danio(cantidad: float) -> void:
 
 func _correr() -> void:
 	# ---------------------------------------------------------------- 1. entrada
+	# El Input Map de main manda: las transformaciones se eligen en el menú radial
+	# (F) y la antigua acción directa "transformacion_velocidad" ya no existe, así
+	# que este PR no reasigna ninguna tecla de main: sólo añade G.
 	var tecla_g := _tecla_de(&"enemigos_prueba")
-	var tecla_h := _tecla_de(&"transformacion_velocidad")
-	_check("1. G está asignada a 'enemigos_prueba'",
+	var tecla_f := _tecla_de(&"menu_transformaciones")
+	_check("1. G está asignada a 'enemigos_prueba' (tecla libre en el Input Map de main)",
 			tecla_g == KEY_G, "tecla=%d" % tecla_g)
-	_check("1. La transformación rápida se movió a H ('transformacion_velocidad')",
-			tecla_h == KEY_H, "tecla=%d" % tecla_h)
+	_check("1. El menú radial de transformaciones sigue en F (arquitectura de main)",
+			tecla_f == KEY_F, "tecla=%d" % tecla_f)
+	_check("1. No se reintroduce la antigua acción directa 'transformacion_velocidad'",
+			not InputMap.has_action(&"transformacion_velocidad"))
 	var otras: Array[String] = []
 	for accion in InputMap.get_actions():
 		if accion != &"enemigos_prueba" and _tecla_de(accion) == KEY_G:
@@ -105,7 +114,7 @@ func _correr() -> void:
 	# ---------------------------------------------------------------- mundo mínimo
 	var mundo := Node3D.new()
 	mundo.name = "MundoPrueba"
-	root.add_child(mundo)
+	add_child(mundo)
 	var suelo := StaticBody3D.new()
 	suelo.position = Vector3(0.0, -0.5, 0.0)
 	var forma := CollisionShape3D.new()
@@ -241,7 +250,7 @@ func _correr() -> void:
 	# Se espera a que esté cerca del anillo (el cerco está a ~2.5 m).
 	var t_acerca := 0
 	while t_acerca < 240 and (atacante as Node3D).global_position.distance_to(_jug.global_position) > 3.0:
-		await physics_frame
+		await get_tree().physics_frame
 		t_acerca += 1
 	atacante.danio_base = 10.0
 	atacante.varianza_dano = 0.0
@@ -253,7 +262,7 @@ func _correr() -> void:
 	var vio_golpear := false
 	var vio_recuperar := false
 	for _i in 300:
-		await physics_frame
+		await get_tree().physics_frame
 		var st: int = int(atacante.estado_actual())
 		if st == ClaseEnemigo.Estado.PREPARAR:
 			vio_preparar = true
@@ -358,26 +367,26 @@ func _correr() -> void:
 	_jug._on_transformacion_elegida(&"combate")
 	var t_forma := 0
 	while (_jug.forma != FORMA_COMBATE or _jug._transformando) and t_forma < 600:
-		await physics_frame
+		await get_tree().physics_frame
 		t_forma += 1
 	_check("9. La forma Combate entra por el camino del menú (id &\"combate\")",
 			_jug.forma == FORMA_COMBATE and _jug.id_forma() == &"combate",
 			"forma=%d" % _jug.forma)
 	while not _jug.is_on_floor() and t_forma < 900:
-		await physics_frame
+		await get_tree().physics_frame
 		t_forma += 1
 
 	var vida_antes := {}
 	for e in _enemigos():
 		vida_antes[e.get_instance_id()] = e.vida_actual()
 	Input.action_press("atacar")
-	await physics_frame
+	await get_tree().physics_frame
 	Input.action_release("atacar")
 	var objetivo: Node = null
 	var arranco := false
 	var hubo_golpe := false
 	for _i in 300:
-		await physics_frame
+		await get_tree().physics_frame
 		if _jug.c_estado != C_LIBRE:
 			arranco = true
 		if _jug.c_objetivo != null and is_instance_valid(_jug.c_objetivo):
@@ -420,7 +429,7 @@ func _correr() -> void:
 			not bool(tokens.has_token(victima)), "tenía turno=%s" % str(tenia_turno))
 	var t_libre := 0
 	while is_instance_valid(victima) and t_libre < 180:
-		await physics_frame
+		await get_tree().physics_frame
 		t_libre += 1
 	_check("10. El enemigo muerto se retira de la escena de forma segura",
 			not is_instance_valid(victima), "frames=%d" % t_libre)
@@ -466,6 +475,8 @@ func _correr() -> void:
 			texto.contains("name=\"CombatManager\""))
 	_check("12. El mundo principal integra el gerente de enemigos (G)",
 			texto.contains("name=\"EnemigosPrueba\""))
+	_check("12. El mundo principal conserva el barco y el muelle de main",
+			texto.contains("name=\"Barco\"") and texto.contains("name=\"Muelle\""))
 
 	print("[TEST] ===== RESULTADO: %d OK, %d FALLOS =====" % [_pasadas, _falladas])
-	quit(1 if _falladas > 0 else 0)
+	get_tree().quit(1 if _falladas > 0 else 0)
