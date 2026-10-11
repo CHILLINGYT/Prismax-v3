@@ -41,6 +41,19 @@ signal resumed
 @onready var _config_title: Label = %ConfigTitle
 @onready var _indicator: ColorRect = %Indicator
 @onready var _description: Label = %Description
+# Contenido de la categoria GRÁFICOS (mismo panel derecho, sin duplicarlo).
+@onready var _config_content: VBoxContainer = %ConfigContent
+@onready var _modo_izq: Button = %ModoIzq
+@onready var _modo_der: Button = %ModoDer
+@onready var _modo_valor: Label = %ModoValor
+@onready var _res_izq: Button = %ResolucionIzq
+@onready var _res_der: Button = %ResolucionDer
+@onready var _res_valor: Label = %ResolucionValor
+@onready var _fps_izq: Button = %FpsIzq
+@onready var _fps_der: Button = %FpsDer
+@onready var _fps_valor: Label = %FpsValor
+@onready var _dist_barra: BarraValor = %DistanciaBarra
+@onready var _dist_valor: Label = %DistanciaValor
 
 var _selected: int = 0
 var _move_tween: Tween
@@ -62,11 +75,14 @@ func _ready() -> void:
 	_root.modulate.a = 0.0
 	_conectar_lista(_items)
 	_conectar_lista(_config_items)
+	_conectar_opciones_graficos()
+	AjustesGraficos.cambiado.connect(_actualizar_opciones_graficos)
 	_en_config = false
 	_title.text = TITULO_PAUSA
 	_items.visible = true
 	_config_items.visible = false
 	_config_panel.visible = false
+	_config_content.visible = false
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -140,6 +156,7 @@ func abrir() -> void:
 	_items.visible = true
 	_config_items.visible = false
 	_config_panel.visible = false
+	_config_content.visible = false
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -241,6 +258,7 @@ func _entrar_config() -> void:
 	_config_items.visible = true
 	# El panel de contenido empieza OCULTO: solo aparece al pulsar una categoria.
 	_config_panel.visible = false
+	_config_content.visible = false
 	_categoria_abierta = -1
 	_title.text = TITULO_CONFIG
 	_refresh(true)
@@ -255,6 +273,7 @@ func _salir_config() -> void:
 	# Se oculta el panel y se restablece la categoria, para que al volver a
 	# entrar en CONFIGURACIÓN el panel no aparezca abierto.
 	_config_panel.visible = false
+	_config_content.visible = false
 	_categoria_abierta = -1
 	_title.text = TITULO_PAUSA
 	_refresh(true)
@@ -266,10 +285,12 @@ func _toggle_categoria(index: int, row: MenuOptionRes) -> void:
 	if _categoria_abierta == index:
 		_categoria_abierta = -1
 		_config_panel.visible = false
+		_config_content.visible = false
 		return
 	_categoria_abierta = index
 	_config_title.text = _titulo_categoria(row)
 	_config_panel.visible = true
+	_actualizar_contenido_categoria()
 
 ## Nombre de la categoria para el titulo del panel de contenido. Se toma de la
 ## propia etiqueta de la fila (p. ej. "> AUDIO" -> "AUDIO"), de modo que el titulo
@@ -279,6 +300,46 @@ func _titulo_categoria(row: MenuOptionRes) -> String:
 	if etiqueta == null:
 		return ""
 	return etiqueta.text.trim_prefix("> ").strip_edges()
+
+# ---------------------------------------------------------------- GRÁFICOS
+## Conecta los controles del panel de GRÁFICOS. Se hace UNA sola vez (en _ready),
+## así no hay señales duplicadas. Todos los cambios se aplican/guardan a través
+## del singleton AjustesGraficos.
+func _conectar_opciones_graficos() -> void:
+	_modo_izq.pressed.connect(AjustesGraficos.alternar_pantalla)
+	_modo_der.pressed.connect(AjustesGraficos.alternar_pantalla)
+	_res_izq.pressed.connect(_on_resolucion_paso.bind(-1))
+	_res_der.pressed.connect(_on_resolucion_paso.bind(1))
+	_fps_izq.pressed.connect(_on_fps_paso)
+	_fps_der.pressed.connect(_on_fps_paso)
+	_dist_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia)
+
+func _on_resolucion_paso(paso: int) -> void:
+	AjustesGraficos.poner_resolucion(AjustesGraficos.resolucion_idx + paso)
+
+func _on_fps_paso() -> void:
+	AjustesGraficos.poner_mostrar_fps(not AjustesGraficos.mostrar_fps)
+
+## Refleja en la interfaz el estado REAL que vive en AjustesGraficos.
+func _actualizar_opciones_graficos() -> void:
+	_modo_valor.text = "PANTALLA COMPLETA" if AjustesGraficos.pantalla_completa else "VENTANA"
+	_res_valor.text = AjustesGraficos.texto_resolucion()
+	_fps_valor.text = "SÍ" if AjustesGraficos.mostrar_fps else "NO"
+	_dist_barra.poner_valor(AjustesGraficos.distancia)
+	_dist_valor.text = str(AjustesGraficos.distancia)
+
+## Muestra el contenido de GRÁFICOS solo cuando ESA categoría está abierta; las
+## demás categorías mantienen su área vacía. Siempre es el MISMO nodo.
+func _actualizar_contenido_categoria() -> void:
+	if _categoria_abierta < 0:
+		_config_content.visible = false
+		return
+	var row := _config_items.get_child(_categoria_abierta) as MenuOptionRes
+	var es_graficos := row != null and String(row.name) == "GraficosOption"
+	_config_content.visible = es_graficos
+	if es_graficos:
+		AjustesGraficos.sincronizar_estado_ventana()
+		_actualizar_opciones_graficos()
 
 ## Marca una accion destructiva como pendiente: el segundo accept la ejecuta.
 ## Evita perder la partida por una pulsacion accidental.
