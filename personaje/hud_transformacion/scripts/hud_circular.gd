@@ -40,12 +40,30 @@ const ARCO_MEDIO := PI * 0.5
 const ARCO_HUECO := 0.14
 const ARCO_BARRIDO := PI - ARCO_HUECO
 
+# --- Viñeta de daño (bordes de pantalla) ---
+## Color del borde mientras el escudo CONSERVA resistencia (rojo azulado: el
+## escudo amortiguó el golpe).
+const VINETA_COLOR_ESCUDO := Color(0.78, 0.2, 0.52, 1.0)
+## Color del borde cuando el escudo está ROTO (rojo puro, sin componente azul).
+const VINETA_COLOR_ROTO := Color(0.9, 0.12, 0.1, 1.0)
+## Intensidad sostenida mientras el escudo sigue roto (se apaga al recuperarse).
+const VINETA_BASE_ROTO := 0.42
+## Ritmo (1/s) al que el pulso del golpe se desvanece (exponencial).
+const VINETA_DECAIMIENTO := 3.0
+## Ritmo (1/s) al que el estado sostenido sube o baja hacia su objetivo.
+const VINETA_VEL_ESTADO := 3.0
+
 @onready var _anillo_vida: IndicadorAnillo = $Raiz/Dial/AnilloVida
 @onready var _anillo_resist: IndicadorAnillo = $Raiz/Dial/AnilloResistencia
 @onready var _icono: TextureRect = $Raiz/Dial/Icono
+@onready var _vineta: ColorRect = $Raiz/VinetaDano
 
 var _stats: EstadisticasJugador
 var _jugador: ControladorLeo
+var _mat_vineta: ShaderMaterial
+var _vineta_pulso: float = 0.0      # pico del último golpe (se desvanece solo)
+var _vineta_estado: float = 0.0     # intensidad sostenida actual
+var _vineta_estado_obj: float = 0.0 # objetivo del estado sostenido (escudo roto)
 
 # ---------------------------------------------------------------------------
 # AVISO CONTEXTUAL ("Presioná E para subir al barco")
@@ -68,6 +86,7 @@ var _aviso_tween: Tween
 func _ready() -> void:
 	_configurar_anillos()
 	_construir_aviso()
+	_configurar_vineta()
 
 	# El HUD viaja dentro de la escena del jugador, así que su padre es el
 	# ControladorLeo y `Estadisticas` es su hermano.
@@ -79,6 +98,8 @@ func _ready() -> void:
 		_stats.vida_cambiada.connect(_on_vida_cambiada)
 		_stats.resistencia_cambiada.connect(_on_resistencia_cambiada)
 		_stats.regenerando_cambiado.connect(_on_regenerando_cambiado)
+		# La viñeta de daño se alimenta del estado REAL del escudo y del golpe.
+		_stats.danio_recibido.connect(_on_danio_recibido)
 		# Estado inicial inmediato (por si la señal diferida aún no llegó).
 		_on_vida_cambiada(_stats.vida, _stats.vida_max)
 		_on_resistencia_cambiada(_stats.resistencia, _stats.resistencia_max)
@@ -125,7 +146,17 @@ func _construir_aviso() -> void:
 ## Sondeo por fotograma: se le pregunta al jugador si hay algo interactuable a
 ## mano. Devolver el MISMO texto no hace nada (el aviso se queda tal cual), así
 ## que no hay parpadeo: sólo se funde al ENTRAR y al SALIR de la zona.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	# --- Viñeta de daño: pulso del golpe + estado sostenido del escudo roto ---
+	if _mat_vineta != null:
+		# Pulso exponencial: dura lo mismo a 30 que a 144 FPS y nunca se acumula.
+		_vineta_pulso *= exp(-VINETA_DECAIMIENTO * delta)
+		if _vineta_pulso < 0.002:
+			_vineta_pulso = 0.0
+		_vineta_estado = move_toward(_vineta_estado, _vineta_estado_obj, VINETA_VEL_ESTADO * delta)
+		_mat_vineta.set_shader_parameter("intensidad",
+				clampf(_vineta_estado + _vineta_pulso, 0.0, 1.0))
+	# --- Aviso contextual ---
 	var texto: String = _jugador.texto_interaccion() if _jugador != null else ""
 	if texto.is_empty():
 		if _aviso_visible:
@@ -184,6 +215,9 @@ func _on_vida_cambiada(actual: float, maxima: float) -> void:
 
 func _on_resistencia_cambiada(actual: float, maxima: float) -> void:
 	_anillo_resist.set_valor(actual / maxima if maxima > 0.0 else 0.0)
+	# El estado de la viñeta (rojo azulado vs rojo roto) sigue SIEMPRE a la
+	# resistencia real: al romperse y al recuperarse se actualiza sola.
+	_actualizar_vineta_estado()
 
 func _on_regenerando_cambiado(regenerando: bool) -> void:
 	# Requisito: pequeña animación de "recuperándose" sólo mientras regenera.
@@ -196,3 +230,40 @@ func _actualizar_icono(id: StringName) -> void:
 	var ruta: String = ICONOS.get(id, ICONOS[&"humano"])
 	if ResourceLoader.exists(ruta):
 		_icono.texture = load(ruta)
+
+
+# =============================================================== Viñeta de daño
+## El estado visual de la viñeta sale SIEMPRE del estado real del escudo
+## (EstadisticasJugador.resistencia), nunca de la forma actual ni del número de
+## golpes. El pulso es un pico que se desvanece; no se acumula.
+func _on_danio_recibido(cantidad: float) -> void:
+	if _stats == null:
+		return
+	var roto: bool = _stats.resistencia <= 0.001
+	_actualizar_vineta_color(roto)
+	# Pulso del impacto: más fuerte cuanto menos escudo queda (y máximo ya roto).
+	var fuerza := 0.9
+	if not roto:
+		var fraccion := clampf(_stats.resistencia / maxf(_stats.resistencia_max, 0.01), 0.0, 1.0)
+		fuerza = 0.5 + 0.3 * (1.0 - fraccion) + clampf(cantidad / 250.0, 0.0, 0.15)
+	_vineta_pulso = maxf(_vineta_pulso, clampf(fuerza, 0.25, 1.0))
+
+## Fija color e intensidad sostenida según el escudo: rojo azulado con carga,
+## rojo puro persistente mientras esté roto, y vuelta atrás al recuperarse.
+func _actualizar_vineta_estado() -> void:
+	if _stats == null:
+		return
+	var roto: bool = _stats.resistencia <= 0.001
+	_actualizar_vineta_color(roto)
+	_vineta_estado_obj = VINETA_BASE_ROTO if roto else 0.0
+
+func _actualizar_vineta_color(roto: bool) -> void:
+	if _mat_vineta == null:
+		return
+	_mat_vineta.set_shader_parameter("color",
+			VINETA_COLOR_ROTO if roto else VINETA_COLOR_ESCUDO)
+
+func _configurar_vineta() -> void:
+	_mat_vineta = (_vineta.material as ShaderMaterial) if _vineta != null else null
+	if _mat_vineta != null:
+		_mat_vineta.set_shader_parameter("intensidad", 0.0)
