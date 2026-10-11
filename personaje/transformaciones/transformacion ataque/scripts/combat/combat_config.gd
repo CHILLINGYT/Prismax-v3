@@ -17,10 +17,13 @@ extends Resource
 @export var weight_distance: float = 1.0
 @export var weight_threat: float = 1.2
 ## Small bonus for the enemy already targeted. Never a lock.
-@export var current_target_bonus: float = 0.3
+## Pequeña ventaja del objetivo actual: sólo desempata, no impide cambiar.
+@export var current_target_bonus: float = 0.05
 ## A challenger must beat the current target by this margin to steal it, so
 ## near-equal candidates do not flip-flop. A clear intent still wins at once.
-@export var target_switch_threshold: float = 0.25
+## 0 = el objetivo cambia en cuanto otro candidato puntúa más (cambio inmediato,
+## como pide el FreeFlow); con un margen mayor el objetivo se quedaría "pegado".
+@export var target_switch_threshold: float = 0.0
 
 @export_group("Player attack")
 @export var attack_windup: float = 0.12

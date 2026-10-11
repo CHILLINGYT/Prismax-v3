@@ -194,10 +194,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
-	# G (interruptor): humano -> velocista y velocista -> humano.
-	# is_action_just_pressed evita que mantener G repita la transformación.
-	if Input.is_action_just_pressed("transformacion_velocidad"):
-		_alternar_forma_con_efecto()
+	# El interruptor directo con G (humano <-> velocista) se eliminó del juego:
+	# la acción "transformacion_velocidad" ya no existe en el Input Map.
+	# Se conservan las funciones de transformación, que son genéricas.
 
 	# Durante la transición visual no hay control horizontal ni nuevas acciones:
 	# sólo actúa la gravedad (para no quedar flotando) y se mueve el cuerpo.
