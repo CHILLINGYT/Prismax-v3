@@ -47,8 +47,27 @@ const ARCO_BARRIDO := PI - ARCO_HUECO
 var _stats: EstadisticasJugador
 var _jugador: ControladorLeo
 
+# ---------------------------------------------------------------------------
+# AVISO CONTEXTUAL ("Presioná E para subir al barco")
+# ---------------------------------------------------------------------------
+# No se duplica ningún sistema de interacción: el HUD sólo PREGUNTA al jugador
+# qué texto toca mostrar (ControladorLeo.texto_interaccion(), que devuelve "" si
+# no hay nada a mano). El aviso se construye aquí, en código, como el resto del
+# diseño del HUD, y se funde con un Tween: mientras el texto no cambie no se
+# toca nada, así que estando en la zona el mensaje queda fijo (sin parpadeos).
+const AVISO_ALTO := 46.0
+const AVISO_MARGEN_INFERIOR := 132.0
+const AVISO_FUNDIDO := 0.18
+
+var _aviso: PanelContainer
+var _aviso_etiqueta: Label
+var _aviso_visible := false
+var _aviso_tween: Tween
+
+
 func _ready() -> void:
 	_configurar_anillos()
+	_construir_aviso()
 
 	# El HUD viaja dentro de la escena del jugador, así que su padre es el
 	# ControladorLeo y `Estadisticas` es su hermano.
@@ -69,6 +88,79 @@ func _ready() -> void:
 		_actualizar_icono(_jugador.id_forma())
 	else:
 		_actualizar_icono(&"humano")
+
+# ---------------------------------------------------------------------------
+# Aviso contextual: se construye en código y se coloca a mano (centrado abajo),
+# porque el panel cambia de ancho según el texto y el presets de anclaje dejarían
+# el borde descentrado.
+# ---------------------------------------------------------------------------
+func _construir_aviso() -> void:
+	_aviso = PanelContainer.new()
+	_aviso.name = "Aviso"
+	_aviso.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_aviso.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_aviso.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_aviso.visible = false
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0.05, 0.07, 0.10, 0.78)
+	estilo.border_color = Color(0.45, 0.82, 1.0, 0.9)
+	estilo.set_border_width_all(2)
+	estilo.set_corner_radius_all(10)
+	estilo.content_margin_left = 18.0
+	estilo.content_margin_right = 18.0
+	estilo.content_margin_top = 10.0
+	estilo.content_margin_bottom = 10.0
+	_aviso.add_theme_stylebox_override("panel", estilo)
+	_aviso_etiqueta = Label.new()
+	_aviso_etiqueta.name = "Texto"
+	_aviso_etiqueta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_aviso_etiqueta.add_theme_font_size_override("font_size", 24)
+	_aviso_etiqueta.add_theme_color_override("font_color", Color(0.93, 0.97, 1.0, 1.0))
+	_aviso_etiqueta.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.85))
+	_aviso_etiqueta.add_theme_constant_override("outline_size", 4)
+	_aviso.add_child(_aviso_etiqueta)
+	$Raiz.add_child(_aviso)
+
+
+## Sondeo por fotograma: se le pregunta al jugador si hay algo interactuable a
+## mano. Devolver el MISMO texto no hace nada (el aviso se queda tal cual), así
+## que no hay parpadeo: sólo se funde al ENTRAR y al SALIR de la zona.
+func _process(_delta: float) -> void:
+	var texto: String = _jugador.texto_interaccion() if _jugador != null else ""
+	if texto.is_empty():
+		if _aviso_visible:
+			_aviso_visible = false
+			_fundir_aviso(false)
+		return
+	if _aviso_etiqueta.text != texto:
+		_aviso_etiqueta.text = texto
+	_colocar_aviso()
+	if not _aviso_visible:
+		_aviso_visible = true
+		_fundir_aviso(true)
+
+
+func _colocar_aviso() -> void:
+	var vista := get_viewport().get_visible_rect().size
+	_aviso.position = Vector2(
+			(vista.x - _aviso.size.x) * 0.5,
+			vista.y - AVISO_MARGEN_INFERIOR - _aviso.size.y)
+
+
+func _fundir_aviso(mostrar: bool) -> void:
+	if _aviso_tween != null and _aviso_tween.is_valid():
+		_aviso_tween.kill()
+	if mostrar:
+		_aviso.visible = true
+	_aviso_tween = create_tween()
+	_aviso_tween.tween_property(_aviso, "modulate:a", 1.0 if mostrar else 0.0, AVISO_FUNDIDO)
+	if not mostrar:
+		_aviso_tween.tween_callback(_ocultar_aviso)
+
+
+func _ocultar_aviso() -> void:
+	_aviso.visible = false
+
 
 func _configurar_anillos() -> void:
 	# VIDA: media luna DERECHA. Arranca arriba y avanza en sentido horario.
