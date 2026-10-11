@@ -125,6 +125,8 @@ func cambiar_forma(paso: int) -> void:
 	_forma_idx = wrapi(_forma_idx + paso, 0, FORMAS.size())
 	_seleccion = 0
 	_reconstruir()
+	# Selector con flechas: sonido `siyno` una vez por cambio efectivo de forma.
+	SonidoUI.reproducir_siyno()
 
 func _forma_actual() -> Dictionary:
 	return FORMAS[clampi(_forma_idx, 0, FORMAS.size() - 1)]
@@ -345,6 +347,9 @@ func _pista(texto: String, aviso: bool = false) -> void:
 func mover_seleccion(paso: int) -> void:
 	if _filas.is_empty() or _confirmando_reset:
 		return
+	# Navegación entre filas: sonido `cursor` solo si cambia de fila.
+	if _filas.size() > 1:
+		SonidoUI.reproducir_cursor()
 	_seleccion = wrapi(_seleccion + paso, 0, _filas.size())
 	_resaltar()
 	_asegurar_visible()
@@ -361,11 +366,14 @@ func confirmar() -> void:
 	if not datos["editable"]:
 		_pista("Ese control es fijo y no se puede reasignar.")
 		return
+	SonidoUI.reproducir_click()
 	_iniciar_captura(datos["accion"])
 
 func _on_fila_hover(indice: int) -> void:
 	if _seleccion == indice:
 		return
+	# El cursor entró en OTRA fila: un único sonido de navegación.
+	SonidoUI.reproducir_cursor()
 	_seleccion = indice
 	_resaltar()
 
@@ -375,6 +383,7 @@ func _on_fila_input(event: InputEvent, indice: int) -> void:
 	if not (event is InputEventMouseButton and event.pressed \
 			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT):
 		return
+	SonidoUI.reproducir_click()
 	_seleccion = indice
 	_resaltar()
 	var datos: Dictionary = _filas[indice]
@@ -500,6 +509,7 @@ func _intentar_asignar(event: InputEvent) -> void:
 func pedir_restablecer() -> void:
 	if _confirmando_reset:
 		return
+	SonidoUI.reproducir_click()
 	_cancelar_captura()
 	_confirmando_reset = true
 	_reset_btn.visible = false
@@ -510,12 +520,14 @@ func pedir_restablecer() -> void:
 func cancelar_restablecer() -> void:
 	if not _confirmando_reset:
 		return
+	SonidoUI.reproducir_click()
 	_cerrar_confirmacion_reset()
 	_pista("Restablecimiento cancelado: no se cambió ninguna tecla.")
 
 ## Aplica el restablecimiento global y refresca la lista al instante, de modo que
 ## las teclas mostradas en TODAS las formas son ya las de fábrica.
 func _ejecutar_restablecer() -> void:
+	SonidoUI.reproducir_click()
 	AjustesControles.restablecer_todo()
 	_cancelar_captura()
 	_cerrar_confirmacion_reset()

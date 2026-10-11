@@ -39,6 +39,7 @@
 [ext_resource type="Script" path="res://personaje/base/efectos/vista_submarina.gd" id="37_vista_sub"]
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
+[ext_resource type="AudioStream" uid="uid://scndx4m2k3no" path="res://Audio/personaje/transformacion/transformacion.mp3" id="40_transf_audio"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -128,6 +129,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 script = ExtResource("26_transf")
 color = Color(0.6, 0.1, 1, 1)
 tiempo_bajada = 0.3
+
+[node name="AudioTransformacion" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("40_transf_audio")
 
 [node name="MenuTransformaciones" parent="." unique_id=364961598 instance=ExtResource("27_menu")]
 
