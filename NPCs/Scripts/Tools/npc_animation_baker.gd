@@ -93,6 +93,13 @@ const UAL_MAP := {
 const ARP_TARGET := "res://Assets NPCS/UrbanMan_PolyMate_alstrainfinite/GLB/UrbanMan_CityFolks_PolyMate.glb"
 const OUT_LIBRARY_ARP := "res://NPCs/Animations/Citizen_Animations_ARP.res"
 
+## Rig de los modelos que usa el juego AHORA (los 7 FBX de Mixamo de la carpeta del usuario).
+## Importa que la librería se hornee contra ESTE rig: las poses guardan el roll del reposo del
+## destino, así que una librería horneada para otro reposo deja a estos modelos con el cuerpo
+## girado 90° (ver la nota de build_mixamo()).
+const TARGET_RIG_MIXAMO := "res://modelos 3d npcs/Ch01_nonPBR.fbx"
+const OUT_LIBRARY_MIXAMO := "res://NPCs/Animations/Citizen_Animations_Mixamo.res"
+
 const ARP_NAME_OF := {
 	"mixamorig_Hips": "root.x",
 	"mixamorig_Spine": "spine_01.x",
@@ -273,13 +280,58 @@ static func build_all_arp() -> Array[String]:
 	)
 
 
-func _build_all(target_path: String, name_of: Dictionary, out_library: String, jobs: Array, with_extras: bool) -> Array[String]:
+## Hornea la librería del rig de los modelos Mixamo que usa el juego (Ch01..Ch33).
+##
+## POR QUÉ HACE FALTA: el retarget copia la DIRECCIÓN de cada hueso y su twist, pero el resultado
+## se expresa en el marco del REPOSO del rig destino. La librería vieja se horneó contra
+## "PSX/Male/Character_01.fbx": aplicada a estos modelos (reposo Mixamo estándar) el cuerpo sale
+## torsionado 90° — el pecho mira al costado mientras las piernas avanzan hacia +Z. Horneando
+## contra el rig real, el roll vuelve a coincidir y el cuerpo mira hacia donde camina.
+## Los huesos del destino se canonizan ("mixamorig7_Hips" -> "mixamorig_Hips") para que UNA sola
+## librería sirva a los siete modelos: en juego cada ciudadano renombra sus huesos a esa forma.
+static func build_mixamo() -> Array[String]:
+	var baker := NPCAnimationBaker.new()
+	var rep: Array[String] = baker._build_all(
+		TARGET_RIG_MIXAMO, {}, OUT_LIBRARY_MIXAMO, JOBS + JOBS_AIR + JOBS_SOCIAL + JOBS_POSTURA,
+		false, true
+	)
+	# Los tres clips de AIRE salían del pack RPG, que ya no está en el proyecto. Se copian de la
+	# librería anterior para no perder el salto del personaje de prueba (los ciudadanos no saltan).
+	rep.append_array(baker._heredar_clips(OUT_LIBRARY_MIXAMO, OUT_LIBRARY,
+			["jump_m1", "fall_m1", "land_m1"]))
+	return rep
+
+
+## Copia clips sueltos de una librería a otra (los que no se pudieron hornear por falta de fuente).
+func _heredar_clips(destino: String, origen: String, clips: Array) -> Array[String]:
+	var out: Array[String] = []
+	var lib := load(destino) as AnimationLibrary
+	var vieja := load(origen) as AnimationLibrary
+	if lib == null or vieja == null:
+		out.append("ERROR  no se pudieron heredar clips (%s / %s)" % [destino, origen])
+		return out
+	for c: String in clips:
+		if lib.has_animation(c):
+			continue
+		var a: Animation = vieja.get_animation(c)
+		if a == null:
+			continue
+		lib.add_animation(c, a)
+		out.append("heredado %-9s de la librería anterior (%.2fs)" % [c, a.length])
+	out.append("library -> %s (%d clips, err=%d)" % [destino, lib.get_animation_list().size(),
+			ResourceSaver.save(lib, destino)])
+	return out
+
+
+func _build_all(target_path: String, name_of: Dictionary, out_library: String, jobs: Array, with_extras: bool, canonizar := false) -> Array[String]:
 	for out: String in [out_library, OUT_TREE, OUT_NAVMESH]:
 		DirAccess.make_dir_recursive_absolute(out.get_base_dir())
 	var target: Dictionary = _load_rig(target_path, "target")
 	if target.is_empty():
 		_report.append("ERROR  no se pudo cargar el rig destino %s" % target_path)
 		return _report
+	if canonizar:
+		_canonizar_nombres(target)
 	target["name_of"] = name_of
 	var library := AnimationLibrary.new()
 	for job: Dictionary in jobs:
@@ -312,6 +364,21 @@ func _build_all(target_path: String, name_of: Dictionary, out_library: String, j
 
 
 # ---------------------------------------------------------------- carga de rigs
+
+## Deja los nombres de hueso del rig destino en su forma canónica ("mixamorig7_Hips" ->
+## "mixamorig_Hips"). Los FBX de Mixamo numeran el prefijo según el personaje, y en juego cada
+## ciudadano renombra sus huesos a esa misma forma antes de entrar al árbol, así que una única
+## librería horneada con los nombres canónicos vale para los siete modelos.
+func _canonizar_nombres(rig: Dictionary) -> void:
+	var names: PackedStringArray = rig["names"]
+	for i in names.size():
+		var n := String(names[i])
+		if not n.begins_with("mixamorig"):
+			continue
+		var pos := n.find("_")
+		if pos > 0:
+			names[i] = "mixamorig_" + n.substr(pos + 1)
+
 
 func _load_rig(path: String, role: String) -> Dictionary:
 	if _rig_cache.has(path):

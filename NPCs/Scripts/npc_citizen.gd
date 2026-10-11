@@ -37,8 +37,11 @@ const REACT_WEIGHTS := [0.40, 0.24, 0.20, 0.16]
 ## distintos y va pasando de uno a otro: quieto nunca se ve dos veces la misma postura.
 const IDLE_SLOTS := ["idle", "idle_b", "idle_c", "idle_d"]
 
-## Librería de animaciones del rig Mixamo (los modelos PSX de siempre).
-const SHARED_LIBRARY := "res://NPCs/Animations/Citizen_Animations.res"
+## Librería de animaciones horneada PARA EL RIG de los modelos que usa el juego (los Mixamo de
+## "modelos 3d npcs"). No sirve cualquier librería: las poses guardan el roll del reposo del rig
+## contra el que se hornearon, así que una librería hecha para otro reposo deja al ciudadano con
+## el cuerpo girado 90° (mira al costado mientras camina). Ver NPCAnimationBaker.build_mixamo().
+const SHARED_LIBRARY := "res://NPCs/Animations/Citizen_Animations_Mixamo.res"
 ## Librería del rig Auto-Rig Pro (City Folks / Urban Man). Se hornea con el mismo horneador a
 ## partir de los MISMOS clips ya validados, más la carrera y los giros del pack RPG.
 const SHARED_LIBRARY_ARP := "res://NPCs/Animations/Citizen_Animations_ARP.res"
@@ -294,6 +297,15 @@ func _spawn_model() -> void:
 	var model := model_scene.instantiate()
 	# El nombre debe ser exactamente "Model": las pistas de animación son "Model/Skeleton3D:hueso".
 	model.name = "Model"
+	# Antes de entrar al árbol: el AnimationPlayer propio del FBX se apaga AQUÍ porque cambiarle el
+	# autoplay con el nodo ya dentro del árbol dispara un aviso del motor por cada ciudadano.
+	_silenciar_animadores(model)
+	# Los FBX descargados de Mixamo numeran el prefijo de los huesos según el personaje
+	# (mixamorig1_, mixamorig7_, mixamorig12_...). La librería compartida de clips está horneada
+	# con el prefijo canónico "mixamorig_": se renombran huesos Y bind names del Skin AQUÍ, antes de
+	# entrar al árbol, para que las pistas enganchen y para que el chequeo de huesos del Skin lo vea
+	# ya consistente (si se hiciera después, el motor avisa y la malla sale deforme).
+	_normalizar_huesos(model)
 	add_child(model)
 	# Los packs nuevos (City Folks / Urban Man) cuelgan el esqueleto de un nodo intermedio y traen
 	# las mallas separadas por pieza: se reestructura la jerarquía y se sortean las piezas para
@@ -314,6 +326,58 @@ func _spawn_model() -> void:
 	# hueso, no por marco de reposo, y esa corrección dejaba los brazos levantados. Esos modelos
 	# se descartan en el director (MODELOS_DESCARTADOS) en vez de parchear la pose.
 	_setup_look(model)
+
+
+## Preparación de MODELOS de Mixamo.
+##
+## Los FBX de Mixamo nombran los huesos con un prefijo numerado por personaje: "mixamorig1_Hips",
+## "mixamorig12_Head"... La librería compartida de clips (Citizen_Animations.res) tiene las pistas
+## escritas con el prefijo canónico "mixamorig_", así que aquí se renombran los huesos del modelo a
+## esa forma. Es idempotente (un nombre que ya es "mixamorig_X" se queda igual) y cuesta 65
+## renombrados por ciudadano, una sola vez al cargar.
+func _normalizar_huesos(model: Node) -> void:
+	var sk := model.find_child("Skeleton3D", true, false) as Skeleton3D
+	if sk == null:
+		return
+	for i in sk.get_bone_count():
+		var nombre := _nombre_canonico(String(sk.get_bone_name(i)))
+		if nombre != "":
+			sk.set_bone_name(i, nombre)
+	# CLAVE: cada MeshInstance3D trae un Skin con los NOMBRES de hueso del FBX original
+	# ("mixamorig7_Hips"...). Si solo se renombra el esqueleto, el skin ya no encuentra sus huesos
+	# ("Skin bind contains named bind ... but Skeleton3D has no bone by that name") y la malla se
+	# dibuja deforme, con el cuerpo hundido. Se renombran los dos lados con la misma regla.
+	for nodo in model.find_children("*", "MeshInstance3D", true, false):
+		var piel: Skin = (nodo as MeshInstance3D).skin
+		if piel == null:
+			continue
+		for b in piel.get_bind_count():
+			var nombre := _nombre_canonico(piel.get_bind_name(b))
+			if nombre != "":
+				piel.set_bind_name(b, nombre)
+
+
+## Devuelve el nombre canónico "mixamorig_X" si el nombre viene numerado ("mixamorig7_X"),
+## o "" si ya es canónico o no es un hueso de Mixamo.
+func _nombre_canonico(nombre: String) -> String:
+	if not nombre.begins_with("mixamorig"):
+		return ""
+	var pos := nombre.find("_")
+	if pos <= 0:
+		return ""
+	var canon := "mixamorig_" + nombre.substr(pos + 1)
+	return canon if nombre != canon else ""
+
+
+## Los FBX traen su propio AnimationPlayer ("Take 001" / "mixamo_com", una sola toma). Si quedara
+## reproduciéndose, pelearía con el AnimationTree del ciudadano por la pose de los huesos.
+func _silenciar_animadores(modelo: Node) -> void:
+	for n in modelo.find_children("*", "AnimationPlayer", true, false):
+		var ap: AnimationPlayer = n
+		ap.stop()
+		# El autoplay solo se puede limpiar sin ruido mientras el nodo no está en el árbol.
+		if not ap.is_inside_tree():
+			ap.autoplay = ""
 
 
 ## Prepara la mirada: busca el hueso de la cabeza y le cuelga el modificador que la gira.
@@ -941,6 +1005,12 @@ func _postura_desired_velocity(delta: float) -> Vector3:
 					_salir_postura()
 			return Vector3.ZERO
 		"reposar":
+			# La postura manda: mientras descansa NO se le aplica el giro de caminata (ése era el
+			# fallo de los que se sentaban al revés: seguían girando hacia su rumbo de llegada y
+			# acababan mirando al respaldo o de costado en la reposera).
+			rotation.y = lerp_angle(rotation.y, _postura_yaw, 1.0 - exp(-6.0 * delta))
+			if _postura == "recostarse":
+				rotation.x = _postura_tilt
 			# Mientras descansa puede cambiar a "hablando sentado" una vez (vida en el banco).
 			if not _hablado and _postura == "sentarse" and _postura_t > _postura_espera * 0.5:
 				_hablado = true
@@ -1331,7 +1401,9 @@ func _physics_process(delta: float) -> void:
 	# avanzar porque mira al revés o está frenado), se gira igualmente hacia el objetivo
 	# real: sin esto, un peatón que mira al revés no giraba nunca (el giro dependía del
 	# propio avance) y se quedaba clavado con la animación de caminar.
-	if state != State.TURN:
+	# Sentado o tumbado, la orientación la lleva la fase de postura: si se le aplica el giro de
+	# caminata hacia su rumbo de llegada, el cuerpo queda de costado respecto al banco/reposera.
+	if state != State.TURN and state != State.POSTURA:
 		_update_facing(delta, desired if desired.length_squared() > 0.0001 else _direccion_objetivo())
 	_vigilar_avance(delta)
 

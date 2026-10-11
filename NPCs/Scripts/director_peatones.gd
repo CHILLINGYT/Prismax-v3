@@ -137,11 +137,13 @@ func _preparar_asientos(datos: Dictionary) -> void:
 		var pos: Vector3 = banco["pos"]
 		var giro := float(banco["giro"])
 		var base := Basis(Vector3.UP, giro)
-		# Dos plazas por banco (izquierda y derecha), el cuerpo 21 cm por delante del
-		# respaldo y 4 cm hundido para que el asiento se apoye en la madera: medidas
-		# hechas sobre la pose real del clip "sit_idle" (cadera a 0,59 m y z −0,31).
+		# Dos plazas por banco (izquierda y derecha). Las medidas salen de la pose real del clip
+		# "sit_idle" horneado para ESTOS modelos (cadera del clip a 0,590 m de alto y 0,278 m por
+		# detrás del origen del ciudadano): con el banco mirando a −Z, la cadera queda a
+		# +0,101 m del centro del asiento (8 cm por delante del respaldo) y 8 cm sobre la tabla,
+		# que es donde apoya la pelvis de una persona sentada.
 		for sx: float in [-0.5, 0.5]:
-			var p := pos + base * Vector3(sx, 0.0, -0.21)
+			var p := pos + base * Vector3(sx, 0.0, -0.177)
 			_asientos.append({
 				"pos": Vector3(p.x, pos.y - 0.045, p.z),
 				"yaw": giro + PI,
@@ -160,11 +162,13 @@ func _preparar_reposeras(datos: Dictionary) -> void:
 		var pos: Vector3 = lug["pos"]
 		var yaw := float(lug["yaw"])
 		var base := Basis(Vector3.UP, yaw)
-		# Cuerpo tumbado sobre el lecho: el clip acaba con la cadera a 0,05 m del origen
-		# y a −0,21 m; aquí se apoya el cuerpo en la lona (0,345) con una inclinación
-		# suave de 5° que deja la cabeza sobre el cabezal (medidas de la pose real).
-		var fin := pos + base * Vector3(0.0, 0.395, 0.151)
-		var ini := pos + base * Vector3(0.0, 0.02, 1.95)
+		# Cuerpo tumbado sobre el lecho: el clip acaba con la cadera a 0,112 m de alto y 0,184 m por
+		# detrás del origen (medido sobre la pose horneada para estos modelos). Con el ancla de
+		# abajo la cadera cae en (y +0,489 · z −0,065) del origen de la reposera: sobre la lona
+		# (0,363) y justo donde empieza el lecho, con la cabeza en el cabezal y una inclinación
+		# suave de 5° que la acompaña.
+		var fin := pos + base * Vector3(0.0, 0.377, 0.119)
+		var ini := pos + base * Vector3(0.0, 0.02, 1.918)
 		_reposeras.append({
 			"pos": fin,
 			"ini": ini,
@@ -309,8 +313,49 @@ func _cerca_del_inicio_jugador(p: Vector3) -> bool:
 			_zona_jugador.global_position.z)) < radio_inicio_jugador
 
 
+## Modelos de los ciudadanos: personajes de MIXAMO. Viven en "res://modelos 3d npcs/" (dentro del
+## proyecto, ya importados con sus texturas). Se conservan los modelos PSX antiguos como RESPALDO:
+## si un Mixamo no cargara, se usa el paquete anterior en vez de dejar la ciudad sin gente.
+const DIR_MIXAMO := "res://modelos 3d npcs/"
+## Orden de carga (variedad: 4 hombres y 3 mujeres).
+const MODELOS_MIXAMO: Array[String] = ["Ch01_nonPBR.fbx", "Ch02_nonPBR.fbx", "Ch12_nonPBR.fbx",
+		"Ch13_nonPBR.fbx", "Ch17_nonPBR.fbx", "Ch26_nonPBR.fbx", "Ch33_nonPBR.fbx"]
+## Repertorio de clips de cada personaje (idle/walk/jog/giro son distintos por sexo).
+## Comprobado en captura de la parrilla de modelos (ver informe).
+const MIXAMO_SEXO := {
+	"Ch01_nonPBR.fbx": "male",
+	"Ch02_nonPBR.fbx": "female",
+	"Ch12_nonPBR.fbx": "female",
+	"Ch13_nonPBR.fbx": "female",
+	"Ch17_nonPBR.fbx": "male",
+	"Ch26_nonPBR.fbx": "female",
+	"Ch33_nonPBR.fbx": "male",
+}
+## Sexo de cada modelo cargado, en el mismo orden que `_modelos` (para el sembrado).
+var _sexos: Array[String] = []
+
+
 func _cargar_modelos() -> void:
 	_modelos.clear()
+	_sexos.clear()
+	var fallos: Array[String] = []
+	for f: String in MODELOS_MIXAMO:
+		var res: Resource = load(DIR_MIXAMO + f)
+		if res is PackedScene:
+			_modelos.append(res)
+			_sexos.append(String(MIXAMO_SEXO.get(f, "male")))
+		else:
+			fallos.append(f)
+	if not fallos.is_empty():
+		push_warning("[Peatones] no se pudieron cargar %d modelos de Mixamo: %s" % [fallos.size(), str(fallos)])
+	print("[Peatones] modelos Mixamo cargados: %d%s" % [_modelos.size(),
+			"" if fallos.is_empty() else " (fallos: %s)" % str(fallos)])
+	if _modelos.is_empty():
+		print("[Peatones] ningún modelo nuevo disponible: se usa el paquete PSX de respaldo")
+		_cargar_modelos_psx()
+
+
+func _cargar_modelos_psx() -> void:
 	var carpetas: Array = [
 		["res://NPCs/Characters/PSX/Male/", "male"],
 		["res://NPCs/Characters/PSX/Female/", "female"],
@@ -325,6 +370,7 @@ func _cargar_modelos() -> void:
 			"Character_Male_35.fbx", "Character_Male_36.fbx", "Character_Sheriff_N.fbx"]
 	for par: Array in carpetas:
 		var dir: String = par[0]
+		var sexo: String = par[1]
 		var archivos := DirAccess.get_files_at(dir)
 		var nombres: Array[String] = []
 		for f in archivos:
@@ -335,7 +381,13 @@ func _cargar_modelos() -> void:
 			var res: Resource = load(dir + f)
 			if res is PackedScene:
 				_modelos.append(res)
-	print("[Peatones] modelos PSX cargados: %d" % _modelos.size())
+				_sexos.append(sexo)
+	print("[Peatones] modelos PSX de respaldo cargados: %d" % _modelos.size())
+
+
+## Sexo del modelo en la posición `indice` de `_modelos` (para elegir el repertorio de clips).
+func sexo_de(indice: int) -> String:
+	return _sexos[indice] if indice >= 0 and indice < _sexos.size() else "male"
 
 
 func _buscar_ciclo() -> void:
@@ -391,9 +443,9 @@ func _sembrar(_datos: Dictionary) -> int:
 		var c := escena.instantiate() as NPCCitizen
 		if c == null:
 			continue
-		var modelo: PackedScene = _modelos[_rng.randi() % _modelos.size()] if not _modelos.is_empty() else null
-		c.model_scene = modelo
-		c.body_type = "female" if modelo != null and String(modelo.resource_path).contains("Female") else "male"
+		var idx_modelo := (_rng.randi() % _modelos.size()) if not _modelos.is_empty() else -1
+		c.model_scene = _modelos[idx_modelo] if idx_modelo >= 0 else null
+		c.body_type = sexo_de(idx_modelo)
 		c.position = punto
 		c.rotation.y = _rng.randf_range(0.0, TAU)
 		# La franja costera camina por el paseo y, de día, también por la arena; la mayoría
