@@ -18,6 +18,7 @@ config/features=PackedStringArray("4.7")
 AjustesGraficos="*res://ui/scripts/ajustes_graficos.gd"
 AjustesJugabilidad="*res://ui/scripts/ajustes_jugabilidad.gd"
 AjustesControles="*res://ui/scripts/ajustes_controles.gd"
+AjustesAudio="*res://ui/scripts/ajustes_audio.gd"
 
 [display]
 
