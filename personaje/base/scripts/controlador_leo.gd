@@ -662,8 +662,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	# pulsar los iconos: se anula el "clic para recapturar" durante ese tiempo.
 	if _menu_abierto:
 		return
-	# G: interruptor directo del cambio de forma (alternativa al menú radial F).
-	# is_action_pressed ya respeta "just_pressed": mantener G no re-transforma.
+	# H: interruptor directo del cambio de forma (alternativa al menú radial F).
+	# is_action_pressed ya respeta "just_pressed": mantener H no re-transforma.
+	# (Antes era G; G pasó a ser la aparición de enemigos de prueba.)
 	if event.is_action_pressed("transformacion_velocidad"):
 		_alternar_forma_con_efecto()
 		return
@@ -1035,7 +1036,7 @@ func _on_transformacion_elegida(id: StringName) -> void:
 
 # =============================================================== TRANSFORMACIÓN
 func _alternar_forma() -> void:
-	# La tecla G alterna hacia VELOCISTA (desde humano o acuático) y de vuelta a humano.
+	# La tecla H alterna hacia VELOCISTA (desde humano o acuático) y de vuelta a humano.
 	if forma == Forma.VELOCISTA:
 		_entrar_humano()
 	else:
@@ -1087,7 +1088,7 @@ func _id_forma(id: int) -> StringName:
 		_:
 			return &"humano"
 
-# Interruptor directo (tecla G): alterna humano <-> velocista.
+# Interruptor directo (tecla H; antes G): alterna humano <-> velocista.
 func _alternar_forma_con_efecto() -> void:
 	var destino := Forma.HUMANO if forma == Forma.VELOCISTA else Forma.VELOCISTA
 	_transicionar(destino)

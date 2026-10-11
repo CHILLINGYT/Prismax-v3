@@ -194,8 +194,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
-	# G (interruptor): humano -> velocista y velocista -> humano.
-	# is_action_just_pressed evita que mantener G repita la transformación.
+	# H (interruptor): humano -> velocista y velocista -> humano.
+	# is_action_just_pressed evita que mantener H repita la transformación.
+	# (Antes era G; en el juego principal G pasó a ser la aparición de enemigos).
 	if Input.is_action_just_pressed("transformacion_velocidad"):
 		_alternar_forma_con_efecto()
 
@@ -237,7 +238,7 @@ func _alternar_forma() -> void:
 	else:
 		_entrar_humano()
 
-# Transición visual al cambiar de forma con G: reproduce el efecto, cambia de
+# Transición visual al cambiar de forma con H: reproduce el efecto, cambia de
 # forma en su pico y espera a que termine antes de devolver el control. La
 # lógica interna del cambio de forma NO cambia (_alternar_forma).
 func _alternar_forma_con_efecto() -> void:
