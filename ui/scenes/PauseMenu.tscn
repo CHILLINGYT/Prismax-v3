@@ -528,3 +528,212 @@ theme_override_font_sizes/font_size = 18
 text = "5"
 horizontal_alignment = 2
 vertical_alignment = 1
+
+[node name="JugabilidadContent" type="VBoxContainer" parent="Root/ConfigPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 35.0
+offset_top = 74.0
+offset_right = -35.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="SensibilidadGrupo" type="VBoxContainer" parent="Root/ConfigPanel/JugabilidadContent"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "SENSIBILIDAD DEL RATÓN"
+
+[node name="SensibilidadFila" type="HBoxContainer" parent="Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SensibilidadBarra" type="Control" parent="Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/SensibilidadFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 0
+script = ExtResource("5_barra")
+minimo = 0
+maximo = 10
+
+[node name="SensibilidadValor" type="Label" parent="Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/SensibilidadFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "5"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="InvertirFila" type="HBoxContainer" parent="Root/ConfigPanel/JugabilidadContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/JugabilidadContent/InvertirFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "INVERTIR EJE VERTICAL"
+vertical_alignment = 1
+
+[node name="InvertirIzq" type="Button" parent="Root/ConfigPanel/JugabilidadContent/InvertirFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="InvertirValor" type="Label" parent="Root/ConfigPanel/JugabilidadContent/InvertirFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="InvertirDer" type="Button" parent="Root/ConfigPanel/JugabilidadContent/InvertirFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+
+[node name="AyudasFila" type="HBoxContainer" parent="Root/ConfigPanel/JugabilidadContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Etiqueta" type="VBoxContainer" parent="Root/ConfigPanel/JugabilidadContent/AyudasFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 2
+
+[node name="Nombre" type="Label" parent="Root/ConfigPanel/JugabilidadContent/AyudasFila/Etiqueta"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "MOSTRAR AYUDAS"
+
+[node name="Proximamente" type="Label" parent="Root/ConfigPanel/JugabilidadContent/AyudasFila/Etiqueta"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+theme_override_font_sizes/font_size = 13
+text = "(PRÓXIMAMENTE)"
+
+[node name="AyudasIzq" type="Button" parent="Root/ConfigPanel/JugabilidadContent/AyudasFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="AyudasValor" type="Label" parent="Root/ConfigPanel/JugabilidadContent/AyudasFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="AyudasDer" type="Button" parent="Root/ConfigPanel/JugabilidadContent/AyudasFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+
+[node name="HudFila" type="HBoxContainer" parent="Root/ConfigPanel/JugabilidadContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/JugabilidadContent/HudFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "OCULTAR INTERFAZ (HUD)"
+vertical_alignment = 1
+
+[node name="HudIzq" type="Button" parent="Root/ConfigPanel/JugabilidadContent/HudFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="HudValor" type="Label" parent="Root/ConfigPanel/JugabilidadContent/HudFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HudDer" type="Button" parent="Root/ConfigPanel/JugabilidadContent/HudFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"

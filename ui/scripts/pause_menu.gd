@@ -54,6 +54,19 @@ signal resumed
 @onready var _fps_valor: Label = %FpsValor
 @onready var _dist_barra: BarraValor = %DistanciaBarra
 @onready var _dist_valor: Label = %DistanciaValor
+# Contenido de la categoría JUGABILIDAD (mismo panel derecho, sin duplicarlo).
+@onready var _jugabilidad_content: VBoxContainer = %JugabilidadContent
+@onready var _sens_barra: BarraValor = %SensibilidadBarra
+@onready var _sens_valor: Label = %SensibilidadValor
+@onready var _invertir_izq: Button = %InvertirIzq
+@onready var _invertir_der: Button = %InvertirDer
+@onready var _invertir_valor: Label = %InvertirValor
+@onready var _ayudas_izq: Button = %AyudasIzq
+@onready var _ayudas_der: Button = %AyudasDer
+@onready var _ayudas_valor: Label = %AyudasValor
+@onready var _hud_izq: Button = %HudIzq
+@onready var _hud_der: Button = %HudDer
+@onready var _hud_valor: Label = %HudValor
 
 var _selected: int = 0
 var _move_tween: Tween
@@ -76,13 +89,16 @@ func _ready() -> void:
 	_conectar_lista(_items)
 	_conectar_lista(_config_items)
 	_conectar_opciones_graficos()
+	_conectar_opciones_jugabilidad()
 	AjustesGraficos.cambiado.connect(_actualizar_opciones_graficos)
+	AjustesJugabilidad.cambiado.connect(_actualizar_opciones_jugabilidad)
 	_en_config = false
 	_title.text = TITULO_PAUSA
 	_items.visible = true
 	_config_items.visible = false
 	_config_panel.visible = false
 	_config_content.visible = false
+	_jugabilidad_content.visible = false
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -157,6 +173,7 @@ func abrir() -> void:
 	_config_items.visible = false
 	_config_panel.visible = false
 	_config_content.visible = false
+	_jugabilidad_content.visible = false
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -259,6 +276,7 @@ func _entrar_config() -> void:
 	# El panel de contenido empieza OCULTO: solo aparece al pulsar una categoria.
 	_config_panel.visible = false
 	_config_content.visible = false
+	_jugabilidad_content.visible = false
 	_categoria_abierta = -1
 	_title.text = TITULO_CONFIG
 	_refresh(true)
@@ -274,6 +292,7 @@ func _salir_config() -> void:
 	# entrar en CONFIGURACIÓN el panel no aparezca abierto.
 	_config_panel.visible = false
 	_config_content.visible = false
+	_jugabilidad_content.visible = false
 	_categoria_abierta = -1
 	_title.text = TITULO_PAUSA
 	_refresh(true)
@@ -286,6 +305,7 @@ func _toggle_categoria(index: int, row: MenuOptionRes) -> void:
 		_categoria_abierta = -1
 		_config_panel.visible = false
 		_config_content.visible = false
+		_jugabilidad_content.visible = false
 		return
 	_categoria_abierta = index
 	_config_title.text = _titulo_categoria(row)
@@ -328,18 +348,46 @@ func _actualizar_opciones_graficos() -> void:
 	_dist_barra.poner_valor(AjustesGraficos.distancia)
 	_dist_valor.text = str(AjustesGraficos.distancia)
 
-## Muestra el contenido de GRÁFICOS solo cuando ESA categoría está abierta; las
-## demás categorías mantienen su área vacía. Siempre es el MISMO nodo.
+## Muestra el contenido de GRÁFICOS o JUGABILIDAD solo cuando ESA categoría está
+## abierta; las demás categorías mantienen su área vacía. Siempre son los MISMOS
+## nodos: no se duplica ni se recrea nada.
 func _actualizar_contenido_categoria() -> void:
 	if _categoria_abierta < 0:
 		_config_content.visible = false
+		_jugabilidad_content.visible = false
 		return
 	var row := _config_items.get_child(_categoria_abierta) as MenuOptionRes
-	var es_graficos := row != null and String(row.name) == "GraficosOption"
+	var nombre := String(row.name) if row != null else ""
+	var es_graficos := nombre == "GraficosOption"
+	var es_jugabilidad := nombre == "JugabilidadOption"
 	_config_content.visible = es_graficos
+	_jugabilidad_content.visible = es_jugabilidad
 	if es_graficos:
 		AjustesGraficos.sincronizar_estado_ventana()
 		_actualizar_opciones_graficos()
+	elif es_jugabilidad:
+		_actualizar_opciones_jugabilidad()
+
+# ---------------------------------------------------------------- JUGABILIDAD
+## Conecta los controles del panel de JUGABILIDAD. Se hace UNA sola vez (en
+## _ready), así no hay señales duplicadas. Todos los cambios se aplican/guardan
+## a través del singleton AjustesJugabilidad.
+func _conectar_opciones_jugabilidad() -> void:
+	_sens_barra.valor_cambiado.connect(AjustesJugabilidad.poner_sensibilidad)
+	_invertir_izq.pressed.connect(AjustesJugabilidad.alternar_invertir_eje_vertical)
+	_invertir_der.pressed.connect(AjustesJugabilidad.alternar_invertir_eje_vertical)
+	_ayudas_izq.pressed.connect(AjustesJugabilidad.alternar_mostrar_ayudas)
+	_ayudas_der.pressed.connect(AjustesJugabilidad.alternar_mostrar_ayudas)
+	_hud_izq.pressed.connect(AjustesJugabilidad.alternar_ocultar_hud)
+	_hud_der.pressed.connect(AjustesJugabilidad.alternar_ocultar_hud)
+
+## Refleja en la interfaz el estado REAL que vive en AjustesJugabilidad.
+func _actualizar_opciones_jugabilidad() -> void:
+	_sens_barra.poner_valor(AjustesJugabilidad.sensibilidad)
+	_sens_valor.text = str(AjustesJugabilidad.sensibilidad)
+	_invertir_valor.text = "SÍ" if AjustesJugabilidad.invertir_eje_vertical else "NO"
+	_ayudas_valor.text = "SÍ" if AjustesJugabilidad.mostrar_ayudas else "NO"
+	_hud_valor.text = "SÍ" if AjustesJugabilidad.ocultar_hud else "NO"
 
 ## Marca una accion destructiva como pendiente: el segundo accept la ejecuta.
 ## Evita perder la partida por una pulsacion accidental.

@@ -49,8 +49,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not permitir_look:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * sensibilidad)
-		_pitch_obj = clampf(_pitch_obj - event.relative.y * sensibilidad, -limite_pitch, limite_pitch_superior)
+		# La sensibilidad y la inversión vertical las aporta el autoload de
+		# JUGABILIDAD (menú de configuración). sensibilidad sigue siendo la base.
+		var s: float = sensibilidad * AjustesJugabilidad.factor_sensibilidad()
+		var signo_y: float = AjustesJugabilidad.signo_eje_vertical()
+		rotate_y(-event.relative.x * s)
+		_pitch_obj = clampf(_pitch_obj - event.relative.y * s * signo_y, -limite_pitch, limite_pitch_superior)
 
 func definir_pitch(v: float) -> void:
 	_pitch_obj = clampf(v, -limite_pitch, limite_pitch_superior)
