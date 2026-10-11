@@ -246,7 +246,12 @@ func _correr() -> void:
 			"nodos=%d" % _contar_indicadores(get_parent()))
 
 	# --- 4: el indicador pertenece al FreeFlow: al salir de la forma se apaga --
-	await _cambiar_forma(&"humano", 0)
+	# Se sale hacia otra forma de combate: `_on_transformacion_elegida` no tiene
+	# entrada para "humano" (eso lo gestiona el menú radial), así que el caso usa
+	# "velocista", que sí pasa por el camino real de transformación.
+	await _esperar_seg(0.9)          # deja terminar el último golpe
+	var volvio := await _cambiar_forma(&"velocista", 1)
+	_check("4. la forma sale de Ataque (a Velocista)", volvio, "forma=%d" % int(_jug.forma))
 	await _esperar_seg(0.3)
 	_check("4. al salir de la forma Ataque el indicador se apaga",
 			_indicador() == null or not _indicador().visible,
