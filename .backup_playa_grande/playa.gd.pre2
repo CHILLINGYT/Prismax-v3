@@ -1,0 +1,417 @@
+class_name Playa
+extends Object
+## =============================================================================
+##  MOBILIARIO DE PLAYA: PALMERAS, SOMBRILLAS Y REPOSERAS
+## =============================================================================
+##  Los tres modelos son mallas geométricas construidas por código, el mismo
+##  camino que ya usan las farolas de la calle (world/farolas.gd) y los bancos
+##  (world/bancos.gd): no hay que importar ningún modelo nuevo y el estilo se
+##  mantiene. Las mallas se construyen UNA vez y las comparte toda la playa.
+##
+##  Uso: el generador de ciudad pide `malla_*()` (quedan cacheadas), acumula las
+##  matrices de cada ejemplar y lo dibuja todo con MultiMeshInstance3D: un solo
+##  dibujado por modelo.
+##
+##  Convenciones locales de cada modelo (la base siempre en y = 0):
+##    · palmera   : tronco esbelto con leve inclinación y copa de 9 hojas más
+##                  3 hojas secas colgando. Escala 1 ≈ 5,3 m de alto total.
+##    · sombrilla : mástil centrado; lona cónica de 8 paños con borde ondulado.
+##                  Esquema 0 = coral, 1 = azul, 2 = amarilla (a franjas con
+##                  blanco). Escala 1 ≈ 2,3 m de alto por 2,7 m de boca.
+##    · reposera  : largo en Z con los PIES hacia +Z (para orientarla al mar).
+##                  Variante 0 tumbada (respaldo 22°) y 1 reclinada (42°).
+##
+##  El color va en los COLORES DE VÉRTICE de la malla (tronco, lona, patas) y la
+##  variación por ejemplar llega por el color de instancia de la MultiMesh, que
+##  multiplica al anterior. Así una sola malla da ejemplares distintos.
+##
+##  Es una clase de utilidades (RefCounted): se usan sus funciones estáticas.
+## =============================================================================
+
+# --- Paleta veraniega, en armonía con la arena y el césped ---------------------
+const CORAL := Color(0.83, 0.27, 0.22)
+const AZUL := Color(0.16, 0.42, 0.70)
+const AMARILLO := Color(0.94, 0.72, 0.20)
+const BLANCO_LONA := Color(0.93, 0.92, 0.87)
+const TRONCO := Color(0.44, 0.35, 0.24)
+const TRONCO_CLARO := Color(0.55, 0.46, 0.32)
+const HOJA := Color(0.24, 0.44, 0.16)
+const HOJA_CLARA := Color(0.38, 0.58, 0.22)
+const HOJA_SECA := Color(0.51, 0.42, 0.24)
+const METAL := Color(0.24, 0.24, 0.26)
+const PATAS := Color(0.29, 0.30, 0.32)
+const TELA := Color(0.90, 0.89, 0.84)
+
+# --- Geometría de la palmera (medidas de la malla, en metros) -----------------
+const PALMA_ALTO := 4.6          ## altura del tronco
+const PALMA_INCLINACION := 0.30  ## cuánto se aparta la punta respecto de la base
+const PALMA_HOJAS := 9
+const PALMA_LARGO_HOJA := 2.65
+
+static var _mallas := {}
+static var _materiales := {}
+
+
+# =============================================================================
+#  Materiales (compartidos; el detalle lo ponen los colores de vértice)
+# =============================================================================
+
+## Material de la palmera: tronco y hojas en la misma malla, con los colores de
+## vértice como albedo. Se ven las dos caras (las hojas son planos delgados).
+static func material_palmera() -> StandardMaterial3D:
+	if _materiales.has("palmera"):
+		return _materiales["palmera"]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color.WHITE
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.88
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Algo de translucidez: a contraluz las hojas no quedan negras.
+	m.backlight_enabled = true
+	m.backlight = Color(0.55, 0.75, 0.35)
+	_materiales["palmera"] = m
+	return m
+
+
+## Material de la lona y los herrajes de sombrillas y reposeras: también con
+## colores de vértice (lona a franjas, patas oscuras) y dos caras visibles
+## (la lona se mira desde abajo).
+static func material_tela() -> StandardMaterial3D:
+	if _materiales.has("tela"):
+		return _materiales["tela"]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color.WHITE
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.82
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_materiales["tela"] = m
+	return m
+
+
+# =============================================================================
+#  Palmera
+# =============================================================================
+
+## Malla de la palmera (una sola superficie con colores de vértice).
+static func malla_palmera() -> ArrayMesh:
+	if _mallas.has("palmera"):
+		return _mallas["palmera"]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Tronco: 6 tramos con radios decrecientes y una inclinación suave (+X).
+	var tramos := 6
+	for k in tramos:
+		var t0 := float(k) / float(tramos)
+		var t1 := float(k + 1) / float(tramos)
+		var c0 := Vector3(PALMA_INCLINACION * t0 * t0, PALMA_ALTO * t0, 0.0)
+		var c1 := Vector3(PALMA_INCLINACION * t1 * t1, PALMA_ALTO * t1, 0.0)
+		var r0 := lerpf(0.22, 0.13, t0)
+		var r1 := lerpf(0.22, 0.13, t1)
+		var col := TRONCO.lerp(TRONCO_CLARO, 0.5 + 0.5 * sin(t0 * 9.0))
+		_cilindro(st, r0, r1, c0, c1, 7, col)
+	# Abultamiento de la base (raíces) y remate de la corona.
+	_cilindro(st, 0.34, 0.22, Vector3(0.0, -0.12, 0.0), Vector3(0.0, 0.24, 0.0), 7, TRONCO)
+	var punta := Vector3(PALMA_INCLINACION, PALMA_ALTO, 0.0)
+	_esfera(st, 0.20, punta + Vector3(0.0, 0.05, 0.0), 6, 8, TRONCO_CLARO)
+	# Copa: 9 hojas repartidas en círculo, con curvas y largos algo distintos
+	# (según el índice, para que no salgan todas iguales).
+	for i in PALMA_HOJAS:
+		var phi := TAU * float(i) / float(PALMA_HOJAS) + 0.13 * float(i % 3)
+		var largo := PALMA_LARGO_HOJA * (0.86 + 0.14 * float((i * 7) % 5) / 4.0)
+		var col := HOJA.lerp(HOJA_CLARA, 0.25 + 0.5 * float((i * 3) % 4) / 3.0)
+		_hoja(st, punta, phi, largo, col, i)
+	# Hojas secas: tres, colgando hacia abajo junto al tronco.
+	for i in 3:
+		var phi := TAU * float(i) / 3.0 + 0.7
+		_hoja_seca(st, punta, phi, 1.55 + 0.2 * float(i))
+	var malla := st.commit()
+	malla.surface_set_material(0, material_palmera())
+	_mallas["palmera"] = malla
+	return malla
+
+
+## Una hoja: cinta curva que sale de la corona, se arquea hacia arriba y cae
+## hacia la punta, con un pliegue central (nervio) y color por tramo.
+static func _hoja(st: SurfaceTool, base: Vector3, phi: float, largo: float,
+		col: Color, indice: int) -> void:
+	var hor := Vector3(cos(phi), 0.0, sin(phi))
+	var lado := hor.cross(Vector3.UP).normalized()
+	var pasos := 6
+	var prev_izq := Vector3.ZERO
+	var prev_der := Vector3.ZERO
+	var prev_med := Vector3.ZERO
+	for s in pasos + 1:
+		var t := float(s) / float(pasos)
+		var cur := base + hor * (t * largo) \
+				+ Vector3.UP * (0.45 + 0.85 * t - 1.75 * t * t) \
+				+ lado * (0.18 * sin(t * 4.0 + float(indice)))
+		var ancho := 0.04 + 0.30 * pow(sin(clampf(t, 0.0, 1.0) * PI), 0.8)
+		var izq := cur - lado * (ancho * 0.5)
+		var der := cur + lado * (ancho * 0.5)
+		var med := cur + Vector3.UP * (0.05 * (1.0 - t))
+		if s > 0:
+			var c0 := col.lerp(HOJA_CLARA, prev_color(t, s - 1, pasos))
+			var c1 := col.lerp(HOJA_CLARA, prev_color(t, s, pasos))
+			_cuad(st, prev_izq, izq, prev_med, med, c0, c1)
+			_cuad(st, prev_med, med, prev_der, der, c0, c1)
+		prev_izq = izq
+		prev_der = der
+		prev_med = med
+
+
+## Factor (0..1) para aclarar la hoja hacia su punta.
+static func prev_color(_t: float, s: int, pasos: int) -> float:
+	return 0.15 + 0.85 * float(s) / float(pasos)
+
+
+## Hoja seca: cuelga del punto de la corona hacia abajo.
+static func _hoja_seca(st: SurfaceTool, base: Vector3, phi: float, largo: float) -> void:
+	var hor := Vector3(cos(phi), 0.0, sin(phi))
+	var lado := hor.cross(Vector3.UP).normalized()
+	var pasos := 4
+	var prev_izq := Vector3.ZERO
+	var prev_der := Vector3.ZERO
+	for s in pasos + 1:
+		var t := float(s) / float(pasos)
+		var cur := base + hor * (t * largo * 0.55) + Vector3.UP * (0.05 - 1.35 * t)
+		var ancho := 0.05 + 0.16 * sin(clampf(t, 0.0, 1.0) * PI)
+		var izq := cur - lado * (ancho * 0.5)
+		var der := cur + lado * (ancho * 0.5)
+		if s > 0:
+			_cuad(st, prev_izq, izq, prev_der, der, HOJA_SECA, HOJA_SECA)
+		prev_izq = izq
+		prev_der = der
+
+
+# =============================================================================
+#  Sombrilla
+# =============================================================================
+
+## Malla de la sombrilla del esquema pedido (0 coral, 1 azul, 2 amarilla).
+static func malla_sombrilla(esquema: int) -> ArrayMesh:
+	var clave := "sombrilla_%d" % esquema
+	if _mallas.has(clave):
+		return _mallas[clave]
+	var color := [CORAL, AZUL, AMARILLO][clampi(esquema, 0, 2)] as Color
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var alto_cono := 2.30
+	var radio := 1.35
+	var paños := 8
+	# Lona: cono de 8 paños con el borde ondulado y a franjas (color/blanco).
+	for k in paños:
+		var a0 := TAU * float(k) / float(paños)
+		var a1 := TAU * float(k + 1) / float(paños)
+		var onda0 := 0.05 * float(k % 2)
+		var onda1 := 0.05 * float((k + 1) % 2)
+		var r0 := radio + 0.045 * float(k % 2)
+		var r1 := radio + 0.045 * float((k + 1) % 2)
+		var v0 := Vector3(cos(a0) * r0, 1.62 - onda0, sin(a0) * r0)
+		var v1 := Vector3(cos(a1) * r1, 1.62 - onda1, sin(a1) * r1)
+		var cima := Vector3(0.0, alto_cono, 0.0)
+		var col := color if (k % 2) == 0 else BLANCO_LONA
+		_tri(st, v0, v1, cima, col)
+	# Falda del borde (una banda corta hacia abajo, da grosor a la lona).
+	for k in paños:
+		var a0 := TAU * float(k) / float(paños)
+		var a1 := TAU * float(k + 1) / float(paños)
+		var onda0 := 0.05 * float(k % 2)
+		var onda1 := 0.05 * float((k + 1) % 2)
+		var r0 := radio + 0.045 * float(k % 2)
+		var r1 := radio + 0.045 * float((k + 1) % 2)
+		var v0 := Vector3(cos(a0) * r0, 1.62 - onda0, sin(a0) * r0)
+		var v1 := Vector3(cos(a1) * r1, 1.62 - onda1, sin(a1) * r1)
+		var s0 := v0 - Vector3(0.0, 0.10, 0.0)
+		var s1 := v1 - Vector3(0.0, 0.10, 0.0)
+		var col := color if (k % 2) == 0 else BLANCO_LONA
+		_cuad2(st, v0, v1, s1, s0, col)
+	# Mástil, remate y anilla inferior.
+	_cilindro(st, 0.030, 0.030, Vector3(0.0, 0.0, 0.0), Vector3(0.0, 2.36, 0.0), 6, METAL)
+	_esfera(st, 0.055, Vector3(0.0, 2.38, 0.0), 4, 6, METAL)
+	var malla := st.commit()
+	malla.surface_set_material(0, material_tela())
+	_mallas[clave] = malla
+	return malla
+
+
+# =============================================================================
+#  Reposera
+# =============================================================================
+
+## Malla de la reposera: variante 0 tumbada (22°), 1 reclinada (42°).
+## Largo en Z con los pies hacia +Z: al orientarla, +Z mira al mar.
+static func malla_reposera(variante: int) -> ArrayMesh:
+	var clave := "reposera_%d" % variante
+	if _mallas.has(clave):
+		return _mallas[clave]
+	var incl := deg_to_rad(22.0 if variante == 0 else 42.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sep := 0.30                 # semiancho entre largueros
+	var y_tabla := 0.335            # cara superior del lecho
+	var z_quiebre := -0.05          # quiebre entre lecho y respaldo
+	var z_pies := 0.98
+	var largo_respaldo := 0.88
+	# Largueros del lecho (dos barras a lo largo).
+	for s in [-1.0, 1.0]:
+		_caja_malla(st, Vector3(0.055, 0.055, z_pies - z_quiebre),
+				Vector3(s * sep, y_tabla - 0.03, (z_pies + z_quiebre) * 0.5), PATAS)
+	# Largueros del respaldo, inclinados.
+	var dir := Vector3(0.0, sin(incl), -cos(incl))
+	var centro_r := Vector3(0.0, y_tabla, z_quiebre) + dir * (largo_respaldo * 0.5)
+	for s in [-1.0, 1.0]:
+		_caja_girada(st, Vector3(0.055, 0.055, largo_respaldo), Vector3(s * sep, 0.0, 0.0),
+				centro_r, dir, PATAS)
+	# Esterillas: listones de tela a través, sobre el lecho y el respaldo.
+	var n_lecho := 6
+	for k in n_lecho:
+		var z := lerpf(z_quiebre + 0.09, z_pies - 0.09, float(k) / float(n_lecho - 1))
+		_caja_malla(st, Vector3(sep * 2.0 - 0.02, 0.035, 0.135), Vector3(0.0, y_tabla, z), TELA)
+	var n_resp := 5
+	for k in n_resp:
+		var t := 0.12 + 0.76 * float(k) / float(n_resp - 1)
+		var p := Vector3(0.0, y_tabla, z_quiebre) + dir * (largo_respaldo * t)
+		# Listón cruzado, girado con el respaldo: eje Z local sobre `dir`.
+		_caja_girada(st, Vector3(sep * 2.0 - 0.02, 0.035, 0.135), Vector3.ZERO, p, dir, TELA)
+	# Patas: dos pares, casi verticales.
+	for sz in [z_pies - 0.14, z_quiebre - 0.42]:
+		var y := (y_tabla - 0.16) * 0.5 + 0.02
+		for s in [-1.0, 1.0]:
+			_caja_malla(st, Vector3(0.05, y_tabla - 0.10, 0.05), Vector3(s * sep, y, sz), PATAS)
+	# Travesaño de rigidez entre las patas.
+	_caja_malla(st, Vector3(sep * 2.0, 0.045, 0.045),
+			Vector3(0.0, 0.14, z_quiebre - 0.42), PATAS)
+	var malla := st.commit()
+	malla.surface_set_material(0, material_tela())
+	_mallas[clave] = malla
+	return malla
+
+
+# =============================================================================
+#  Piezas geométricas (todas con color de vértice)
+# =============================================================================
+
+## Triángulo suelto.
+static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, col: Color) -> void:
+	st.set_color(col)
+	st.add_vertex(a)
+	st.set_color(col)
+	st.add_vertex(b)
+	st.set_color(col)
+	st.add_vertex(c)
+
+
+## Cuadrilátero a-b-c-d (dos triángulos), con un color por extremo.
+static func _cuad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
+		col_a: Color, col_b: Color) -> void:
+	st.set_color(col_a)
+	st.add_vertex(a)
+	st.set_color(col_b)
+	st.add_vertex(b)
+	st.set_color(col_b)
+	st.add_vertex(c)
+	st.set_color(col_a)
+	st.add_vertex(a)
+	st.set_color(col_b)
+	st.add_vertex(c)
+	st.set_color(col_a)
+	st.add_vertex(d)
+
+
+## Cuadrilátero con un solo color.
+static func _cuad2(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
+		col: Color) -> void:
+	_cuad(st, a, b, c, d, col, col)
+
+
+## Cilindro (o cono truncado) entre dos puntos, con tapas.
+static func _cilindro(st: SurfaceTool, r0: float, r1: float, c0: Vector3, c1: Vector3,
+		lados: int, col: Color) -> void:
+	var eje := c1 - c0
+	if eje.length_squared() < 0.000001:
+		return
+	var b := Basis(Quaternion(Vector3.UP, eje.normalized()))
+	for k in lados:
+		var a0 := TAU * float(k) / float(lados)
+		var a1 := TAU * float(k + 1) / float(lados)
+		var d0 := b * Vector3(cos(a0), 0.0, sin(a0))
+		var d1 := b * Vector3(cos(a1), 0.0, sin(a1))
+		_cuad2(st, c0 + d0 * r0, c0 + d1 * r0, c1 + d1 * r1, c1 + d0 * r1, col)
+		_tri(st, c1, c1 + d1 * r1, c1 + d0 * r1, col)
+		_tri(st, c0, c0 + d0 * r0, c0 + d1 * r0, col)
+
+
+## Esfera de pocos segmentos.
+static func _esfera(st: SurfaceTool, r: float, centro: Vector3, anillos: int, lados: int,
+		col: Color) -> void:
+	for i in anillos:
+		var t0 := PI * float(i) / float(anillos)
+		var t1 := PI * float(i + 1) / float(anillos)
+		for k in lados:
+			var a0 := TAU * float(k) / float(lados)
+			var a1 := TAU * float(k + 1) / float(lados)
+			var p00 := centro + Vector3(sin(t0) * cos(a0), cos(t0), sin(t0) * sin(a0)) * r
+			var p01 := centro + Vector3(sin(t0) * cos(a1), cos(t0), sin(t0) * sin(a1)) * r
+			var p10 := centro + Vector3(sin(t1) * cos(a0), cos(t1), sin(t1) * sin(a0)) * r
+			var p11 := centro + Vector3(sin(t1) * cos(a1), cos(t1), sin(t1) * sin(a1)) * r
+			_cuad2(st, p00, p01, p11, p10, col)
+
+
+## Caja alineada a los ejes (centro + tamaño).
+static func _caja_malla(st: SurfaceTool, tam: Vector3, centro: Vector3, col: Color) -> void:
+	var h := tam * 0.5
+	for s: Vector3 in [Vector3(1.0, 0.0, 0.0), Vector3(-1.0, 0.0, 0.0)]:
+		var e := s * h
+		if s.x > 0.0:
+			_cuad2(st, centro + e + Vector3(0, -h.y, -h.z), centro + e + Vector3(0, h.y, -h.z),
+					centro + e + Vector3(0, h.y, h.z), centro + e + Vector3(0, -h.y, h.z), col)
+		else:
+			_cuad2(st, centro + e + Vector3(0, -h.y, h.z), centro + e + Vector3(0, h.y, h.z),
+					centro + e + Vector3(0, h.y, -h.z), centro + e + Vector3(0, -h.y, -h.z), col)
+	for s2: Vector3 in [Vector3(0.0, 1.0, 0.0), Vector3(0.0, -1.0, 0.0)]:
+		var e2 := s2 * h
+		if s2.y > 0.0:
+			_cuad2(st, centro + e2 + Vector3(-h.x, 0, -h.z), centro + e2 + Vector3(h.x, 0, -h.z),
+					centro + e2 + Vector3(h.x, 0, h.z), centro + e2 + Vector3(-h.x, 0, h.z), col)
+		else:
+			_cuad2(st, centro + e2 + Vector3(-h.x, 0, h.z), centro + e2 + Vector3(h.x, 0, h.z),
+					centro + e2 + Vector3(h.x, 0, -h.z), centro + e2 + Vector3(-h.x, 0, -h.z), col)
+	for s3: Vector3 in [Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, -1.0)]:
+		var e3 := s3 * h
+		if s3.z > 0.0:
+			_cuad2(st, centro + e3 + Vector3(-h.x, -h.y, 0), centro + e3 + Vector3(h.x, -h.y, 0),
+					centro + e3 + Vector3(h.x, h.y, 0), centro + e3 + Vector3(-h.x, h.y, 0), col)
+		else:
+			_cuad2(st, centro + e3 + Vector3(-h.x, h.y, 0), centro + e3 + Vector3(h.x, h.y, 0),
+					centro + e3 + Vector3(h.x, -h.y, 0), centro + e3 + Vector3(-h.x, -h.y, 0), col)
+
+
+## Caja girada: el eje Z local sigue a `dir` (para los listones y largueros del
+## respaldo, que van inclinados). `desplaz` se suma al centro en el espacio girado.
+static func _caja_girada(st: SurfaceTool, tam: Vector3, desplaz: Vector3, centro: Vector3,
+		dir: Vector3, col: Color) -> void:
+	var z_local := dir.normalized()
+	var x_local := Vector3.UP.cross(z_local)
+	if x_local.length_squared() < 0.0001:
+		x_local = Vector3.RIGHT
+	x_local = x_local.normalized()
+	var y_local := z_local.cross(x_local).normalized()
+	var b := Basis(x_local, y_local, z_local)
+	var h := tam * 0.5
+	var c := centro + b * desplaz
+	# Se construyen las 6 caras en el espacio girado.
+	for sx in [-1.0, 1.0]:
+		var e := b * Vector3(sx * h.x, 0.0, 0.0)
+		var e2 := b * Vector3(0.0, h.y, 0.0)
+		var e3 := b * Vector3(0.0, 0.0, h.z)
+		_cuad2(st, c + e - e2 - e3, c + e + e2 - e3, c + e + e2 + e3, c + e - e2 + e3, col)
+	for sy in [-1.0, 1.0]:
+		var e := b * Vector3(0.0, sy * h.y, 0.0)
+		var e1 := b * Vector3(h.x, 0.0, 0.0)
+		var e3 := b * Vector3(0.0, 0.0, h.z)
+		_cuad2(st, c + e - e1 - e3, c + e + e1 - e3, c + e + e1 + e3, c + e - e1 + e3, col)
+	for sz in [-1.0, 1.0]:
+		var e := b * Vector3(0.0, 0.0, sz * h.z)
+		var e1 := b * Vector3(h.x, 0.0, 0.0)
+		var e2 := b * Vector3(0.0, h.y, 0.0)
+		_cuad2(st, c + e - e1 - e2, c + e + e1 - e2, c + e + e1 + e2, c + e - e1 + e2, col)

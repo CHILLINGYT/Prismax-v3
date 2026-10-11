@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-run/main_scene="res://ui/scenes/MainMenu.tscn"
+run/main_scene="res://ui/scenes/IntroVideo.tscn"
 config/features=PackedStringArray("4.7")
 
 [autoload]
