@@ -158,6 +158,8 @@ var _eventos: Dictionary = {}
 var _originales: Dictionary = {}
 ## Avistamientos del primer arranque (para el informe/depuracion).
 var _ultimo_error: String = ""
+## Reaplicacion ya pedida y aun no ejecutada (ver _on_node_added).
+var _pendiente_reaplicar: bool = false
 
 func _ready() -> void:
 	_capturar_originales()
@@ -188,24 +190,48 @@ func _primer_evento(accion: StringName) -> InputEvent:
 ## Reaplica en el InputMap todas las asignaciones actuales. Se llama al arrancar
 ## y tambien cuando se anaden nodos: si una escena nueva vuelve a registrar el
 ## mapa por defecto, las preferencias del jugador se recuperan sin recargar nada.
+##
+## OJO (bug del dash): reescribir los eventos de una accion DESCARTA su estado
+## pulsado en el Input. El jugador sigue con la tecla apretada, pero el juego la
+## ve suelta y el personaje se queda parado (y el dash pierde la direccion) hasta
+## que suelta y vuelve a pulsar. Por eso aqui se salta toda accion que se este
+## pulsando en este instante: su reaplicacion puede esperar a que se suelte.
 func _aplicar_todo() -> void:
+	_pendiente_reaplicar = false
 	for accion in _eventos.keys():
+		if InputMap.has_action(accion) and Input.is_action_pressed(accion):
+			continue
 		_escribir_en_inputmap(accion, _eventos[accion])
 
 func _on_node_added(n: Node) -> void:
 	# Las acciones del InputMap son globales y persisten; esto solo cubre el caso
 	# de que algo vuelva a registrar el mapa por defecto en tiempo de ejecucion.
-	if n is Control or n is Node3D:
-		call_deferred("_aplicar_todo")
+	# Se agrupa en UNA sola reaplicacion por fotograma: la ciudad o un modelo que
+	# se carga anaden miles de nodos y no necesitan una pasada cada uno.
+	if _pendiente_reaplicar or not (n is Control or n is Node3D):
+		return
+	_pendiente_reaplicar = true
+	call_deferred("_aplicar_todo")
 
 ## Escribe UNA accion en el InputMap real (borrando sus eventos anteriores para
-## no acumular asignaciones viejas).
+## no acumular asignaciones viejas). Si el mapa YA tiene esa misma asignacion no
+## se toca nada: reescribir por reescribir era justo lo que borraba el estado de
+## las teclas que el jugador mantiene pulsadas.
 func _escribir_en_inputmap(accion: StringName, ev: InputEvent) -> void:
 	if not InputMap.has_action(accion):
+		return
+	if _ya_en_inputmap(accion, ev):
 		return
 	InputMap.action_erase_events(accion)
 	if ev != null:
 		InputMap.action_add_event(accion, ev)
+
+## ¿El InputMap ya tiene exactamente esa asignacion para la accion?
+func _ya_en_inputmap(accion: StringName, ev: InputEvent) -> bool:
+	var actuales: Array[InputEvent] = InputMap.action_get_events(accion)
+	if ev == null:
+		return actuales.is_empty()
+	return actuales.size() == 1 and _mismo_evento(actuales[0], ev)
 
 # ---------------------------------------------------------------- consulta
 ## Asignacion actual de una accion (o null).
