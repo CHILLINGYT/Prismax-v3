@@ -1,0 +1,25 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="1_jugador"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_suelo"]
+size = Vector2(40, 40)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(40, 1, 40)
+
+[node name="PruebaDanioJugador" type="Node3D"]
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.25, 0.44, 0, 0.87, 0.5, -0.5, -0.43, 0.75, 0, 6, 0)
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="Malla" type="MeshInstance3D" parent="Suelo"]
+mesh = SubResource("PlaneMesh_suelo")
+
+[node name="Colision" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Jugador" parent="." instance=ExtResource("1_jugador")]

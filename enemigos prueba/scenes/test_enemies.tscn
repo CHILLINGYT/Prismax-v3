@@ -1,0 +1,149 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://enemigos prueba/scripts/combat/combat_manager.gd" id="1_manager"]
+[ext_resource type="Resource" path="res://enemigos prueba/resources/combat_config.tres" id="2_config"]
+[ext_resource type="PackedScene" path="res://enemigos prueba/scenes/enemy.tscn" id="3_enemy"]
+[ext_resource type="Script" path="res://enemigos prueba/test/test_player.gd" id="4_test_player"]
+
+[sub_resource type="Environment" id="Environment_test"]
+background_mode = 1
+background_color = Color(0.45, 0.55, 0.7, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.72, 0.74, 0.8, 1)
+ambient_light_energy = 0.75
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="Mat_ground"]
+albedo_color = Color(0.45, 0.48, 0.42, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall"]
+size = Vector3(40, 3, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall"]
+size = Vector3(40, 3, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_test_player"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_test_player"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="Mat_test_player"]
+albedo_color = Color(0.25, 0.45, 0.85, 1)
+roughness = 0.6
+
+[node name="TestArena" type="Node3D"]
+
+[node name="CombatManager" type="Node" parent="."]
+script = ExtResource("1_manager")
+config = ExtResource("2_config")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_test")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.7071068, -0.7071068, 0, 0.7071068, 0.7071068, 0, 10, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape3D_ground")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_ground")
+surface_material_override/0 = SubResource("Mat_ground")
+
+[node name="Walls" type="StaticBody3D" parent="."]
+collision_mask = 0
+
+[node name="North" type="CollisionShape3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -20)
+shape = SubResource("BoxShape3D_wall")
+
+[node name="NorthMesh" type="MeshInstance3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -20)
+mesh = SubResource("BoxMesh_wall")
+surface_material_override/0 = SubResource("Mat_ground")
+
+[node name="South" type="CollisionShape3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 20)
+shape = SubResource("BoxShape3D_wall")
+
+[node name="SouthMesh" type="MeshInstance3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 20)
+mesh = SubResource("BoxMesh_wall")
+surface_material_override/0 = SubResource("Mat_ground")
+
+[node name="East" type="CollisionShape3D" parent="Walls"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 20, 1.5, 0)
+shape = SubResource("BoxShape3D_wall")
+
+[node name="EastMesh" type="MeshInstance3D" parent="Walls"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 20, 1.5, 0)
+mesh = SubResource("BoxMesh_wall")
+surface_material_override/0 = SubResource("Mat_ground")
+
+[node name="West" type="CollisionShape3D" parent="Walls"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -20, 1.5, 0)
+shape = SubResource("BoxShape3D_wall")
+
+[node name="WestMesh" type="MeshInstance3D" parent="Walls"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -20, 1.5, 0)
+mesh = SubResource("BoxMesh_wall")
+surface_material_override/0 = SubResource("Mat_ground")
+
+[node name="TestPlayer" type="CharacterBody3D" parent="."]
+collision_layer = 2
+collision_mask = 5
+script = ExtResource("4_test_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TestPlayer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_test_player")
+
+[node name="Body" type="MeshInstance3D" parent="TestPlayer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("CapsuleMesh_test_player")
+surface_material_override/0 = SubResource("Mat_test_player")
+
+[node name="Status" type="Label3D" parent="TestPlayer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.1, 0)
+pixel_size = 0.02
+billboard = 1
+no_depth_test = true
+outline_size = 12
+text = "TEST PLAYER"
+font_size = 64
+
+[node name="Enemy1" parent="." instance=ExtResource("3_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0)
+
+[node name="Enemy2" parent="." instance=ExtResource("3_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 6.928)
+
+[node name="Enemy3" parent="." instance=ExtResource("3_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 6.928)
+
+[node name="Enemy4" parent="." instance=ExtResource("3_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 0)
+
+[node name="Enemy5" parent="." instance=ExtResource("3_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -6.928)
+
+[node name="Enemy6" parent="." instance=ExtResource("3_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -6.928)
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.8944, 0.4472, 0, -0.4472, 0.8944, 0, 6, 11)
+current = true

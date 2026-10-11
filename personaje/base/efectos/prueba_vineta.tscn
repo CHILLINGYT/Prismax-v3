@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[ext_resource type="Shader" path="res://personaje/base/efectos/efecto_danio.gdshader" id="1_sh"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_prueba"]
+shader = ExtResource("1_sh")
+shader_parameter/intensidad = 1.0
+shader_parameter/mezcla_azul = 0.45
+shader_parameter/color_rojo = Color(0.82, 0.1, 0.09, 1)
+shader_parameter/color_azul = Color(0.1, 0.12, 0.32, 1)
+shader_parameter/caida_lateral = 2.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_caja"]
+size = Vector3(2, 2, 2)
+
+[node name="PruebaVineta" type="Node3D"]
+
+[node name="Camara" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 6)
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.25, 0.44, 0, 0.87, 0.5, -0.5, -0.43, 0.75, 0, 4, 0)
+
+[node name="Caja" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("BoxMesh_caja")
+
+[node name="Layer" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="Vineta" type="ColorRect" parent="Layer"]
+material = SubResource("ShaderMaterial_prueba")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="RojoPlano" type="ColorRect" parent="Layer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.1, 0.9, 0.1, 0.25)

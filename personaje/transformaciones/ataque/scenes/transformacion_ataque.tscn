@@ -1,0 +1,65 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/ataque/scenes/player.tscn" id="1_player"]
+[ext_resource type="Script" path="res://personaje/transformaciones/ataque/scripts/camera_rig.gd" id="2_camera"]
+[ext_resource type="Script" path="res://personaje/transformaciones/ataque/scripts/combat/combat_manager.gd" id="3_combat"]
+[ext_resource type="Resource" path="res://personaje/transformaciones/ataque/resources/combat_config.tres" id="4_config"]
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 1
+background_color = Color(0.45, 0.55, 0.7, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.72, 0.74, 0.8, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="Mat_ground"]
+albedo_color = Color(0.32, 0.36, 0.32, 1)
+roughness = 0.9
+
+[node name="TransformacionAtaque" type="Node3D"]
+
+[node name="CombatManager" type="Node" parent="."]
+script = ExtResource("3_combat")
+config = ExtResource("4_config")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.7071068, -0.7071068, 0, 0.7071068, 0.7071068, 0, 10, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape3D_ground")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_ground")
+surface_material_override/0 = SubResource("Mat_ground")
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+combat_manager_path = NodePath("../CombatManager")
+
+[node name="CameraRig" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+script = ExtResource("2_camera")
+target_path = NodePath("../Player")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig"]
+spring_length = 2.6
+collision_mask = 1
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
+fov = 70.0
+current = true

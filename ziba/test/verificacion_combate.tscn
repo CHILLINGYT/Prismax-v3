@@ -1,0 +1,45 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="1_jugador"]
+[ext_resource type="PackedScene" path="res://enemigos prueba/scenes/enemy.tscn" id="2_enemigo"]
+[ext_resource type="Script" path="res://enemigos prueba/scripts/combat/combat_manager.gd" id="3_manager"]
+[ext_resource type="Resource" path="res://enemigos prueba/resources/combat_config.tres" id="4_config"]
+[ext_resource type="Script" path="res://ziba/test/verificacion_combate.gd" id="5_script"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(44, 1, 44)
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.55, 0.62, 0.7, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.62, 1)
+ambient_light_energy = 0.6
+
+[node name="VerificacionCombate" type="Node3D"]
+script = ExtResource("5_script")
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.5, 0)
+
+[node name="Forma" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Entorno" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-45, 25, 0)
+
+[node name="Jugador" parent="." instance=ExtResource("1_jugador")]
+position = Vector3(0, 0.1, 0)
+
+[node name="GestionEnemigosPrueba" type="Node" parent="."]
+script = ExtResource("3_manager")
+config = ExtResource("4_config")
+
+[node name="Enemigo1" parent="." instance=ExtResource("2_enemigo")]
+position = Vector3(0, 0.1, -2.6)
+
+[node name="Enemigo2" parent="." instance=ExtResource("2_enemigo")]
+position = Vector3(1.7, 0.1, -3.7)

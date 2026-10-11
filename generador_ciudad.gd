@@ -229,10 +229,13 @@ var _pintura_esquinas: Array[String] = []
 var _tex_cesped: Texture2D = null          ## césped de los parques (si existe)
 var _tex_techo: Texture2D = null           ## membrana de grava de las azoteas
 var _mat_techo := {}                       ## lado de la plancha -> material de membrana
-## Vegetación: matrices y colores agrupados POR TEXTURA (tarjetas cruzadas de
-## `Vegetacion`), para volcar una MultiMeshInstance3D por especie.
-var _pistas_planta: Dictionary = {}
-var _tintes_planta: Dictionary = {}
+var _pistas_tronco: Array[Transform3D] = []      ## matrices de troncos (3D)
+var _pistas_esfera: Array[Transform3D] = []      ## matrices de masas redondas
+var _colores_esfera: Array[Color] = []           ## color por masa redonda
+var _pistas_cono: Array[Transform3D] = []        ## matrices de masas cónicas
+var _colores_cono: Array[Color] = []             ## color por masa cónica
+var _mat_tronco: StandardMaterial3D = null       ## material de los troncos
+var _mat_hoja: StandardMaterial3D = null         ## material del follaje
 var _alcantarillas: Array[String] = []
 var _sumideros: Array[String] = []
 var _bolardos: Array[String] = []
@@ -480,8 +483,11 @@ func limpiar_ciudad() -> void:
 	_cont.clear()
 	_con_decal.clear()
 	_mallas_limpias.clear()
-	_pistas_planta.clear()
-	_tintes_planta.clear()
+	_pistas_tronco.clear()
+	_pistas_esfera.clear()
+	_colores_esfera.clear()
+	_pistas_cono.clear()
+	_colores_cono.clear()
 
 
 # =============================================================================
@@ -2085,19 +2091,55 @@ func _colocar_vegetacion(pos: Vector3, escala: float, base_y: float = Y_ACERA) -
 	_est["vegetacion"] = int(_est.get("vegetacion", 0)) + 1
 
 
-## Árbol: una TARJETA CRUZADA con el dibujo de una de las especies del proyecto
-## (`Vegetacion`), apoyada sobre el terreno, con altura, giro y tono al azar.
-## Antes se construía con tronco cilíndrico y masas de esferas o conos, que es lo
-## que daba siluetas de "círculos y triángulos"; el reparto (dónde va cada árbol)
-## no cambia en absoluto.
+## Árbol en 3D: tronco cilíndrico y masas de hoja (esferas o conos), apoyado
+## sobre el terreno, con altura, giro, inclinación y color aleatorios.
 func _colocar_arbol(pos: Vector3, alto_min: float, alto_max: float) -> bool:
 	if not generar_vegetacion or not usar_vegetacion_propia:
 		return false
 	var alto := _rng.randf_range(alto_min, alto_max)
-	var ruta: String = Vegetacion.ARBOLES[_rng.randi_range(0, Vegetacion.ARBOLES.size() - 1)]
-	_anadir_planta(ruta, Vegetacion.matriz(pos, ruta, alto, _rng.randf_range(0.0, TAU)), _color_hoja())
+	var grosor := _rng.randf_range(0.09, 0.14)
+	if _rng.randf() < 0.3:
+		# --- Conífera: tronco corto y tres conos apilados --------------------
+		var alto_tronco := alto * 0.34
+		_pistas_tronco.append(_matriz_tronco(pos, grosor, alto_tronco))
+		var verde := _color_hoja()
+		var tramos: Array = [
+			[0.26, 0.42, 0.26],     # [radio, alto, arranque] en fracciones de 'alto'
+			[0.20, 0.36, 0.48],
+			[0.13, 0.30, 0.70],
+		]
+		for t: Array in tramos:
+			var r := alto * float(t[0])
+			var h := alto * float(t[1])
+			var y0 := pos.y + alto * float(t[2])
+			_pistas_cono.append(Transform3D(Basis().scaled(Vector3(r, h, r)),
+					Vector3(pos.x, y0 + h * 0.5, pos.z)))
+			_colores_cono.append(verde)
+	else:
+		# --- Frondoso: tronco alto y 3-5 masas redondeadas -------------------
+		var alto_tronco2 := alto * _rng.randf_range(0.48, 0.60)
+		_pistas_tronco.append(_matriz_tronco(pos, grosor, alto_tronco2))
+		var centro := Vector3(pos.x, pos.y + alto * 0.70, pos.z)
+		for k in _rng.randi_range(3, 5):
+			var r2 := alto * _rng.randf_range(0.20, 0.28)
+			var des := Vector3(_rng.randf_range(-0.16, 0.16) * alto,
+					_rng.randf_range(-0.07, 0.07) * alto,
+					_rng.randf_range(-0.16, 0.16) * alto)
+			_pistas_esfera.append(Transform3D(Basis().scaled(Vector3(r2, r2 * 0.85, r2)),
+					centro + des))
+			_colores_esfera.append(_color_hoja())
 	_est["arboles"] = int(_est.get("arboles", 0)) + 1
 	return true
+
+
+## Matriz de un tronco: cilindro unitario con la base apoyada en 'pos' y una
+## inclinación leve para que no salgan todos tiesos.
+func _matriz_tronco(pos: Vector3, grosor: float, alto: float) -> Transform3D:
+	var eje := Vector3(_rng.randf_range(-1.0, 1.0), 0.0, _rng.randf_range(-1.0, 1.0)).normalized()
+	var base := Basis(eje, deg_to_rad(_rng.randf_range(0.0, 4.0)))
+	var xf := Transform3D(base.scaled(Vector3(grosor, alto, grosor)), Vector3.ZERO)
+	xf.origin = pos + base * Vector3(0.0, alto * 0.5, 0.0)
+	return xf
 
 
 ## Color de hoja: verde con variación por árbol.
@@ -2107,43 +2149,66 @@ func _color_hoja() -> Color:
 	return oscuro.lerp(claro, _rng.randf()).lightened(_rng.randf_range(0.0, 0.05))
 
 
-## Arbusto: tarjeta cruzada con el dibujo del arbusto.
+## Arbusto en 3D: dos o tres masas de hoja aplastadas, apoyadas en el suelo.
 func _colocar_arbusto(pos: Vector3, alto_min: float, alto_max: float) -> bool:
 	if not generar_vegetacion or not usar_vegetacion_propia:
 		return false
 	var alto := _rng.randf_range(alto_min, alto_max)
-	_anadir_planta(Vegetacion.ARBUSTO,
-			Vegetacion.matriz(pos, Vegetacion.ARBUSTO, alto, _rng.randf_range(0.0, TAU)), _color_hoja())
+	var verde := _color_hoja()
+	for k in _rng.randi_range(2, 3):
+		var r := alto * _rng.randf_range(0.42, 0.58)
+		var des := Vector3(_rng.randf_range(-0.30, 0.30) * alto, 0.0,
+				_rng.randf_range(-0.30, 0.30) * alto)
+		_pistas_esfera.append(Transform3D(Basis().scaled(Vector3(r, r * 0.78, r)),
+				pos + des + Vector3(0.0, r * 0.78, 0.0)))
+		_colores_esfera.append(verde.lightened(_rng.randf_range(0.0, 0.06)))
 	_est["vegetacion"] = int(_est.get("vegetacion", 0)) + 1
 	return true
 
 
-## Guarda una planta en el grupo de su textura (una MultiMesh por especie).
-func _anadir_planta(ruta: String, xf: Transform3D, color: Color) -> void:
-	if not _pistas_planta.has(ruta):
-		_pistas_planta[ruta] = []
-		_tintes_planta[ruta] = []
-	(_pistas_planta[ruta] as Array).append(xf)
-	(_tintes_planta[ruta] as Array).append(color)
-
-
-## Vuelca la vegetación en una MultiMeshInstance3D por ESPECIE (tarjetas cruzadas
-## con recorte de alfa y tono por ejemplar). Es lo más barato de dibujar con
-## cientos de árboles y el aspecto es el de un árbol de verdad, no el de una
-## primitiva.
+## Vuelca toda la vegetación en tres MultiMeshInstance3D: troncos, masas
+## redondas y masas cónicas, con un color por instancia. Es lo más barato de
+## dibujar con cientos de árboles y, al ser geometría real, tiene volumen.
 func _volcar_vegetacion() -> void:
-	if _pistas_planta.is_empty():
+	if _pistas_tronco.is_empty() and _pistas_esfera.is_empty() and _pistas_cono.is_empty():
 		return
 	var cont: Node3D = _cont["Vegetacion"]
-	var rutas: Array = _pistas_planta.keys()
-	rutas.sort()
-	for ruta: String in rutas:
-		cont.add_child(_crear_multi(Vegetacion.malla(), _pistas_planta[ruta], _tintes_planta[ruta],
-				Vegetacion.material(ruta), ruta.get_file().get_basename()))
+	if _mat_tronco == null:
+		_mat_tronco = StandardMaterial3D.new()
+		_mat_tronco.albedo_color = Color(0.30, 0.23, 0.17)
+		_mat_tronco.roughness = 1.0
+	if _mat_hoja == null:
+		_mat_hoja = StandardMaterial3D.new()
+		_mat_hoja.albedo_color = Color(1.0, 1.0, 1.0)
+		_mat_hoja.roughness = 0.9
+		_mat_hoja.vertex_color_use_as_albedo = true      # color por instancia
+	if not _pistas_tronco.is_empty():
+		var tronco := CylinderMesh.new()
+		tronco.top_radius = 0.75
+		tronco.bottom_radius = 1.0
+		tronco.height = 1.0
+		tronco.radial_segments = 6
+		tronco.rings = 1
+		cont.add_child(_crear_multi(tronco, _pistas_tronco, [], _mat_tronco, "Arboles_troncos"))
+	if not _pistas_esfera.is_empty():
+		var esfera := SphereMesh.new()
+		esfera.radius = 1.0
+		esfera.height = 2.0
+		esfera.radial_segments = 8
+		esfera.rings = 4
+		cont.add_child(_crear_multi(esfera, _pistas_esfera, _colores_esfera, _mat_hoja, "Arboles_hoja"))
+	if not _pistas_cono.is_empty():
+		var cono := CylinderMesh.new()
+		cono.top_radius = 0.0
+		cono.bottom_radius = 1.0
+		cono.height = 1.0
+		cono.radial_segments = 8
+		cono.rings = 1
+		cont.add_child(_crear_multi(cono, _pistas_cono, _colores_cono, _mat_hoja, "Arboles_pino"))
 
 
 ## MultiMeshInstance3D a partir de una lista de matrices (y colores opcionales).
-func _crear_multi(malla: Mesh, pistas: Array, colores: Array,
+func _crear_multi(malla: Mesh, pistas: Array[Transform3D], colores: Array[Color],
 		material: Material, nombre: String) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D

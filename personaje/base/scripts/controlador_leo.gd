@@ -16,7 +16,7 @@ extends CharacterBody3D
 # La forma HUMANA usa el modelo y las animaciones propias de Leo
 # (personaje/transformaciones/humano/), con movimiento/correr/salto y las acciones del proyecto.
 
-enum Forma { HUMANO, VELOCISTA, ACUATICO, FUERZA }
+enum Forma { HUMANO, VELOCISTA, ACUATICO, FUERZA, COMBATE }
 
 # Estados del sistema de supervelocidad (idénticos a ziba/scripts/jugador.gd).
 enum Estado { NORMAL, DASH, CAIDA_DASH, CARGA, PREPARADO, EJECUCION }
@@ -62,6 +62,49 @@ const ANIM_H_SALTO_CORRIENDO := "running_jump"
 # "crouch_idle" todavía no existe; si falta, se congela la pose de crouch_walk (como en leo.gd).
 const ANIM_H_CROUCH_WALK := "crouch_walk"
 const ANIM_H_CROUCH_IDLE := "crouch_idle"
+
+# ------------------------------------------- Combate / Ataque: clips propios
+# La forma Combate usa el modelo y las animaciones del módulo de ataque
+# (personaje/transformaciones/ataque/): sus clips originales, sin renombrar.
+const ANIM_C_IDLE := "combat_idle"
+const ANIM_C_IDLE_ALT := "idle"
+const ANIM_C_WALK := "walk"
+const ANIM_C_JUMP := "jump"
+# Movimiento de la forma Combate: constantes REALES del módulo de ataque (su
+# scripts/player.gd: walk_speed, acceleration, deceleration, jump_velocity,
+# gravity y turn_speed). No se inventan valores nuevos.
+const C_VEL_CAMINAR := 6.0
+const C_ACELERACION := 30.0
+const C_DESACELERACION := 40.0
+const C_GRAVEDAD := 22.0
+const C_SALTO := 7.0
+## Segundo impulso aéreo de la forma Combate (doble salto): algo más suave que
+## el salto de suelo, para que no se sienta como un salto infinito.
+const C_DOBLE_SALTO := 6.0
+const C_GIRO := 14.0
+const C_MEZCLA := 0.18
+const C_MEZCLA_SALTO := 0.10
+const C_UMBRAL_MOVIMIENTO := 0.15
+# Referencia de la animación de caminar del módulo (walk_reference_speed, la
+# calibración MEDIDA del clip corregido: 0.93 m de zancada / 0.633 s = 2.95) y
+# límites de su escalado. El tope se redujo de 1.8 a 1.4: la caminata se ve
+# moderadamente más lenta a velocidad plena (queda un deslizamiento leve, el
+# compromiso inevitable al no bajar la velocidad real de movimiento).
+const C_REF_VEL_CAMINAR := 2.95
+const C_ESCALA_MIN := 0.8
+const C_ESCALA_MAX := 1.4
+
+# ----- Forma Combate: ataque FreeFlow (sistema del módulo ataque, reutilizado) -----
+# La cadena de 4 golpes (jab/dos/cros/gancho), su ventana de impacto y el
+# selector contextual de objetivo se leen de los scripts YA existentes del
+# módulo ataque: no se copian valores ni lógica nueva.
+const PlayerAtaque := preload("res://personaje/transformaciones/ataque/scripts/player.gd")
+const CombatTargeting := preload("res://personaje/transformaciones/ataque/scripts/combat/combat_targeting.gd")
+const AttackData := preload("res://personaje/transformaciones/ataque/scripts/combat/attack_data.gd")
+
+# Estados del ataque de la forma Combate: los mismos pasos que el módulo
+# (FREE/APPROACH/WINDUP/ACTIVE/RECOVERY), integrados en este controlador.
+enum C_E { LIBRE, ACERCARSE, PREPARAR, ACTIVO, RECUPERAR }
 
 # ------------------------------------------- Acuático / Pes: clips propios
 # La librería acuática (personaje/transformaciones/acuatica/animations/player_animations.tres)
@@ -117,6 +160,14 @@ const ABIL_AGUA := [
 		"knockback": 9.0, "kind": &"heavy",
 	},
 ]
+
+# Golpe cuerpo a cuerpo del ataque acuático (clic izquierdo): a media animación
+# golpea una vez a los enemigos que alcanza. Valores iniciales y ajustables, en
+# la escala del puñetazo de Fuerza (8) y su empuje de agua.
+const A_GOLPE_DANIO := 8.0
+const A_GOLPE_EMPUJE := 4.0
+const A_GOLPE_ALCANCE := 1.0
+const A_GOLPE_RADIO := 1.2
 
 # ------------------------------------------- Fuerza: movimiento y habilidades
 # La forma Fuerza reutiliza los scripts/efectos de res://Fuerza/ (Combat, Vfx,
@@ -224,6 +275,15 @@ const FACTOR_MOVILIDAD_ATAQUE := 0.35
 const IMPULSO_AVANCE := 4.5
 const VENTANA_CONTINUACION := 0.5
 
+# Combo del velocista (clic izquierdo): sus 4 golpes golpean DE VERDAD a los
+# enemigos que alcanzan, una vez por golpe y enemigo. Daño inicial y ajustable,
+# creciente con el combo, en la escala de los golpes cuerpo a cuerpo del juego
+# (puñetazo de Fuerza = 8).
+const VEL_COMBO_DANIOS := [7.0, 9.0, 11.0, 13.0]
+const VEL_COMBO_EMPUJE := 5.0
+const VEL_COMBO_ALCANCE := 1.3
+const VEL_COMBO_RADIO := 1.2
+
 @export_group("Forma humana")
 @export var h_vel_caminar: float = H_VEL_CAMINAR
 @export var h_vel_correr: float = H_VEL_CORRER
@@ -244,12 +304,14 @@ const VENTANA_CONTINUACION := 0.5
 @export var vel_trayecto_max: float = 60.0
 @export var vel_trayecto_min: float = 34.0
 
-# --- Recorrido del poder (clic derecho) ---
-## Radio (m) con el que se da por alcanzado un punto de la ruta.
-const TRAYECTO_RADIO_PUNTO := 1.2
-## Altura (m) a la que se sondea si hay un muro real delante: a esa altura un
-## edificio bloquea, pero un bordillo o un desnivel pequeño no.
-const TRAYECTO_ALTURA_MURO := 1.4
+# Golpe de la supervelocidad (clic derecho): daño y empuje al enemigo que
+# alcanza el recorrido. Valores INICIALES y ajustables: el daño es 1.5x el
+# golpe base del combate FreeFlow (20) y el empuje, de la escala de la
+# embestida de Fuerza (14). El aturdimiento breve realza el impacto.
+const VEL_GOLPE_DANIO := 30.0
+const VEL_GOLPE_EMPUJE := 12.0
+const VEL_GOLPE_ATURD := 0.25
+const VEL_GOLPE_RADIO := 1.3
 
 var forma: int = Forma.HUMANO
 var estado: int = Estado.NORMAL
@@ -257,9 +319,34 @@ var estado: int = Estado.NORMAL
 var _transformando: bool = false
 # Verdadero mientras el menú radial de transformaciones (F) está abierto.
 var _menu_abierto: bool = false
+# --- Estado forma Combate (módulo ataque) ---
+var c_salto_aire: bool = false
+# Verdadero cuando ya se usó el impulso aéreo (doble salto) desde el último
+# toque de suelo: impide un tercer salto antes de aterrizar.
+var c_doble_usado: bool = false
+# --- Ataque FreeFlow de la forma Combate (módulo ataque, integrado) ---
+# Estado del combo, objetivo actual, golpe en curso y su fase. El objetivo se
+# REELIGE al comenzar cada golpe: ninguna referencia antigua bloquea el cambio
+# durante todo el combo.
+var c_estado: int = C_E.LIBRE
+var c_objetivo: Node3D = null
+var c_cadena: int = 0
+var c_golpe: AttackData = null
+var c_fase: float = 0.0
+var c_golpe_hecho: bool = false
+var c_acercar_t: float = 0.0
+# Cadena construida una vez a partir de SPRINT del módulo y del config del
+# encuentro (mismo dato que usan los enemigos).
+var _c_cadena_datos: Array = []
+# Gestor del encuentro resuelto por grupo "combat_manager" (el mismo que ya
+# coordina a los enemigos de prueba en la partida).
+var _gestor_combate: Node = null
 
 @onready var humano: Node3D = $Humano
 @onready var anim_humano: AnimationPlayer = $Humano/Animador
+# Efecto de pantalla del daño (una sola capa para todas las formas; puede no
+# existir en escenas de prueba, por eso se busca sin error).
+@onready var efecto_danio: EfectoDanioPantalla = get_node_or_null("EfectoDanioPantalla")
 @onready var acuatico: Node3D = $Acuatico
 @onready var anim_acuatico: AnimationPlayer = $Acuatico/AnimadorAcuatico
 @onready var fuerza: Node3D = $Fuerza
@@ -274,6 +361,11 @@ var _menu_abierto: bool = false
 @onready var efecto_transf: EfectoTransformacion = $EfectoTransformacion
 @onready var menu_transf: MenuTransformaciones = $MenuTransformaciones
 @onready var estadisticas: EstadisticasJugador = $Estadisticas
+# Representación de la forma Combate: el modelo y las animaciones del módulo
+# ataque. El nodo se llama "Ataque" para no chocar con $Combate (el sistema de
+# combos del velocista, que ya existía con ese nombre).
+@onready var ataque_visual: Node3D = $Ataque
+@onready var anim_ataque: AnimationPlayer = $Ataque/AnimadorAtaque
 
 # --- Estado forma humana ---
 var h_salto_aire: bool = false
@@ -287,6 +379,10 @@ var a_salto_aire: bool = false
 var a_agachado: bool = false
 var a_ataque_activo: bool = false
 var a_t_ataque: float = 0.0
+# Duración del clip del ataque en curso y marca del golpe físico ya aplicado
+# (un solo impacto real por pulsación).
+var a_ataque_dur: float = 0.0
+var a_golpe_hecho: bool = false
 # Habilidades acuáticas (teclas 1-4): bloqueo de acción, enfriamientos y carga.
 var a_en_habilidad: bool = false
 var a_t_habilidad: float = 0.0
@@ -343,6 +439,9 @@ var _t_preparado: float = 0.0
 var _puntos: Array[Vector3] = []
 var _idx: int = 0
 var _vel_trayecto: float = 0.0
+# Enemigos ya golpeados por el recorrido de la supervelocidad en curso: evita
+# aplicarles el daño más de una vez por un mismo impacto.
+var _golpeados_ejecucion: Array = []
 var _hubo_combo_atras: bool = false
 var _en_ventana_atras: bool = false
 var _t_ventana: float = 0.0
@@ -361,6 +460,11 @@ var _t_modo_ataque: float = 0.0
 var _salto_forzado: bool = false
 
 func _ready() -> void:
+	# El personaje jugable se registra en el grupo "player": así lo resuelven los
+	# enemigos de prueba (módulo "enemigos prueba") y cualquier sistema de combate
+	# del proyecto que busque al jugador por grupo, como hacen los propios
+	# módulos de transformación.
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
 	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
@@ -376,6 +480,12 @@ func _ready() -> void:
 	menu_transf.menu_abierto.connect(_on_menu_transformaciones_abierto)
 	menu_transf.menu_cerrado.connect(_on_menu_transformaciones_cerrado)
 	menu_transf.transformacion_elegida.connect(_on_transformacion_elegida)
+	# Efecto de pantalla de daño y rotura de escudo: se conecta a las señales del
+	# sistema de vida/escudo que ya existe (EstadisticasJugador). Es el mismo
+	# efecto para todas las transformaciones: no hay una copia por forma.
+	if efecto_danio != null:
+		estadisticas.danio_recibido.connect(efecto_danio.al_recibir_danio)
+		estadisticas.escudo_roto.connect(efecto_danio.al_romper_escudo)
 	# Altura base del pivote de cámara, para bajarla al agacharse y restaurarla después.
 	h_pivote_y_base = pivote.position.y
 	# Iguala la altura visual de la forma velocista a la de Leo humano.
@@ -384,6 +494,8 @@ func _ready() -> void:
 	_ajustar_escala_acuatico()
 	# Iguala la altura visual de la forma Fuerza a la de Leo humano.
 	_ajustar_escala_fuerza()
+	# Iguala la altura visual de la forma Combate (módulo ataque) a la de Leo humano.
+	_ajustar_escala_ataque()
 	# Enfriamientos de las 4 habilidades acuáticas (arrancan listas).
 	for i in ABIL_AGUA.size():
 		a_cooldowns[i + 1] = 0.0
@@ -392,8 +504,23 @@ func _ready() -> void:
 	visual.visible = false
 	acuatico.visible = false
 	fuerza.visible = false
+	ataque_visual.visible = false
 	humano.visible = true
 	_reproducir_humano(ANIM_H_IDLE, 0.0)
+
+
+# --- Puente con sistemas de combate externos (enemigos de prueba) ------------
+# Interfaz mínima que esperan los enemigos del módulo "enemigos prueba" (ver el
+# README de ese módulo): estar en el grupo "player", poder consultar si sigue
+# vivo y recibir daño. El daño se delega en el sistema de vida que YA existe
+# (EstadisticasJugador, el mismo que usa la tecla K de prueba): no se crea un
+# segundo sistema de vida.
+func is_alive() -> bool:
+	return not estadisticas.muerto
+
+
+func take_damage(amount: float) -> void:
+	estadisticas.recibir_danio(amount)
 
 # Fuerza usada por herramientas/diagnóstico (igual que el prototipo).
 func forma_actual() -> int:
@@ -412,6 +539,8 @@ func id_forma() -> StringName:
 			return &"pes"
 		Forma.FUERZA:
 			return &"tanque"
+		Forma.COMBATE:
+			return &"combate"
 		_:
 			return &"humano"
 
@@ -420,8 +549,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# pulsar los iconos: se anula el "clic para recapturar" durante ese tiempo.
 	if _menu_abierto:
 		return
-	# G: interruptor directo del cambio de forma (alternativa al menú radial F).
-	# is_action_pressed ya respeta "just_pressed": mantener G no re-transforma.
+	# T: interruptor directo del cambio de forma (alternativa al menú radial F).
+	# Antes vivía en G; G quedó reservada para los enemigos de prueba (módulo
+	# "enemigos prueba"). is_action_pressed ya respeta "just_pressed": mantener
+	# la tecla no re-transforma.
 	if event.is_action_pressed("transformacion_velocidad"):
 		_alternar_forma_con_efecto()
 		return
@@ -487,6 +618,8 @@ func _physics_process(delta: float) -> void:
 	elif forma == Forma.FUERZA:
 		_procesar_fuerza(delta)
 		_actualizar_anim_fuerza(delta)
+	elif forma == Forma.COMBATE:
+		_procesar_combate(delta)
 	else:
 		match estado:
 			Estado.NORMAL:
@@ -504,10 +637,6 @@ func _physics_process(delta: float) -> void:
 		_actualizar_animaciones(delta)
 		_actualizar_pose(delta)
 
-	# Subida natural de bordillos para locomoción normal. Durante EJECUCION el
-	# recorrido gestiona el bloqueo en _procesar_ejecucion(): ahí primero distingue
-	# pared/escalón y, si corresponde, llama a _salvar_escalon(). No ejecutar ambos
-	# solucionadores en el mismo fotograma.
 	# Subida natural de los bordillos de las aceras (~15 cm): común a las cuatro
 	# formas, se ejecuta una vez por frame tras el move_and_slide() de cada una.
 	# Durante la EJECUCIÓN del trazado del Velocista NO se ejecuta aquí: ese estado
@@ -532,6 +661,8 @@ func _congelar_por_menu(delta: float) -> void:
 		_reproducir_acuatico(ANIM_A_IDLE)
 	elif forma == Forma.FUERZA:
 		_reproducir_fuerza(ANIM_F_IDLE)
+	elif forma == Forma.COMBATE:
+		_reproducir_combate(ANIM_C_IDLE)
 	else:
 		_reproducir_anim(ANIM_INACTIVO, BLEND_MARCHA)
 
@@ -726,6 +857,8 @@ func _on_transformacion_elegida(id: StringName) -> void:
 			_cambiar_forma_con_efecto(Forma.ACUATICO)
 		&"tanque":
 			_cambiar_forma_con_efecto(Forma.FUERZA)
+		&"combate":
+			_cambiar_forma_con_efecto(Forma.COMBATE)
 		_:
 			pass
 
@@ -756,6 +889,8 @@ func _transicionar(destino: int) -> void:
 			_entrar_acuatico()
 		Forma.FUERZA:
 			_entrar_fuerza()
+		Forma.COMBATE:
+			_entrar_combate()
 		_:
 			_entrar_humano()
 	await efecto_transf.terminado
@@ -769,6 +904,8 @@ func _id_forma(id: int) -> StringName:
 			return &"pes"
 		Forma.FUERZA:
 			return &"tanque"
+		Forma.COMBATE:
+			return &"combate"
 		_:
 			return &"humano"
 
@@ -788,6 +925,7 @@ func _entrar_velocista() -> void:
 	forma = Forma.VELOCISTA
 	_detener_acuatico()
 	_detener_fuerza()
+	_detener_combate()
 	h_salto_aire = false
 	h_agachado = false
 	pivote.position.y = h_pivote_y_base
@@ -797,6 +935,7 @@ func _entrar_velocista() -> void:
 	humano.visible = false
 	acuatico.visible = false
 	fuerza.visible = false
+	ataque_visual.visible = false
 	visual.visible = true
 	_anim_actual = ""
 	_salto_forzado = false
@@ -811,10 +950,13 @@ func _entrar_acuatico() -> void:
 	forma = Forma.ACUATICO
 	_detener_velocista()
 	_detener_fuerza()
+	_detener_combate()
 	a_salto_aire = false
 	a_agachado = false
 	a_ataque_activo = false
 	a_t_ataque = 0.0
+	a_ataque_dur = 0.0
+	a_golpe_hecho = false
 	pivote.position.y = h_pivote_y_base
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
@@ -822,6 +964,7 @@ func _entrar_acuatico() -> void:
 	humano.visible = false
 	visual.visible = false
 	fuerza.visible = false
+	ataque_visual.visible = false
 	acuatico.visible = true
 	if anim_acuatico != null:
 		anim_acuatico.speed_scale = 1.0
@@ -834,9 +977,11 @@ func _entrar_humano() -> void:
 	_detener_velocista()
 	_detener_acuatico()
 	_detener_fuerza()
+	_detener_combate()
 	visual.visible = false
 	acuatico.visible = false
 	fuerza.visible = false
+	ataque_visual.visible = false
 	humano.visible = true
 	h_salto_aire = false
 	_reproducir_humano(ANIM_H_IDLE, BLEND_TRANSFORMACION)
@@ -849,6 +994,8 @@ func _detener_acuatico() -> void:
 	a_agachado = false
 	a_ataque_activo = false
 	a_t_ataque = 0.0
+	a_ataque_dur = 0.0
+	a_golpe_hecho = false
 	# Cancela cualquier habilidad en curso y su carga (no debe quedar nada activo).
 	a_en_habilidad = false
 	a_t_habilidad = 0.0
@@ -863,6 +1010,7 @@ func _entrar_fuerza() -> void:
 	forma = Forma.FUERZA
 	_detener_velocista()
 	_detener_acuatico()
+	_detener_combate()
 	f_salto_aire = false
 	f_agachado = false
 	f_embestiendo = false
@@ -876,6 +1024,7 @@ func _entrar_fuerza() -> void:
 	humano.visible = false
 	visual.visible = false
 	acuatico.visible = false
+	ataque_visual.visible = false
 	fuerza.visible = true
 	_f_anim_actual = ""
 	_f_ataque_clip = ""
@@ -903,6 +1052,46 @@ func _detener_fuerza() -> void:
 	if anim_fuerza != null:
 		anim_fuerza.speed_scale = 1.0
 	_f_anim_actual = ""
+
+# Entra en la forma Combate (módulo ataque): se muestra el modelo del módulo y
+# se reproducen SUS animaciones; el cuerpo, la colisión y la cámara no cambian.
+func _entrar_combate() -> void:
+	forma = Forma.COMBATE
+	_detener_velocista()
+	_detener_acuatico()
+	_detener_fuerza()
+	# Deja limpio cualquier golpe a medias de una entrada anterior a esta forma.
+	_detener_combate()
+	pivote.position.y = h_pivote_y_base
+	velocity = Vector3.ZERO
+	# La representación cambia; el cuerpo, la colisión y la cámara no.
+	humano.visible = false
+	visual.visible = false
+	acuatico.visible = false
+	fuerza.visible = false
+	ataque_visual.visible = true
+	_reproducir_combate(ANIM_C_IDLE, BLEND_TRANSFORMACION, true)
+	estadisticas.aplicar_forma(id_forma())
+	forma_cambiada.emit(id_forma())
+
+# Limpia el estado de la forma Combate al salir de ella (incluido un golpe a
+# medias: ni el estado ni el objetivo sobreviven al cambio de forma).
+func _detener_combate() -> void:
+	c_salto_aire = false
+	c_doble_usado = false
+	c_estado = C_E.LIBRE
+	c_objetivo = null
+	c_cadena = 0
+	c_golpe = null
+	c_fase = 0.0
+	c_golpe_hecho = false
+	c_acercar_t = 0.0
+	if anim_ataque != null:
+		anim_ataque.speed_scale = 1.0
+		# Vuelve al clip de reposo para que, si se entra otra vez, no conserve
+		# una pose de una acción anterior.
+		if anim_ataque.has_animation(ANIM_C_IDLE):
+			anim_ataque.stop()
 
 # Apaga y limpia todo lo que la forma velocista pudiera tener activo, para que
 # al volver a humano no quede ningún efecto a medias.
@@ -1120,8 +1309,23 @@ func _procesar_acuatico(delta: float) -> void:
 
 func _iniciar_ataque_acuatico() -> void:
 	a_ataque_activo = true
-	a_t_ataque = _duracion_clip_acuatico(ANIM_A_ATTACK)
+	a_ataque_dur = _duracion_clip_acuatico(ANIM_A_ATTACK)
+	a_t_ataque = a_ataque_dur
+	a_golpe_hecho = false
 	_reproducir_acuatico(ANIM_A_ATTACK, BLEND_ATAQUE, true)
+
+
+## Golpe cuerpo a cuerpo del ataque acuático (clic izquierdo): reutiliza el
+## aplicador común de golpes (contrato take_hit del módulo de enemigos) con un
+## pequeño empuje de agua. Daño/alcance/empuje iniciales, ajustables.
+func _golpe_acuatico() -> void:
+	var adelante := -acuatico.global_transform.basis.z
+	adelante.y = 0.0
+	if adelante.length() < 0.001:
+		adelante = Vector3.FORWARD
+	adelante = adelante.normalized()
+	var punto := global_position + Vector3.UP * 1.1 + adelante * A_GOLPE_ALCANCE
+	_golpear_enemigos_cerca(punto, A_GOLPE_RADIO, A_GOLPE_DANIO, A_GOLPE_EMPUJE)
 
 func _duracion_clip_acuatico(nombre: String) -> float:
 	if anim_acuatico == null or not anim_acuatico.has_animation(nombre):
@@ -1142,6 +1346,12 @@ func _actualizar_anim_acuatico(delta: float) -> void:
 		a_t_ataque -= delta
 		anim_acuatico.speed_scale = 1.0
 		_reproducir_acuatico(ANIM_A_ATTACK)
+		# El golpe físico del ataque cae a media animación, UNA vez por pulsación
+		# (los golpes posteriores de la animación no vuelven a dañar).
+		if not a_golpe_hecho and a_ataque_dur > 0.0 \
+				and (a_ataque_dur - a_t_ataque) >= a_ataque_dur * 0.45:
+			a_golpe_hecho = true
+			_golpe_acuatico()
 		if a_t_ataque <= 0.0:
 			a_ataque_activo = false
 		return
@@ -1709,6 +1919,440 @@ func _ajustar_escala_fuerza() -> void:
 		var s := h_leo / h_f
 		fuerza.scale = Vector3(s, s, s)
 
+# La forma Combate (modelo del módulo ataque) también se normaliza a la altura
+# real de Leo, igual que las demás formas; no se toca el CharacterBody3D ni la
+# colisión.
+func _ajustar_escala_ataque() -> void:
+	var h_leo := _altura_visual(humano)
+	var h_c := _altura_visual(ataque_visual)
+	if h_leo > 0.001 and h_c > 0.001:
+		var s := h_leo / h_c
+		ataque_visual.scale = Vector3(s, s, s)
+
+# ============================================================== FORMA COMBATE (módulo ataque)
+# Locomoción de la forma Combate: misma mecánica que la forma humana (mismo
+# cuerpo, colisión y cámara), con las constantes de movimiento del módulo ataque
+# y reproduciendo sus clips originales (combat_idle/walk/jump).
+#
+# ATAQUE FreeFlow (recuperado del módulo ataque): el clic izquierdo reproduce su
+# sistema completo sobre este cuerpo — selección contextual de objetivo
+# (CombatTargeting: intención = dirección de movimiento + cámara + orientación),
+# acercamiento si el objetivo está lejos, orientación progresiva (nunca un giro
+# seco) y cadena de cuatro golpes (jab/dos/cros/gancho del propio módulo). El
+# objetivo se REELIGE al comenzar CADA golpe: girar/moverse hacia otro enemigo y
+# volver a pulsar redirige el siguiente ataque sin esperar al final del combo.
+# El buffer de entrada, las amenazas y el contador de combo son los del gestor
+# del encuentro que ya existe en la partida; el daño usa el contrato documentado
+# de los enemigos (take_hit). Sin suelo no se inicia ninguna acción (regla aérea
+# del módulo): el input encolado en el aire expira solo.
+func _procesar_combate(delta: float) -> void:
+	if c_salto_aire and is_on_floor():
+		c_salto_aire = false
+		c_doble_usado = false
+
+	var dir := _direccion_entrada()
+	# El clic se encola SIEMPRE, también durante un golpe en curso: así el
+	# siguiente golpe de la cadena sale al empezar la recuperación (FreeFlow),
+	# con el objetivo re-elegido en ese momento. En el aire se encola igual y
+	# expira solo (no se consume sin suelo).
+	var gestor_buf: Variant = _gestor_encuentro()
+	if gestor_buf != null and gestor_buf.combo != null and Input.is_action_just_pressed("atacar"):
+		gestor_buf.combo.push_input("attack", dir, 10)
+	match c_estado:
+		C_E.ACERCARSE:
+			_c_estado_acercarse(delta)
+		C_E.PREPARAR:
+			_c_estado_preparar(delta)
+		C_E.ACTIVO:
+			_c_estado_activo(delta)
+		C_E.RECUPERAR:
+			_c_estado_recuperar(delta)
+		_:
+			_c_locomocion_combate(delta, dir)
+
+	move_and_slide()
+	# Fuera del estado libre la orientación la lleva el propio golpe (hacia el
+	# objetivo, a ritmo limitado); la locomoción solo orienta al caminar.
+	if c_estado == C_E.LIBRE:
+		_orientar_combate(delta, dir)
+	_actualizar_anim_combate()
+
+func _orientar_combate(delta: float, dir: Vector3) -> void:
+	if dir.length() < 0.05:
+		return
+	var objetivo := atan2(-dir.x, -dir.z)
+	ataque_visual.rotation.y = lerp_angle(ataque_visual.rotation.y, objetivo, C_GIRO * delta)
+
+
+## Locomoción libre de la forma Combate (idéntica a la de antes de añadir el
+## ataque) + lectura y encolado del golpe.
+func _c_locomocion_combate(delta: float, dir: Vector3) -> void:
+	var horiz := Vector3(velocity.x, 0.0, velocity.z)
+	if dir.length() > 0.05:
+		horiz = horiz.move_toward(dir * C_VEL_CAMINAR, C_ACELERACION * delta)
+	else:
+		horiz = horiz.move_toward(Vector3.ZERO, C_DESACELERACION * delta)
+	velocity.x = horiz.x
+	velocity.z = horiz.z
+
+	if not is_on_floor():
+		velocity.y -= C_GRAVEDAD * delta
+	elif velocity.y < 0.0:
+		velocity.y = -0.1
+
+	# Salto: el de suelo y, si aún no se usó, un segundo impulso en el aire
+	# (doble salto). Al aterrizar se recuperan los dos: no hay tercer salto.
+	# El control direccional en el aire ya existía y no se ha tocado.
+	if Input.is_action_just_pressed("saltar"):
+		if is_on_floor():
+			velocity.y = C_SALTO
+			c_salto_aire = true
+			c_doble_usado = false
+			# _reproducir_combate con forzar REINICIA el clip si ya sonaba: el
+			# doble salto vuelve a empezar la animación desde el principio.
+			_reproducir_combate(ANIM_C_JUMP, C_MEZCLA_SALTO, true)
+		elif not c_doble_usado:
+			c_doble_usado = true
+			c_salto_aire = true
+			velocity.y = C_DOBLE_SALTO
+			_reproducir_combate(ANIM_C_JUMP, C_MEZCLA_SALTO, true)
+
+	# Ataque: se consume lo que ya haya encolado (el encolado ocurre una vez por
+	# frame en _procesar_combate, en cualquier estado); solo se consume desde el
+	# suelo (regla aérea).
+	var gestor: Variant = _gestor_encuentro()
+	if gestor != null and gestor.combo != null:
+		var act: Dictionary = gestor.combo.pop_valid(_puede_iniciar_golpe)
+		if not act.is_empty():
+			_iniciar_golpe_combate()
+
+
+## Regla aérea del módulo: sin suelo no se inicia ninguna acción de combate (y
+## por tanto no se selecciona objetivo). El input encolado en el aire expira.
+func _puede_iniciar_golpe(action: String) -> bool:
+	if not is_on_floor():
+		return false
+	return action == "attack"
+
+
+## Gestor del encuentro (el mismo que ya coordina a los enemigos de prueba):
+## aporta buffer/combo, amenazas, config y la lista de enemigos activos.
+func _gestor_encuentro() -> Node:
+	if _gestor_combate == null or not is_instance_valid(_gestor_combate):
+		_gestor_combate = get_tree().get_first_node_in_group("combat_manager")
+	return _gestor_combate
+
+
+func _cfg_encuentro() -> Variant:
+	var gestor: Variant = _gestor_encuentro()
+	return gestor.config if gestor != null else null
+
+
+## Arranca un golpe del combo FreeFlow. La cadena y las ventanas salen TODAS del
+## módulo (SPRINT/HIT_WINDOW) con el config del encuentro; el objetivo se elige
+## cada vez con la intención actual (nunca queda fijado por una referencia vieja).
+func _iniciar_golpe_combate() -> void:
+	if not is_on_floor():
+		return
+	var gestor: Variant = _gestor_encuentro()
+	if gestor == null or gestor.config == null:
+		return
+	var enemigos: Array = gestor.get_active_enemies()
+	var previo: Node3D = c_objetivo
+	# La orientación de esta forma vive en el nodo visual (el cuerpo no gira):
+	# se le pasa a la selección para que "hacia dónde miro" cuente como en el módulo.
+	c_objetivo = CombatTargeting.select_target(ataque_visual, _direccion_entrada(), _direccion_camara_horizontal(), enemigos, gestor.config, c_objetivo, gestor.threats)
+	# Regla FreeFlow: un cambio CONFIRMADO de objetivo reinicia la cadena en el
+	# jab; el golpe ya en curso conserva su objetivo y su clip.
+	if c_objetivo != previo:
+		c_cadena = 0
+	var cadena := _cadena_combate(gestor.config)
+	if cadena.is_empty():
+		return
+	c_cadena = clampi(c_cadena, 0, cadena.size() - 1)
+	c_golpe = cadena[c_cadena]
+	if c_objetivo != null and is_instance_valid(c_objetivo) and _dist_plana(c_objetivo) > c_golpe.ideal_distance:
+		c_estado = C_E.ACERCARSE
+		c_acercar_t = float(gestor.config.approach_max_time)
+		return
+	_c_iniciar_fase_golpe()
+
+
+## Cadena de golpes: se construye EXACTAMENTE como la del módulo (mismos datos
+## SPRINT y mismo config del encuentro), sin duplicar valores.
+func _cadena_combate(cfg: Variant) -> Array:
+	if _c_cadena_datos.is_empty():
+		for row in PlayerAtaque.SPRINT:
+			var a: AttackData = AttackData.new()
+			a.id = String(row.id)
+			a.animation = String(row.anim)
+			a.damage = float(cfg.attack_damage) * float(row.damage)
+			a.attack_range = float(cfg.attack_range)
+			a.ideal_distance = float(cfg.attack_ideal_distance)
+			a.approach_speed = float(cfg.approach_speed)
+			a.windup = float(row.impact)
+			a.active = PlayerAtaque.HIT_WINDOW
+			a.recovery = maxf(0.05, float(row.clip) - float(row.impact) - PlayerAtaque.HIT_WINDOW)
+			a.cancel_window = float(cfg.attack_cancel_window)
+			a.knockback = float(cfg.attack_knockback) * float(row.knockback)
+			a.stun = 0.0
+			_c_cadena_datos.append(a)
+	return _c_cadena_datos
+
+
+func _c_iniciar_fase_golpe() -> void:
+	c_estado = C_E.PREPARAR
+	c_fase = c_golpe.windup
+	c_golpe_hecho = false
+	# El clip del golpe se reproduce desde el principio y manda sobre la
+	# locomoción hasta que termina la recuperación.
+	_reproducir_combate(c_golpe.animation, C_MEZCLA, true)
+
+
+func _c_estado_acercarse(delta: float) -> void:
+	if not _objetivo_valido():
+		# Objetivo desaparecido o muerto: se abandona con seguridad (el próximo
+		# clic vuelve a elegir; nada queda bloqueado por una referencia antigua).
+		c_objetivo = null
+		c_estado = C_E.LIBRE
+		return
+	_c_girar_hacia_objetivo(delta)
+	var spd := c_golpe.approach_speed if c_golpe != null else C_VEL_CAMINAR
+	var dirn := _dir_plana(c_objetivo)
+	velocity.x = move_toward(velocity.x, dirn.x * spd, C_ACELERACION * delta)
+	velocity.z = move_toward(velocity.z, dirn.z * spd, C_ACELERACION * delta)
+	if not is_on_floor():
+		velocity.y -= C_GRAVEDAD * delta
+	elif velocity.y < 0.0:
+		velocity.y = -0.1
+	c_acercar_t -= delta
+	if _dist_plana(c_objetivo) <= c_golpe.ideal_distance:
+		_c_iniciar_fase_golpe()
+	elif c_acercar_t <= 0.0:
+		c_estado = C_E.LIBRE
+
+
+func _c_estado_preparar(delta: float) -> void:
+	_c_decelerar_combate(delta)
+	_c_girar_hacia_objetivo(delta)
+	_c_fase_golpe(delta)
+
+
+func _c_estado_activo(delta: float) -> void:
+	_c_decelerar_combate(delta)
+	_c_girar_hacia_objetivo(delta)
+	if not c_golpe_hecho and _objetivo_valido() \
+			and _dist_plana(c_objetivo) <= c_golpe.attack_range and _objetivo_al_frente(c_objetivo):
+		_c_aplicar_golpe(c_objetivo)
+	_c_fase_golpe(delta)
+
+
+func _c_estado_recuperar(delta: float) -> void:
+	_c_decelerar_combate(delta)
+	# La recuperación es cancelable: si hay otro clic encolado, encadena YA
+	# (posiblemente contra otro enemigo) en vez de esperar al final del golpe.
+	if _c_encadenar_si_hay():
+		return
+	c_fase -= delta
+	if c_fase <= 0.0:
+		if _c_encadenar_si_hay():
+			return
+		c_cadena = 0
+		c_estado = C_E.LIBRE
+
+
+func _c_fase_golpe(delta: float) -> void:
+	c_fase -= delta
+	if c_fase > 0.0:
+		return
+	match c_estado:
+		C_E.PREPARAR:
+			c_estado = C_E.ACTIVO
+			c_fase = c_golpe.active
+		C_E.ACTIVO:
+			c_estado = C_E.RECUPERAR
+			c_fase = c_golpe.recovery
+
+
+func _c_aplicar_golpe(objetivo: Node3D) -> void:
+	c_golpe_hecho = true
+	var dir := _dir_plana(objetivo)
+	if objetivo.has_method("take_hit"):
+		objetivo.take_hit(c_golpe.damage, dir, c_golpe.knockback, c_golpe.stun)
+	var gestor: Variant = _gestor_encuentro()
+	if gestor != null and gestor.combo != null:
+		gestor.combo.register_hit()
+
+
+func _c_encadenar_si_hay() -> bool:
+	var gestor: Variant = _gestor_encuentro()
+	if gestor == null or gestor.combo == null:
+		return false
+	var act: Dictionary = gestor.combo.pop_valid(_puede_iniciar_golpe)
+	if act.is_empty():
+		return false
+	# Encadena al siguiente golpe de la cadena; el objetivo se reelige dentro de
+	# _iniciar_golpe_combate (puede ser OTRO enemigo).
+	c_cadena = (c_cadena + 1) % maxi(1, _cadena_combate(gestor.config).size())
+	_iniciar_golpe_combate()
+	return true
+
+
+func _c_decelerar_combate(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, C_DESACELERACION * delta)
+	velocity.z = move_toward(velocity.z, 0.0, C_DESACELERACION * delta)
+	if not is_on_floor():
+		velocity.y -= C_GRAVEDAD * delta
+	elif velocity.y < 0.0:
+		velocity.y = -0.1
+
+
+## Giro hacia el objetivo a ritmo limitado (rad/s), como el módulo: rápido pero
+## nunca un giro seco de 180°.
+func _c_girar_hacia_objetivo(delta: float) -> void:
+	if not _objetivo_valido():
+		return
+	var cfg: Variant = _cfg_encuentro()
+	var ritmo := C_GIRO if cfg == null else float(cfg.player_turn_speed)
+	_c_girar_hacia(_dir_plana(c_objetivo), delta, ritmo)
+
+
+func _c_girar_hacia(dir: Vector3, delta: float, ritmo: float) -> void:
+	dir.y = 0.0
+	if dir.length() < 0.001:
+		return
+	var meta := atan2(-dir.x, -dir.z)
+	var dif := wrapf(meta - ataque_visual.rotation.y, -PI, PI)
+	var paso := maxf(0.0001, ritmo) * delta
+	ataque_visual.rotation.y = wrapf(ataque_visual.rotation.y + clampf(dif, -paso, paso), -PI, PI)
+
+
+func _objetivo_valido() -> bool:
+	if c_objetivo == null or not is_instance_valid(c_objetivo):
+		return false
+	if c_objetivo.has_method("is_alive") and not c_objetivo.is_alive():
+		return false
+	return true
+
+
+func _dir_plana(n: Node3D) -> Vector3:
+	var to := n.global_position - global_position
+	to.y = 0.0
+	return to.normalized() if to.length() > 0.001 else Vector3.ZERO
+
+
+func _dist_plana(n: Node3D) -> float:
+	var to := n.global_position - global_position
+	to.y = 0.0
+	return to.length()
+
+
+func _objetivo_al_frente(n: Node3D) -> bool:
+	var fwd := -ataque_visual.global_transform.basis.z
+	fwd.y = 0.0
+	if fwd.length() < 0.001:
+		return false
+	fwd = fwd.normalized()
+	var d := _dir_plana(n)
+	var cfg: Variant = _cfg_encuentro()
+	var arco := 0.3 if cfg == null else float(cfg.attack_hit_arc)
+	return d.length() > 0.001 and fwd.dot(d) >= arco
+
+
+# ----- Daño cuerpo a cuerpo compartido (formas agua / velocista) -----
+## Enemigos alcanzables (contrato documentado del módulo enemigos: take_hit)
+## dentro de una esfera centrada en [param centro]. Sin repetidos.
+func _enemigos_alcanzables(centro: Vector3, radio: float) -> Array:
+	var out: Array = []
+	for n in get_tree().get_nodes_in_group("enemies"):
+		var t := n as Node3D
+		if t == null or not t.is_inside_tree():
+			continue
+		if t.has_method("is_alive") and not t.is_alive():
+			continue
+		if not t.has_method("take_hit"):
+			continue
+		# El centro del enemigo está a la altura del pecho, no en los pies.
+		if centro.distance_to(t.global_position + Vector3.UP * 1.0) <= radio:
+			out.append(t)
+	return out
+
+
+## Aplica un golpe (daño + empuje + aturdimiento opcional) a los enemigos que
+## alcanza la esfera. El empuje sale del centro del golpe hacia cada enemigo.
+func _golpear_enemigos_cerca(centro: Vector3, radio: float, dano: float, empuje: float, aturdir: float = 0.0) -> void:
+	for t in _enemigos_alcanzables(centro, radio):
+		var dir: Vector3 = (t as Node3D).global_position - centro
+		dir.y = 0.0
+		dir = dir.normalized() if dir.length_squared() > 0.0001 else Vector3.FORWARD
+		(t as Node3D).take_hit(dano, dir, empuje, aturdir)
+
+
+## Distancia de un punto al segmento [a, b] (para el recorrido de la
+## supervelocidad: a 60 m/s hay que medir el tramo, no la posición puntual).
+func _distancia_al_segmento(p: Vector3, a: Vector3, b: Vector3) -> float:
+	var ab := b - a
+	var largo := ab.length_squared()
+	if largo < 0.000001:
+		return p.distance_to(a)
+	var t := clampf((p - a).dot(ab) / largo, 0.0, 1.0)
+	return p.distance_to(a + ab * t)
+
+
+## Enemigo (o ancestro suyo en el grupo "enemies") dueño de un colisionador.
+func _enemigo_de_collider(collider: Object) -> Node3D:
+	var n := collider as Node
+	while n != null:
+		if n.is_in_group("enemies") and n.has_method("take_hit"):
+			return n as Node3D
+		n = n.get_parent()
+	return null
+
+func _actualizar_anim_combate() -> void:
+	if anim_ataque == null:
+		return
+	# Durante un golpe manda el clip de la acción: la locomoción no lo pisa
+	# (igual que el módulo, que solo actualiza la locomoción en FREE/APPROACH).
+	if c_estado == C_E.PREPARAR or c_estado == C_E.ACTIVO or c_estado == C_E.RECUPERAR:
+		anim_ataque.speed_scale = 1.0
+		return
+	if c_salto_aire:
+		anim_ataque.speed_scale = 1.0
+		_reproducir_combate(ANIM_C_JUMP)
+		return
+	var rapidez := Vector2(velocity.x, velocity.z).length()
+	if rapidez < C_UMBRAL_MOVIMIENTO:
+		anim_ataque.speed_scale = 1.0
+		_reproducir_combate(_clip_combate([ANIM_C_IDLE, ANIM_C_IDLE_ALT]))
+	else:
+		_reproducir_combate(ANIM_C_WALK)
+		# Igual que el módulo: el ciclo se escala con la velocidad real para que
+		# los pies no patinen, con el tope moderado 1.4 (caminata más lenta).
+		anim_ataque.speed_scale = clampf(rapidez / C_REF_VEL_CAMINAR, C_ESCALA_MIN, C_ESCALA_MAX)
+
+# Reproduce un clip de la forma Combate. Igual que play_action del módulo:
+#  - si el clip no es el actual (o ya terminó), se reproduce;
+#  - si YA es el actual y se pide "forzar", se REINICIA de verdad desde el
+#    fotograma 0 (seek), no se vuelve a solicitar a medias: es lo que hace que
+#    el doble salto reproduzca la animación de salto desde el principio.
+func _reproducir_combate(nombre: String, mezcla: float = C_MEZCLA, forzar: bool = false) -> void:
+	if anim_ataque == null or not anim_ataque.has_animation(nombre):
+		return
+	if anim_ataque.current_animation == nombre and anim_ataque.is_playing():
+		if forzar:
+			anim_ataque.speed_scale = 1.0
+			anim_ataque.seek(0.0, true)
+		return
+	anim_ataque.speed_scale = 1.0
+	anim_ataque.play(nombre, mezcla)
+
+# Devuelve el primer clip de la lista que exista en la librería del ataque.
+func _clip_combate(opciones: Array) -> String:
+	for opcion in opciones:
+		if anim_ataque != null and anim_ataque.has_animation(opcion):
+			return opcion
+	return ANIM_C_IDLE
+
 # Altura de la caja envolvente de todas las mallas de un subárbol, medida en el espacio
 # local del nodo indicado (incluye su propia escala actual).
 func _altura_visual(raiz: Node3D) -> float:
@@ -1790,6 +2434,14 @@ func _on_golpe_realizado(indice: int) -> void:
 			horiz = horiz.normalized() * velocidad_max
 		velocity.x = horiz.x
 		velocity.z = horiz.z
+	# El golpe del combo golpea DE VERDAD: enemigos que alcanza el puñetazo
+	# (delante, en su radio), una vez por pulsación y enemigo. Daño creciente
+	# con el combo, en la dirección en la que mira el personaje.
+	if adelante.length() < 0.001:
+		adelante = Vector3.FORWARD
+	var punto_combo := global_position + Vector3.UP * 1.1 + adelante * VEL_COMBO_ALCANCE
+	var d_combo: float = VEL_COMBO_DANIOS[clampi(indice - 1, 0, VEL_COMBO_DANIOS.size() - 1)]
+	_golpear_enemigos_cerca(punto_combo, VEL_COMBO_RADIO, d_combo, VEL_COMBO_EMPUJE)
 
 func _cancelar_ataque_por_salto() -> void:
 	_ataque_activo = false
@@ -1976,6 +2628,7 @@ func _procesar_preparado(delta: float) -> void:
 
 func _iniciar_recorrido() -> void:
 	estado = Estado.EJECUCION
+	_golpeados_ejecucion.clear()
 	trazador.set_ejecucion(true)
 	efectos.iniciar_ejecucion()
 	pivote.objetivo_largo = pivote.largo_base * 0.9
@@ -1983,14 +2636,6 @@ func _iniciar_recorrido() -> void:
 	pivote.vibracion = 0.6
 
 # ---------------- Ejecución de la trayectoria ----------------
-# El recorrido se apoya en el terreno REAL de la isla. Antes se hacía con un
-# avance horizontal puro (move_and_collide con la Y a cero) y se cancelaba la
-# habilidad ante CUALQUIER contacto: en cuanto el suelo subía un centímetro
-# dentro del paso del fotograma, la habilidad interpretaba la cuesta como un
-# muro y terminaba. Ahora se avanza con move_and_slide (que sube y baja por el
-# relieve respetando el límite de inclinación del cuerpo) y sólo se cancela ante
-# un obstáculo de verdad sondeado a la altura del pecho; los escalones los sigue
-# subiendo _resolver_escalon(), igual que al caminar.
 func _procesar_ejecucion(delta: float) -> void:
 	if _idx >= _puntos.size():
 		_terminar_ejecucion()
@@ -1998,86 +2643,53 @@ func _procesar_ejecucion(delta: float) -> void:
 	var objetivo := _puntos[_idx]
 	var to := objetivo - global_position
 	to.y = 0.0
-	# A 60 m/s se cruzan varios puntos por fotograma: si sólo se avanzase uno, el
-	# personaje acabaría persiguiendo un punto que ya tiene a su espalda (zigzag).
-	var guardas := 0
-	while _idx < _puntos.size() - 1 and to.length() < TRAYECTO_RADIO_PUNTO and guardas < 64:
+	if to.length() < 0.8:
 		_idx += 1
-		guardas += 1
+		if _idx >= _puntos.size():
+			_terminar_ejecucion()
+			return
 		objetivo = _puntos[_idx]
 		to = objetivo - global_position
 		to.y = 0.0
-	# Se llegó al final de la ruta: la habilidad termina de forma ordenada (antes
-	# se exigía una precisión de milímetros sobre el último punto y el personaje
-	# se quedaba girando a su alrededor sin acabar nunca).
-	if _idx >= _puntos.size() - 1 and to.length() < TRAYECTO_RADIO_PUNTO:
-		_terminar_ejecucion()
-		return
-	if to.length_squared() < 0.0001:
+	if to.length() < 0.001:
 		_idx += 1
 		return
 	var dir := to.normalized()
 	_vel_trayecto = move_toward(_vel_trayecto, vel_trayecto_max, 220.0 * delta)
 
-	velocity.x = dir.x * _vel_trayecto
-	velocity.z = dir.z * _vel_trayecto
+	velocity.x = 0.0
+	velocity.z = 0.0
 	if not is_on_floor():
 		velocity.y -= gravedad * delta
 	elif velocity.y < 0.0:
 		velocity.y = -0.1
-	var antes := global_position
 	move_and_slide()
-	_orientar_instant(dir)
 
-	var avance := global_position - antes
-	avance.y = 0.0
-	var paso := _vel_trayecto * delta
-	# Sólo una corrección por fotograma: primero medimos el avance REAL tras
-	# move_and_slide. El contacto en sí (incluido un contacto con el suelo) no
-	# termina la habilidad; sólo el avance horizontal insuficiente puede hacerlo.
-	if paso > 0.001 and avance.length() < paso * 0.35:
-		if _muro_al_frente(dir):
+	var pos_antes := global_position
+	var col := move_and_collide(dir * _vel_trayecto * delta)
+	_orientar_instant(dir)
+	velocity.x = dir.x * _vel_trayecto
+	velocity.z = dir.z * _vel_trayecto
+	# Golpe de la supervelocidad: enemigos alcanzados por el tramo recorrido
+	# este fotograma (a esta velocidad, medir la distancia al SEGMENTO evita
+	# atravesarlos sin tocarlos). Un impacto por enemigo y recorrido; el
+	# desplazamiento del jugador continúa.
+	_aplicar_golpes_ejecucion(pos_antes, global_position, dir)
+	# Ante una colisión no se cancela de inmediato: primero se comprueba si es un
+	# bordillo transitable (mismo criterio que _resolver_escalon()). Sólo si no lo
+	# es (pared, edificio, desnivel excesivo o sin suelo) se termina el recorrido.
+	# Un ENEMIGO no es un obstáculo: recibe el golpe y el recorrido sigue (sólo
+	# el escenario lo detiene).
+	if col != null:
+		var enemigo_col := _enemigo_de_collider(col.get_collider())
+		if enemigo_col != null:
+			_golpear_enemigo_ejecucion(enemigo_col, dir)
+		elif not _intentar_escalon_ejecucion(col, dir):
 			_terminar_ejecucion()
 			return
-		# Sin pared a la altura del pecho: intentamos resolver únicamente un
-		# desnivel bajo. _resolver_escalon() se omite durante EJECUCION para no
-		# duplicar esta corrección en el mismo movimiento.
-		_salvar_escalon(dir)
 
 	efectos.actualizar_ejecucion(global_position, dir)
 	trazador.agregar_estela(global_position)
-
-## ¿Lo que frena el recorrido es un obstáculo real? Se sondea a la altura del
-## pecho con el propio cuerpo (misma collision_mask que al caminar): un edificio,
-## un muro o un acantilado bloquean ahí; una cuesta, un bordillo o un desnivel
-## transitable, no. _terminar_ejecucion() cierra la habilidad de forma ordenada.
-func _muro_al_frente(dir: Vector3) -> bool:
-	var pecho := global_transform
-	pecho.origin.y += TRAYECTO_ALTURA_MURO
-	return test_move(pecho, dir * (AVANCE_ESCALON * 2.0))
-
-
-## Sube a mano un escalón bajo (el bordillo de una acera, ~15 cm) cuando frena el
-## recorrido a gran velocidad: eleva el cuerpo ALTURA_ESCALON, avanza un poco y
-## vuelve a apoyarse. Sólo lo hace si hay hueco por encima, paso libre a esa altura
-## y suelo al otro lado; un muro de verdad ya lo ha descartado _muro_al_frente().
-## (Caminando esto lo hace _resolver_escalon(), pero a 34-60 m/s el contacto se
-## resuelve dentro del fotograma y move_and_slide no sube el escalón.)
-func _salvar_escalon(dir: Vector3) -> void:
-	if test_move(global_transform, Vector3.UP * ALTURA_ESCALON):
-		return
-	var elevado := global_transform
-	elevado.origin.y += ALTURA_ESCALON
-	var avance := dir * AVANCE_ESCALON
-	if test_move(elevado, avance):
-		return
-	var destino := elevado
-	destino.origin += avance
-	if not test_move(destino, Vector3.DOWN * (ALTURA_ESCALON + 0.1)):
-		return
-	global_position.y += ALTURA_ESCALON
-	move_and_collide(avance)
-	move_and_collide(Vector3.DOWN * (ALTURA_ESCALON + 0.1))
 
 func _terminar_ejecucion() -> void:
 	estado = Estado.NORMAL
@@ -2089,6 +2701,36 @@ func _terminar_ejecucion() -> void:
 	trazador.finalizar_ejecucion()
 	_bloqueo_anim = BLOQUEO_FIN_VELOCIDAD
 	_reproducir_anim(ANIM_INACTIVO, BLEND_FIN_VELOCIDAD)
+
+# --- Golpe de la supervelocidad (clic derecho) ---
+## Enemigos alcanzados por el tramo [desde, hasta] del recorrido. Un único
+## impacto por enemigo y recorrido (_golpeados_ejecucion); el empuje va en la
+## dirección del desplazamiento, de modo que salen despedidos hacia donde corre
+## el jugador y su propia física los frena contra el escenario (no lo cruzan).
+func _aplicar_golpes_ejecucion(desde: Vector3, hasta: Vector3, dir: Vector3) -> void:
+	for n in get_tree().get_nodes_in_group("enemies"):
+		var t := n as Node3D
+		if t == null or not t.is_inside_tree() or not t.has_method("take_hit"):
+			continue
+		if t.has_method("is_alive") and not t.is_alive():
+			continue
+		if _golpeados_ejecucion.has(t):
+			continue
+		if _distancia_al_segmento(t.global_position + Vector3.UP * 1.0, desde, hasta) <= VEL_GOLPE_RADIO:
+			_golpear_enemigo_ejecucion(t, dir)
+
+
+func _golpear_enemigo_ejecucion(t: Node3D, dir: Vector3) -> void:
+	if _golpeados_ejecucion.has(t):
+		return
+	_golpeados_ejecucion.append(t)
+	var empuje_dir := Vector3(dir.x, 0.0, dir.z)
+	if empuje_dir.length_squared() < 0.0001:
+		empuje_dir = Vector3.FORWARD
+	empuje_dir = empuje_dir.normalized()
+	t.take_hit(VEL_GOLPE_DANIO, empuje_dir, VEL_GOLPE_EMPUJE, VEL_GOLPE_ATURD)
+	# Chispas del color de la velocidad: el impacto se ve, además de sentirse.
+	FuerzaVfx.chispas(get_parent(), t.global_position + Vector3.UP * 1.0, 0.9, 16, Color(0.3, 0.78, 1.0), 0.4, 6.0)
 
 # ---------------- Animaciones (velocista) ----------------
 func _configurar_animaciones() -> void:

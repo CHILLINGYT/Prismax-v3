@@ -22,6 +22,11 @@ signal resistencia_cambiada(actual: float, maxima: float)
 signal regenerando_cambiado(regenerando: bool)
 ## Daño total entrante recibido en un golpe (antes de repartirlo entre escudo y vida).
 signal danio_recibido(cantidad: float)
+## Rotura REAL del escudo: la resistencia pasó de tener carga a cero con este
+## golpe. Con el escudo ya agotado NO se vuelve a emitir (un golpe posterior no
+## es una rotura nueva). Permite que HUD y efectos distingan la rotura del daño
+## normal sin tocar los valores del sistema.
+signal escudo_roto
 signal murio
 
 @export_group("Vida")
@@ -79,14 +84,19 @@ func recibir_danio(cantidad: float) -> void:
 	danio_recibido.emit(cantidad)
 
 	var a_vida := cantidad
+	var rompio_escudo := false
 	if resistencia > 0.0:
 		var absorbe := minf(resistencia, cantidad * absorcion)
 		resistencia -= absorbe
 		a_vida = cantidad - absorbe
+		rompio_escudo = resistencia <= 0.0
 		resistencia_cambiada.emit(resistencia, resistencia_max)
 
 	vida = maxf(0.0, vida - a_vida)
 	vida_cambiada.emit(vida, vida_max)
+
+	if rompio_escudo:
+		escudo_roto.emit()
 
 	_t_desde_dano = 0.0
 	_fijar_regenerando(false)

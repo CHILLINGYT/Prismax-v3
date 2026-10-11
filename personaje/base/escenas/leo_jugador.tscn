@@ -35,6 +35,10 @@
 [ext_resource type="Script" uid="uid://cljq6sirlwe4t" path="res://personaje/base/scripts/receptor_acuatico.gd" id="33_receptor_acuatico"]
 [ext_resource type="PackedScene" uid="uid://gorwfjfql5ie" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="34_fuerza_model"]
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/fuerza/animations (1)/libraries/FuerzaUniversal.tres" id="35_fuerza_anims"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/ataque/animations/pose t.fbx" id="36_ataque_model"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/ataque/animations/player_anim_library.tres" id="37_ataque_anims"]
+[ext_resource type="Script" path="res://personaje/base/efectos/efecto_danio_pantalla.gd" id="38_dano"]
+[ext_resource type="Shader" path="res://personaje/base/efectos/efecto_danio.gdshader" id="39_dano_shader"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -44,6 +48,14 @@ height = 1.9
 shader = ExtResource("7_shader")
 shader_parameter/intensidad = 0.0
 shader_parameter/tiempo = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dano"]
+shader = ExtResource("39_dano_shader")
+shader_parameter/intensidad = 0.0
+shader_parameter/mezcla_azul = 0.45
+shader_parameter/color_rojo = Color(0.82, 0.1, 0.09, 1)
+shader_parameter/color_azul = Color(0.1, 0.12, 0.32, 1)
+shader_parameter/caida_lateral = 2.6
 
 [node name="LeoJugador" type="CharacterBody3D" unique_id=1523380384]
 script = ExtResource("1_ctrl")
@@ -154,3 +166,26 @@ transform = Transform3D(-1.98, 0, 0, 0, 1.98, 0, 0, 0, -1.98, 0, 0, 0)
 [node name="AnimadorFuerza" type="AnimationPlayer" parent="Fuerza"]
 root_node = NodePath("..")
 libraries/ = ExtResource("35_fuerza_anims")
+
+[node name="Ataque" type="Node3D" parent="."]
+visible = false
+
+[node name="Modelo" parent="Ataque" instance=ExtResource("36_ataque_model")]
+transform = Transform3D(-184.5, 0, 0, 0, 184.5, 0, 0, 0, -184.5, 0, 0, 0)
+
+[node name="AnimadorAtaque" type="AnimationPlayer" parent="Ataque"]
+root_node = NodePath("../Modelo")
+libraries/ = ExtResource("37_ataque_anims")
+
+[node name="EfectoDanioPantalla" type="CanvasLayer" parent="."]
+layer = 5
+script = ExtResource("38_dano")
+
+[node name="Vineta" type="ColorRect" parent="EfectoDanioPantalla"]
+material = SubResource("ShaderMaterial_dano")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
