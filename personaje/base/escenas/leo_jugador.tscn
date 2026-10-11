@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://caueivavcv3mb"]
+[gd_scene load_steps=43 format=3 uid="uid://caueivavcv3mb"]
 
 [ext_resource type="Script" uid="uid://cwkp6e1corn4m" path="res://personaje/base/scripts/controlador_leo.gd" id="1_ctrl"]
 [ext_resource type="Script" uid="uid://cfj32j2gsqan1" path="res://personaje/base/camara/camara_jugador.gd" id="2_cam"]
@@ -31,6 +31,7 @@
 [ext_resource type="PackedScene" path="res://personaje/hud_transformacion/escenas/HUDCircular.tscn" id="29_hud"]
 [ext_resource type="Script" uid="uid://d4mv6m74yncd5" path="res://personaje/transformaciones/acuatica/character/character_model.gd" id="30_model_slot"]
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/models/futuristic_armor_character.tscn" id="31_aquatic"]
+[ext_resource type="AnimationLibrary" path="res://personaje/base/animations/combos_acuaticos.tres" id="40_combo_agua"]
 [ext_resource type="AnimationLibrary" uid="uid://chvk7ak2d0aqa" path="res://personaje/transformaciones/acuatica/animations/player_animations.tres" id="32_aquatic_anims"]
 [ext_resource type="Script" uid="uid://cljq6sirlwe4t" path="res://personaje/base/scripts/receptor_acuatico.gd" id="33_receptor_acuatico"]
 [ext_resource type="PackedScene" uid="uid://gorwfjfql5ie" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="34_fuerza_model"]
@@ -147,6 +148,7 @@ script = ExtResource("30_model_slot")
 
 [node name="AnimadorAcuatico" type="AnimationPlayer" parent="Acuatico" unique_id=1053498957]
 libraries/ = ExtResource("32_aquatic_anims")
+libraries/combo_agua = ExtResource("40_combo_agua")
 
 [node name="Fuerza" type="Node3D" parent="." unique_id=539067988]
 
@@ -173,6 +175,8 @@ libraries/ = ExtResource("39_ataque_anims")
 
 [node name="BurbujasAcuaticas" type="Node3D" parent="."]
 script = ExtResource("36_burbujas")
+cantidad = 34
+vida = 0.75
 
 [node name="VistaSubmarina" type="Node3D" parent="."]
 script = ExtResource("37_vista_sub")

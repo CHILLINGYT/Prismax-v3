@@ -38,6 +38,8 @@ var _jugador: Node = null
 var _burbujas: GPUParticles3D = null
 var _anclaje: BoneAttachment3D = null
 var _fase: float = 0.0
+var _estela: GPUParticles3D = null
+var _fase_estela: float = 0.0
 
 
 func _ready() -> void:
@@ -69,6 +71,54 @@ func _process(delta: float) -> void:
 		_fase += delta
 		# Caudal variable: ráfagas suaves en vez de un chorro constante.
 		_burbujas.amount_ratio = 0.3 + 0.7 * (0.5 + 0.5 * sin(_fase * 1.1))
+	var turbo := false
+	if _jugador != null and is_instance_valid(_jugador):
+		var tv: Variant = _jugador.get("a_turbo_t")
+		turbo = float(tv) > 0.0 if tv != null else false
+	if turbo and _estela == null:
+		_crear_estela()
+	if _estela != null:
+		_estela.global_position = _jugador.global_position - Vector3(0.0, 0.45, 0.0)
+		if turbo and _jugador is CharacterBody3D:
+			var body: CharacterBody3D = _jugador as CharacterBody3D
+			var flat_velocity: Vector3 = Vector3(body.velocity.x, 0.0, body.velocity.z)
+			if flat_velocity.length_squared() > 0.01:
+				_estela.global_basis = Basis.looking_at(-flat_velocity.normalized(), Vector3.UP)
+		_estela.emitting = turbo and nadando
+		if turbo:
+			_fase_estela += delta
+			_estela.amount_ratio = 0.6 + 0.4 * (0.5 + 0.5 * sin(_fase_estela * 18.0))
+
+
+func _crear_estela() -> void:
+	var material := ParticleProcessMaterial.new()
+	material.direction = Vector3.BACK
+	material.spread = 28.0
+	material.initial_velocity_min = 0.35
+	material.initial_velocity_max = 1.2
+	material.gravity = Vector3(0.0, 0.12, 0.0)
+	material.scale_min = 0.8
+	material.scale_max = 2.2
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 0.22
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.11, 0.11)
+	var shader_mat := ShaderMaterial.new()
+	shader_mat.shader = SHADER_GOTA
+	shader_mat.set_shader_parameter("color", Color(0.45, 0.82, 1.0, 0.48))
+	_estela = GPUParticles3D.new()
+	_estela.name = "EstelaTurbo"
+	_estela.amount = 180
+	_estela.lifetime = 0.7
+	_estela.local_coords = false
+	_estela.top_level = true
+	_estela.draw_pass_1 = quad
+	_estela.material_override = shader_mat
+	_estela.process_material = material
+	_estela.visibility_aabb = AABB(Vector3(-7, -4, -7), Vector3(14, 8, 14))
+	_estela.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_estela.emitting = false
+	add_child(_estela)
 
 
 # -----------------------------------------------------------------------------

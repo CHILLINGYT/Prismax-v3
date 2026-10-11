@@ -525,6 +525,18 @@ var a_t_ataque: float = 0.0
 # se golpea UNA sola vez, cuando el brazo llega a su extensión dentro del clip.
 var a_ataque_dur: float = 0.0
 var a_golpe_dado: bool = false
+# FreeFlow acuático: combo acotado al nado / forma acuática; datos y buffer iguales al módulo de combate.
+var a_combo_activo: bool = false
+var a_combo_cadena: int = 0
+var a_combo_golpe: AttackData = null
+var a_combo_fase: float = 0.0
+var a_combo_hecho: bool = false
+var a_combo_objetivo: Node3D = null
+var _a_combo: ComboSystem = null
+# Impulso turbo sólo durante natación. Tiempo de propulsión y enfriamiento independientes.
+var a_turbo_t: float = 0.0
+var a_turbo_cooldown: float = 0.0
+var a_turbo_dir: Vector3 = Vector3.ZERO
 # NATACIÓN: true mientras el cuerpo está en agua honda y nada en vez de andar.
 var a_nadando: bool = false
 # Tiempo (s) que le queda al clip de transición de entrar o salir del agua.
@@ -730,6 +742,8 @@ func _ready() -> void:
 	# Enfriamientos de las 4 habilidades acuáticas (arrancan listas).
 	for i in ABIL_AGUA.size():
 		a_cooldowns[i + 1] = 0.0
+	a_turbo_t = 0.0
+	a_turbo_cooldown = 0.0
 	# La partida arranca SIEMPRE en la forma humana (Leo).
 	forma = Forma.HUMANO
 	visual.visible = false
@@ -1317,6 +1331,15 @@ func _detener_acuatico() -> void:
 	a_t_ataque = 0.0
 	a_ataque_dur = 0.0
 	a_golpe_dado = false
+	a_combo_activo = false
+	a_combo_cadena = 0
+	a_combo_golpe = null
+	a_combo_fase = 0.0
+	a_combo_hecho = false
+	a_combo_objetivo = null
+	_a_combo = null
+	a_turbo_t = 0.0
+	a_turbo_dir = Vector3.ZERO
 	# Natación: al salir de la forma no queda anotado que estaba nadando.
 	a_nadando = false
 	a_t_transicion = 0.0
@@ -1673,12 +1696,7 @@ func _procesar_acuatico(delta: float) -> void:
 		a_salto_aire = true
 		_reproducir_acuatico(ANIM_A_JUMP, H_MEZCLA, true)
 
-	# Ataque propio del personaje acuático: reproduce SU animación y aplica su golpe
-	# corto por delante (grupo "damageable"), sin crear un sistema de combate nuevo.
-	# No se solapa con las habilidades 1-4.
-	if is_on_floor() and Input.is_action_just_pressed("atacar") and not a_ataque_activo \
-			and not a_agachado and not a_en_habilidad:
-		_iniciar_ataque_acuatico()
+	# El golpe acuático cuerpo a cuerpo original permanece disponible en tierra.
 
 	move_and_slide()
 	# Se orienta TODO el cuerpo hacia la dirección de desplazamiento, igual que la
@@ -1757,6 +1775,109 @@ func _aplicar_vertical_acuatico(delta: float) -> void:
 	velocity.y = move_toward(velocity.y, empuje, A_ACEL_NADO * 2.0 * delta)
 
 
+func _intentar_turbo_acuatico() -> void:
+	if forma != Forma.ACUATICO or not a_nadando or a_turbo_cooldown > 0.0 or a_turbo_t > 0.0:
+		return
+	if a_en_habilidad or a_ataque_activo or a_subiendo_escalera:
+		return
+	a_turbo_t = 1.25
+	a_turbo_cooldown = 4.0
+	a_turbo_dir = _direccion_entrada()
+	if a_turbo_dir.length_squared() < 0.001:
+		a_turbo_dir = _direccion_camara_horizontal()
+	a_turbo_dir.y = 0.0
+	a_turbo_dir = a_turbo_dir.normalized()
+	velocity.x = a_turbo_dir.x * 14.0
+	velocity.z = a_turbo_dir.z * 14.0
+
+
+func _combo_acuatico() -> Variant:
+	var gestor: Variant = _gestor_encuentro()
+	if gestor != null and gestor.combo != null:
+		return gestor.combo
+	if _a_combo == null:
+		var cfg: Variant = _cfg_encuentro()
+		_a_combo = ComboSystem.new(float(cfg.combo_keep_time), float(cfg.input_buffer_time))
+	return _a_combo
+
+
+func _actualizar_combo_acuatico(delta: float, _dir: Vector3) -> void:
+	var combo: Variant = _combo_acuatico()
+	if a_combo_activo:
+		_procesar_combo_acuatico(delta)
+	else:
+		if _gestor_encuentro() == null:
+			combo.update(delta)
+		var act: Dictionary = combo.pop_valid(_puede_iniciar_golpe_acuatico)
+		if not act.is_empty():
+			if a_combo_golpe == null:
+				a_combo_cadena = 0
+			_iniciar_golpe_acuatico()
+
+
+func _puede_iniciar_golpe_acuatico(action: String) -> bool:
+	return action == "attack" and a_nadando and not a_en_habilidad and not a_subiendo_escalera
+
+
+func _iniciar_golpe_acuatico() -> void:
+	var cadena: Array = _cadena_combate(_cfg_encuentro())
+	if cadena.is_empty():
+		return
+	a_combo_cadena = posmod(a_combo_cadena, cadena.size())
+	a_combo_golpe = cadena[a_combo_cadena] as AttackData
+	a_combo_objetivo = CombatTargeting.select_target(acuatico, _direccion_entrada(), _direccion_camara_horizontal(), _enemigos_combate(), _cfg_encuentro(), a_combo_objetivo, _amenazas_combate())
+	a_combo_activo = true
+	a_combo_fase = a_combo_golpe.windup
+	a_combo_hecho = false
+	# Los golpes viven en la librería `combo_agua`, no en la global.
+	_reproducir_acuatico("combo_agua/" + a_combo_golpe.animation, BLEND_ATAQUE, true)
+
+
+func _procesar_combo_acuatico(delta: float) -> void:
+	if _gestor_encuentro() == null:
+		_combo_acuatico().update(delta)
+	if a_combo_golpe == null:
+		a_combo_activo = false
+		return
+	if not a_combo_hecho and a_combo_fase > 0.0:
+		a_combo_fase -= delta
+		if a_combo_fase > 0.0:
+			return
+	if not a_combo_hecho:
+		a_combo_hecho = true
+		var adelante: Vector3 = -acuatico.global_transform.basis.z
+		adelante.y = 0.0
+		adelante = adelante.normalized()
+		var centro: Vector3 = global_position + adelante * a_combo_golpe.attack_range
+		for n in get_tree().get_nodes_in_group("damageable"):
+			var target: Node3D = n as Node3D
+			if target == null or target == self: continue
+			var d: Vector3 = target.global_position - global_position
+			d.y = 0.0
+			if d.length() > a_combo_golpe.attack_range or adelante.dot(d.normalized()) < 0.25: continue
+			if target.has_method("take_hit"):
+				target.call("take_hit", a_combo_golpe.damage, d.normalized(), a_combo_golpe.knockback, a_combo_golpe.stun)
+			elif target.has_method("apply_damage"):
+				target.call("apply_damage", a_combo_golpe.damage, centro, &"melee")
+			elif target.has_method("take_damage"):
+				target.call("take_damage", a_combo_golpe.damage, centro, d.normalized() * a_combo_golpe.knockback)
+		_combo_acuatico().register_hit()
+		a_combo_fase = a_combo_golpe.active + a_combo_golpe.recovery
+		return
+	a_combo_fase -= delta
+	if a_combo_fase <= 0.0:
+		var queued: Dictionary = _combo_acuatico().pop_valid(_puede_iniciar_golpe_acuatico)
+		if not queued.is_empty():
+			a_combo_cadena = (a_combo_cadena + 1) % maxi(1, _cadena_combate(_cfg_encuentro()).size())
+			_iniciar_golpe_acuatico()
+		else:
+			# Sin una entrada en la ventana de combo, la siguiente pulsación
+			# empieza una cadena nueva, igual que el FreeFlow del módulo.
+			a_combo_activo = false
+			a_combo_cadena = 0
+			a_combo_golpe = null
+
+
 ## NATACIÓN: el agua no es una barrera, es un medio en el que la forma acuática se
 ## mueve en 3D. Horizontal respecto a la cámara con inercia de pez; vertical con
 ## flotabilidad (arriba), y buceo con CTRL. Al soltar, el cuerpo vuelve solo a la
@@ -1764,14 +1885,46 @@ func _aplicar_vertical_acuatico(delta: float) -> void:
 ## playa caminando sin atravesar el suelo.
 func _procesar_nado(delta: float) -> void:
 	a_salto_aire = false
+	a_turbo_cooldown = maxf(a_turbo_cooldown - delta, 0.0)
+	if Input.is_action_just_pressed("agua_turbo"):
+		_intentar_turbo_acuatico()
+	if a_turbo_t > 0.0:
+		a_turbo_t = maxf(a_turbo_t - delta, 0.0)
+	else:
+		a_turbo_dir = Vector3.ZERO
 	a_agachado = false
 	var dir := _direccion_entrada()
+	var combo: Variant = _combo_acuatico()
+	if Input.is_action_just_pressed("atacar") and not a_en_habilidad:
+		combo.push_input("attack", dir, 10)
+	# El ataque FreeFlow sólo toma prioridad durante el estado activo del combo.
+	if a_combo_activo:
+		_actualizar_combo_acuatico(delta, dir)
+		if a_turbo_t <= 0.0:
+			velocity.x = 0.0
+			velocity.z = 0.0
+		_aplicar_vertical_acuatico(delta)
+		move_and_slide()
+		_orientar_acuatico(delta, dir)
+		_actualizar_anim_acuatico(delta)
+		return
+	if Input.is_action_just_pressed("atacar") and not a_en_habilidad:
+		_actualizar_combo_acuatico(delta, dir)
+		if a_combo_activo:
+			_aplicar_vertical_acuatico(delta)
+			move_and_slide()
+			_orientar_acuatico(delta, dir)
+			_actualizar_anim_acuatico(delta)
+			return
 	# Mantener "correr" nadando = NADO RÁPIDO. Sólo cambia el horizontal: la vertical
 	# la siguen mandando flotar (saltar) y bucear (agacharse), así que no se
 	# despega del agua.
 	var rapido := Input.is_action_pressed("correr")
 	var vel_nado := A_VEL_NADO_RAPIDO if rapido else A_VEL_NADO
 	var acel_nado := A_ACEL_NADO_RAPIDO if rapido else A_ACEL_NADO
+	if a_turbo_t > 0.0:
+		vel_nado = 14.0
+		acel_nado = 18.0
 	# Al SOLTAR SHIFT el cuerpo no vuelve de golpe al nado normal: desacelera con
 	# una tasa propia hasta la velocidad de crucero (sensación de pez que se deja
 	# llevar). Al acelerar sí se usa la tasa del tramo que se está pidiendo.
@@ -1787,10 +1940,7 @@ func _procesar_nado(delta: float) -> void:
 
 	_aplicar_vertical_acuatico(delta)
 
-	# Ataque cuerpo a cuerpo con el botón de SIEMPRE, también nadando o sumergido. No
-	# se solapa con las habilidades 1-4: si hay una en curso, el clic no hace nada.
-	if not a_ataque_activo and not a_en_habilidad and Input.is_action_just_pressed("atacar"):
-		_iniciar_ataque_acuatico()
+	# Combo FreeFlow en tierra conserva el ataque acuático existente; combo en agua se gestiona en _procesar_nado.
 
 	move_and_slide()
 	_orientar_acuatico(delta, dir)
@@ -2003,6 +2153,7 @@ func _terminar_trepada(soltar: bool) -> void:
 
 
 func _iniciar_ataque_acuatico() -> void:
+	# Ataque cuerpo a cuerpo existente se conserva para la forma acuática en tierra.
 	# Trepando por la escalera no se ataca (el cuerpo va por un recorrido guiado).
 	if a_subiendo_escalera:
 		return
@@ -2072,6 +2223,10 @@ func _orientar_acuatico(delta: float, dir: Vector3) -> void:
 
 func _actualizar_anim_acuatico(delta: float) -> void:
 	if anim_acuatico == null:
+		return
+	if a_combo_activo:
+		anim_acuatico.speed_scale = 1.0
+		_reproducir_acuatico("combo_agua/" + a_combo_golpe.animation)
 		return
 	if a_ataque_activo:
 		a_t_ataque -= delta
