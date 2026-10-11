@@ -26,6 +26,9 @@
 [ext_resource type="PackedScene" path="res://Agua/Scenes/Ocean.tscn" id="21_oceano"]
 [ext_resource type="Script" path="res://world/bosque.gd" id="22_bosque"]
 [ext_resource type="PackedScene" path="res://world/LimitesMundo.tscn" id="23_limites"]
+[ext_resource type="PackedScene" path="res://world/barco.tscn" id="26_barco"]
+[ext_resource type="PackedScene" path="res://world/muelle.tscn" id="27_muelle"]
+[ext_resource type="Script" path="res://world/camara_captura.gd" id="28_captura"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -59,14 +62,22 @@ entorno = NodePath("../Entorno")
 script = ExtResource("18_ciclo")
 sol = NodePath("../Sol")
 entorno = NodePath("../Entorno")
-duracion_dia_segundos = 900.0
-duracion_noche_segundos = 900.0
-fase_inicial = 0.33
+duracion_dia_segundos = 600.0
+duracion_noche_segundos = 420.0
+duracion_amanecer_segundos = 90.0
+duracion_anochecer_segundos = 90.0
+fase_inicial = 0.325
 
 [node name="Terreno" type="Node3D" parent="."]
 script = ExtResource("19_isla")
 
 [node name="Oceano" parent="." instance=ExtResource("21_oceano")]
+
+[node name="Barco" parent="." instance=ExtResource("26_barco")]
+transform = Transform3D(-0.70710678, 0, -0.70710678, 0, 1, 0, 0.70710678, 0, -0.70710678, 277.1, -2.05, 277.1)
+
+[node name="Muelle" parent="." instance=ExtResource("27_muelle")]
+transform = Transform3D(0.616, 0, 0.788, 0, 1, 0, -0.788, 0, 0.616, 144.2, -0.16, 95.2)
 
 [node name="Bosque" type="Node3D" parent="."]
 script = ExtResource("22_bosque")
@@ -83,6 +94,10 @@ camara_libre = false
 script = ExtResource("25_farolas")
 ciudad = NodePath("../Ciudad")
 ciclo = NodePath("../CicloDiaNoche")
+
+[node name="CamaraAerea" type="Camera3D" parent="."]
+current = false
+script = ExtResource("28_captura")
 
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
