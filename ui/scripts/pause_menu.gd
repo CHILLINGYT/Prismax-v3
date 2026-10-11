@@ -239,6 +239,9 @@ func _move(step: int) -> void:
 		return
 	# Cualquier movimiento cancela una confirmacion pendiente.
 	_pendiente = -1
+	# Sonido de navegación: solo si el movimiento cambia de opción.
+	if count > 1:
+		SonidoUI.reproducir_cursor()
 	_selected = wrapi(_selected + step, 0, count)
 	_refresh(false)
 
@@ -286,6 +289,7 @@ func _activate(index: int) -> void:
 	var row := rows[index] as MenuOptionRes
 	if row == null:
 		return
+	SonidoUI.reproducir_click()
 	match row.action:
 		MenuOptionRes.Action.CONTINUE:
 			cerrar()
@@ -377,19 +381,35 @@ func _titulo_categoria(row: MenuOptionRes) -> String:
 ## así no hay señales duplicadas. Todos los cambios se aplican/guardan a través
 ## del singleton AjustesGraficos.
 func _conectar_opciones_graficos() -> void:
-	_modo_izq.pressed.connect(AjustesGraficos.alternar_pantalla)
-	_modo_der.pressed.connect(AjustesGraficos.alternar_pantalla)
+	_modo_izq.pressed.connect(_on_pantalla_paso)
+	_modo_der.pressed.connect(_on_pantalla_paso)
 	_res_izq.pressed.connect(_on_resolucion_paso.bind(-1))
 	_res_der.pressed.connect(_on_resolucion_paso.bind(1))
 	_fps_izq.pressed.connect(_on_fps_paso)
 	_fps_der.pressed.connect(_on_fps_paso)
+	# Barra de DISTANCIA: es un slider, NO reproduce ningún sonido de interfaz.
 	_dist_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia)
 
+## Selectores de GRÁFICOS: sonido `siyno` UNA vez por cambio EFECTIVO de valor.
+## Si la flecha no consigue cambiar el valor (p. ej. resolución en pantalla
+## completa), no suena nada.
+func _on_pantalla_paso() -> void:
+	var antes := AjustesGraficos.pantalla_completa
+	AjustesGraficos.alternar_pantalla()
+	if AjustesGraficos.pantalla_completa != antes:
+		SonidoUI.reproducir_siyno()
+
 func _on_resolucion_paso(paso: int) -> void:
-	AjustesGraficos.poner_resolucion(AjustesGraficos.resolucion_idx + paso)
+	var antes := AjustesGraficos.resolucion_idx
+	AjustesGraficos.poner_resolucion(antes + paso)
+	if AjustesGraficos.resolucion_idx != antes:
+		SonidoUI.reproducir_siyno()
 
 func _on_fps_paso() -> void:
-	AjustesGraficos.poner_mostrar_fps(not AjustesGraficos.mostrar_fps)
+	var antes := AjustesGraficos.mostrar_fps
+	AjustesGraficos.poner_mostrar_fps(not antes)
+	if AjustesGraficos.mostrar_fps != antes:
+		SonidoUI.reproducir_siyno()
 
 ## Refleja en la interfaz el estado REAL que vive en AjustesGraficos.
 func _actualizar_opciones_graficos() -> void:
@@ -438,13 +458,27 @@ func _actualizar_contenido_categoria() -> void:
 ## _ready), así no hay señales duplicadas. Todos los cambios se aplican/guardan
 ## a través del singleton AjustesJugabilidad.
 func _conectar_opciones_jugabilidad() -> void:
+	# Barra de SENSIBILIDAD: es un slider, NO reproduce ningún sonido de interfaz.
 	_sens_barra.valor_cambiado.connect(AjustesJugabilidad.poner_sensibilidad)
-	_invertir_izq.pressed.connect(AjustesJugabilidad.alternar_invertir_eje_vertical)
-	_invertir_der.pressed.connect(AjustesJugabilidad.alternar_invertir_eje_vertical)
-	_ayudas_izq.pressed.connect(AjustesJugabilidad.alternar_mostrar_ayudas)
-	_ayudas_der.pressed.connect(AjustesJugabilidad.alternar_mostrar_ayudas)
-	_hud_izq.pressed.connect(AjustesJugabilidad.alternar_ocultar_hud)
-	_hud_der.pressed.connect(AjustesJugabilidad.alternar_ocultar_hud)
+	_invertir_izq.pressed.connect(_on_invertir_paso)
+	_invertir_der.pressed.connect(_on_invertir_paso)
+	_ayudas_izq.pressed.connect(_on_ayudas_paso)
+	_ayudas_der.pressed.connect(_on_ayudas_paso)
+	_hud_izq.pressed.connect(_on_hud_paso)
+	_hud_der.pressed.connect(_on_hud_paso)
+
+## Selectores SÍ/NO de JUGABILIDAD: sonido `siyno` en cada cambio efectivo.
+func _on_invertir_paso() -> void:
+	AjustesJugabilidad.alternar_invertir_eje_vertical()
+	SonidoUI.reproducir_siyno()
+
+func _on_ayudas_paso() -> void:
+	AjustesJugabilidad.alternar_mostrar_ayudas()
+	SonidoUI.reproducir_siyno()
+
+func _on_hud_paso() -> void:
+	AjustesJugabilidad.alternar_ocultar_hud()
+	SonidoUI.reproducir_siyno()
 
 ## Refleja en la interfaz el estado REAL que vive en AjustesJugabilidad.
 func _actualizar_opciones_jugabilidad() -> void:
@@ -463,11 +497,17 @@ func _actualizar_opciones_jugabilidad() -> void:
 ## guarda la preferencia; AjustesAudio no modifica ningún bus todavía. La
 ## estructura para conectarlo en el futuro ya está lista (ver ajustes_audio.gd).
 func _conectar_opciones_audio() -> void:
+	# Barras de VOLUMEN: son sliders, NO reproducen ningún sonido de interfaz.
 	_vol_general_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_general)
 	_vol_musica_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_musica)
 	_vol_efectos_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_efectos)
-	_dialogos_izq.pressed.connect(AjustesAudio.alternar_desactivar_dialogos)
-	_dialogos_der.pressed.connect(AjustesAudio.alternar_desactivar_dialogos)
+	_dialogos_izq.pressed.connect(_on_dialogos_paso)
+	_dialogos_der.pressed.connect(_on_dialogos_paso)
+
+## Selector SÍ/NO de diálogos: sonido `siyno` en cada cambio efectivo.
+func _on_dialogos_paso() -> void:
+	AjustesAudio.alternar_desactivar_dialogos()
+	SonidoUI.reproducir_siyno()
 
 ## Refleja en la interfaz el estado REAL que vive en AjustesAudio.
 func _actualizar_opciones_audio() -> void:
@@ -499,6 +539,8 @@ func _on_row_hovered(lista: VBoxContainer, index: int) -> void:
 		return
 	if index == _selected:
 		return
+	# El cursor entró en OTRA opción: un único sonido de navegación.
+	SonidoUI.reproducir_cursor()
 	_pendiente = -1
 	_selected = index
 	_refresh(false)
