@@ -69,6 +69,17 @@ signal resumed
 @onready var _hud_valor: Label = %HudValor
 # Contenido de la categoría CONTROLES (mismo panel derecho, sin duplicarlo).
 @onready var _controles_content: PanelControles = %ControlsContent
+# Contenido de la categoría AUDIO (mismo panel derecho, sin duplicarlo).
+@onready var _audio_content: VBoxContainer = %AudioContent
+@onready var _vol_general_barra: BarraValor = %VolumenGeneralBarra
+@onready var _vol_general_valor: Label = %VolumenGeneralValor
+@onready var _vol_musica_barra: BarraValor = %VolumenMusicaBarra
+@onready var _vol_musica_valor: Label = %VolumenMusicaValor
+@onready var _vol_efectos_barra: BarraValor = %VolumenEfectosBarra
+@onready var _vol_efectos_valor: Label = %VolumenEfectosValor
+@onready var _dialogos_izq: Button = %DialogosIzq
+@onready var _dialogos_der: Button = %DialogosDer
+@onready var _dialogos_valor: Label = %DialogosValor
 
 var _selected: int = 0
 var _move_tween: Tween
@@ -92,8 +103,10 @@ func _ready() -> void:
 	_conectar_lista(_config_items)
 	_conectar_opciones_graficos()
 	_conectar_opciones_jugabilidad()
+	_conectar_opciones_audio()
 	AjustesGraficos.cambiado.connect(_actualizar_opciones_graficos)
 	AjustesJugabilidad.cambiado.connect(_actualizar_opciones_jugabilidad)
+	AjustesAudio.cambiado.connect(_actualizar_opciones_audio)
 	_en_config = false
 	_title.text = TITULO_PAUSA
 	_items.visible = true
@@ -102,6 +115,7 @@ func _ready() -> void:
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
 	_controles_content.visible = false
+	_audio_content.visible = false
 	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
@@ -201,6 +215,7 @@ func abrir() -> void:
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
 	_controles_content.visible = false
+	_audio_content.visible = false
 	_controles_content.desactivar()
 	_categoria_abierta = -1
 	_selected = 0
@@ -306,6 +321,7 @@ func _entrar_config() -> void:
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
 	_controles_content.visible = false
+	_audio_content.visible = false
 	_categoria_abierta = -1
 	_title.text = TITULO_CONFIG
 	_refresh(true)
@@ -323,6 +339,7 @@ func _salir_config() -> void:
 	_config_content.visible = false
 	_jugabilidad_content.visible = false
 	_controles_content.visible = false
+	_audio_content.visible = false
 	_controles_content.desactivar()
 	_categoria_abierta = -1
 	_title.text = TITULO_PAUSA
@@ -338,6 +355,7 @@ func _toggle_categoria(index: int, row: MenuOptionRes) -> void:
 		_config_content.visible = false
 		_jugabilidad_content.visible = false
 		_controles_content.visible = false
+		_audio_content.visible = false
 		_controles_content.desactivar()
 		return
 	_categoria_abierta = index
@@ -389,15 +407,18 @@ func _actualizar_contenido_categoria() -> void:
 		_config_content.visible = false
 		_jugabilidad_content.visible = false
 		_controles_content.visible = false
+		_audio_content.visible = false
 		return
 	var row := _config_items.get_child(_categoria_abierta) as MenuOptionRes
 	var nombre := String(row.name) if row != null else ""
 	var es_graficos := nombre == "GraficosOption"
 	var es_jugabilidad := nombre == "JugabilidadOption"
 	var es_controles := nombre == "ControlesOption"
+	var es_audio := nombre == "AudioOption"
 	_config_content.visible = es_graficos
 	_jugabilidad_content.visible = es_jugabilidad
 	_controles_content.visible = es_controles
+	_audio_content.visible = es_audio
 	if es_graficos:
 		AjustesGraficos.sincronizar_estado_ventana()
 		_actualizar_opciones_graficos()
@@ -407,6 +428,8 @@ func _actualizar_contenido_categoria() -> void:
 		# Abrir CONTROLES no transforma nada: el panel vuelve a Humano y genera la
 		# lista de esa forma. Cerrarlo cancela cualquier captura en curso.
 		_controles_content.activar()
+	elif es_audio:
+		_actualizar_opciones_audio()
 	else:
 		_controles_content.desactivar()
 
@@ -430,6 +453,31 @@ func _actualizar_opciones_jugabilidad() -> void:
 	_invertir_valor.text = "SÍ" if AjustesJugabilidad.invertir_eje_vertical else "NO"
 	_ayudas_valor.text = "SÍ" if AjustesJugabilidad.mostrar_ayudas else "NO"
 	_hud_valor.text = "SÍ" if AjustesJugabilidad.ocultar_hud else "NO"
+
+# ---------------------------------------------------------------- AUDIO
+## Conecta los controles del panel de AUDIO. Se hace UNA sola vez (en _ready),
+## así no hay señales duplicadas. Todos los cambios se aplican/guardan a través
+## del singleton AjustesAudio.
+##
+## ETAPA ACTUAL SIN SONIDO: mover las barras o cambiar SÍ/NO solo actualiza y
+## guarda la preferencia; AjustesAudio no modifica ningún bus todavía. La
+## estructura para conectarlo en el futuro ya está lista (ver ajustes_audio.gd).
+func _conectar_opciones_audio() -> void:
+	_vol_general_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_general)
+	_vol_musica_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_musica)
+	_vol_efectos_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_efectos)
+	_dialogos_izq.pressed.connect(AjustesAudio.alternar_desactivar_dialogos)
+	_dialogos_der.pressed.connect(AjustesAudio.alternar_desactivar_dialogos)
+
+## Refleja en la interfaz el estado REAL que vive en AjustesAudio.
+func _actualizar_opciones_audio() -> void:
+	_vol_general_barra.poner_valor(AjustesAudio.volumen_general)
+	_vol_general_valor.text = str(AjustesAudio.volumen_general)
+	_vol_musica_barra.poner_valor(AjustesAudio.volumen_musica)
+	_vol_musica_valor.text = str(AjustesAudio.volumen_musica)
+	_vol_efectos_barra.poner_valor(AjustesAudio.volumen_efectos)
+	_vol_efectos_valor.text = str(AjustesAudio.volumen_efectos)
+	_dialogos_valor.text = "SÍ" if AjustesAudio.desactivar_dialogos else "NO"
 
 ## Marca una accion destructiva como pendiente: el segundo accept la ejecuta.
 ## Evita perder la partida por una pulsacion accidental.
