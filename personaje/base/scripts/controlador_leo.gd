@@ -253,8 +253,18 @@ const F_SLAM_VEL := 45.0
 const F_SLAM_DANIO := 60.0
 const F_SLAM_RADIO := 4.5
 # Cuerpo a cuerpo (clic izq. = puñetazo / combo, clic der. = patada).
-const F_PUNIO_DANIO := 8.0
-const F_PATADA_DANIO := 14.0
+## Daño de referencia del Tanque: la mitad de la vida máxima (60 PV) del enemigo
+## estándar de la partida (`EnemigoPrueba`), medido EN EL JUEGO. El golpe básico
+## reparte su daño con caída por distancia dentro de su radio (FuerzaCombat:
+## lerp(1.0 -> 0.4) según lo lejos del puño que esté el enemigo), así que la
+## constante nominal es la que hace llegar ~30 a la distancia de combate normal
+## (30 / 0.61 ≈ 49, medido con el enemigo estándar a 1,2 m). No se toca la vida de
+## ningún enemigo: uno resistente aguanta más golpes y uno frágil, menos.
+const F_DANIO_ENTREGADO := 30.0
+const F_CAIDA_IMPACTO := 0.61
+const F_DANIO_ESTANDAR := F_DANIO_ENTREGADO / F_CAIDA_IMPACTO
+const F_PUNIO_DANIO := F_DANIO_ESTANDAR           # entrega ~30 de 60 PV (la mitad)
+const F_PATADA_DANIO := F_DANIO_ESTANDAR * 1.2    # ~36 entregados: algo más
 const F_GOLPE_ALCANCE := 1.1
 const F_GOLPE_RADIO := 0.7
 const F_GOLPE_ALTURA := 1.2
@@ -413,6 +423,35 @@ const COLORES_TRANSFORMACION := {
 const TIEMPO_MODO_ATAQUE := 10.0
 const FACTOR_MOVILIDAD_ATAQUE := 0.35
 const IMPULSO_AVANCE := 4.5
+# Ataque del Velocista (antes sólo había animación y afterimages: no quitaba vida).
+# Balance de la fase intermedia: el golpe normal quita 7 y el remate del combo algo
+# más, nunca el valor antiguo (28). El daño de la supervelocidad es APARTE y no se
+# toca en este ajuste. Valores configurables aquí, en un único sitio.
+const VEL_ATAQUE_DANIO := 7.0
+const VEL_ATAQUE_DANIO_REMATE := VEL_ATAQUE_DANIO * 1.6
+const VEL_ATAQUE_IMPACTO := 0.10      # s desde el inicio de la animación al contacto
+const VEL_ATAQUE_ALCANCE := 1.9       # m por delante del cuerpo
+const VEL_ATAQUE_RADIO := 1.0         # m alrededor del punto de impacto
+const VEL_ATAQUE_ALTURA := 1.5        # m de margen vertical
+const VEL_ATAQUE_DOT_MIN := 0.15      # sólo golpea lo que tiene delante
+const VEL_ATAQUE_EMPUJE := 5.0
+## Bit de la capa 5 ("enemigos"): la usan SÓLO los enemigos. La supervelocidad la
+## quita TEMPORALMENTE de la máscara del jugador para atravesarlos sin dejar de
+## respetar paredes, suelo y límites del mapa (capas 1 y 2).
+const CAPA_ENEMIGOS := 16
+const VEL_SUPER_DANIO := 5.0
+const VEL_SUPER_RADIO := 1.3          # m de barrido alrededor de la trayectoria
+const VEL_SUPER_EMPUJE := 18.0
+## Aturdimiento de la arremetida: suficiente para que el enemigo no pueda
+## contraatacar mientras el Velocista lo atraviesa (estado ya existente).
+const VEL_SUPER_ATURDIMIENTO := 0.8
+## Indicador del objetivo del FreeFlow: una bolita sobre la cabeza del enemigo
+## seleccionado. Un único nodo, creado a demanda y colgado del mundo.
+const INDICADOR_RADIO := 0.11
+const INDICADOR_COLOR := Color(0.35, 0.95, 1.0, 1.0)
+const INDICADOR_ALTURA := 1.45        # m sobre el centro de golpe del enemigo
+const INDICADOR_ALTURA_BASE := 2.45   # m sobre su base (si no expone centro de golpe)
+const INDICADOR_SUAVIZADO := 14.0     # suavizado del seguimiento (por segundo)
 const VENTANA_CONTINUACION := 0.5
 
 @export_group("Forma humana")
@@ -608,6 +647,15 @@ var _anim_actual: String = ""
 var _bloqueo_anim: float = 0.0
 var _ataque_activo: bool = false
 var _t_ataque: float = 0.0
+## Ataque del velocista: identificador del golpe en curso (invalida el impacto
+## pendiente si se cancela o si empieza otro) y enemigos ya embestidos por la
+## supervelocidad actual (para no repetir el daño cada fotograma).
+var _vel_golpe_id: int = 0
+var _super_golpeados: Dictionary = {}
+## Máscara de colisión guardada mientras dura la arremetida (-1 = ninguna activa).
+var _mascara_guardada: int = -1
+## Indicador del FreeFlow sobre el objetivo activo (uno solo, creado a demanda).
+var _indicador_objetivo: MeshInstance3D = null
 var _emote_activo: bool = false
 var _t_emote: float = 0.0
 var _en_modo_ataque: bool = false
@@ -636,6 +684,13 @@ var _c_cadena_datos: Array = []
 # propio módulo: misma mecánica, sin depender de escenas externas.
 var _gestor_combate: Node = null
 var _c_combo: ComboSystem = null
+
+func _exit_tree() -> void:
+	# El indicador del objetivo cuelga del mundo, no del jugador: se retira con él
+	# para no dejar nodos huérfanos ni referencias a enemigos liberados.
+	if _indicador_objetivo != null and is_instance_valid(_indicador_objetivo):
+		_indicador_objetivo.queue_free()
+	_indicador_objetivo = null
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -750,6 +805,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
+	# Indicador del objetivo del FreeFlow: se recoloca (o se oculta) en cada
+	# fotograma, así sigue al enemigo y desaparece solo si deja de ser válido.
+	_actualizar_indicador_objetivo(delta)
 	# Con el menú radial de transformaciones abierto (F): se congela el control
 	# de movimiento (sin tocar la cámara ni la posición de forma brusca) hasta
 	# que el menú se cierra. El propio menú gestiona la tecla F.
@@ -1393,6 +1451,7 @@ func _detener_velocista() -> void:
 	efectos.terminar_ejecucion()
 	efectos.cancelar_ataque()
 	trazador.limpiar()
+	_restaurar_mascara()
 	combate.cancelar_combo()
 	pivote.vibracion = 0.0
 	pivote.permitir_look = true
@@ -3336,14 +3395,15 @@ func _iniciar_golpe_combate() -> void:
 	var cfg: Variant = _cfg_encuentro()
 	if cfg == null:
 		return
-	var previo: Node3D = c_objetivo
+	var previo: Node3D = c_objetivo if is_instance_valid(c_objetivo) else null
 	# La orientación de esta forma vive en el nodo visual (el cuerpo no gira):
 	# se le pasa a la selección para que "hacia dónde miro" cuente como en el módulo.
 	c_objetivo = CombatTargeting.select_target(ataque_visual, _direccion_entrada(), _direccion_camara_horizontal(), _enemigos_combate(), cfg, c_objetivo, _amenazas_combate())
-	# Regla FreeFlow: un cambio CONFIRMADO de objetivo reinicia la cadena en el
-	# jab; el golpe ya en curso conserva su objetivo y su clip.
+	# Cambiar de objetivo es INMEDIATO y NO reinicia la cadena: el golpe en curso
+	# conserva su clip y la secuencia sigue por donde iba (el siguiente golpe sale
+	# ya hacia el enemigo nuevo). Ver `target_switch_threshold` del config.
 	if c_objetivo != previo:
-		c_cadena = 0
+		_actualizar_indicador_objetivo()
 	var cadena := _cadena_combate(cfg)
 	if cadena.is_empty():
 		return
@@ -3514,6 +3574,67 @@ func _c_girar_hacia(dir: Vector3, delta: float, ritmo: float) -> void:
 	var paso := maxf(0.0001, ritmo) * delta
 	ataque_visual.rotation.y = wrapf(ataque_visual.rotation.y + clampf(dif, -paso, paso), -PI, PI)
 
+# ------------------------------------------------- Indicador del FreeFlow (objetivo)
+## Crea la bolita del objetivo si no existe. Es UN solo nodo y cuelga del mundo (no
+## del enemigo): sirve para cualquier enemigo —los de ahora y los de la Fase 3— sin
+## tocar su escena, no se duplica nunca y no guarda referencias a enemigos liberados.
+func _crear_indicador_objetivo() -> void:
+	if _indicador_objetivo != null and is_instance_valid(_indicador_objetivo):
+		return
+	var malla := SphereMesh.new()
+	malla.radius = INDICADOR_RADIO
+	malla.height = INDICADOR_RADIO * 2.0
+	malla.radial_segments = 12
+	malla.rings = 6
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = INDICADOR_COLOR
+	mat.emission_enabled = true
+	mat.emission = INDICADOR_COLOR
+	mat.emission_energy_multiplier = 2.0
+	var nodo := MeshInstance3D.new()
+	nodo.name = "IndicadorObjetivoFreeFlow"
+	nodo.mesh = malla
+	nodo.material_override = mat
+	nodo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	nodo.top_level = true          # no hereda el transform del jugador
+	nodo.visible = false
+	_indicador_objetivo = nodo
+	var padre: Node = get_parent()
+	if padre == null and is_inside_tree():
+		padre = get_tree().current_scene
+	if padre != null:
+		padre.add_child(nodo)
+	else:
+		add_child(nodo)
+
+## Coloca el indicador sobre el objetivo activo del FreeFlow (o lo oculta). Lo llama
+## el cambio de objetivo —para que se note al instante— y también cada fotograma.
+func _actualizar_indicador_objetivo(delta: float = 0.0) -> void:
+	# Un enemigo puede morir y liberarse mientras era el objetivo: se limpia AQUÍ,
+	# antes de que nadie más lea la referencia, para que no quede una colgada (con
+	# ella el siguiente ataque fallaba al convertirla a Node3D).
+	if c_objetivo != null and not is_instance_valid(c_objetivo):
+		c_objetivo = null
+	if forma != Forma.COMBATE or not _objetivo_valido():
+		if _indicador_objetivo != null and is_instance_valid(_indicador_objetivo):
+			_indicador_objetivo.visible = false
+		return
+	if _indicador_objetivo == null or not is_instance_valid(_indicador_objetivo):
+		_crear_indicador_objetivo()
+	if _indicador_objetivo == null or not is_instance_valid(_indicador_objetivo):
+		return
+	var destino: Vector3 = c_objetivo.global_position + Vector3.UP * INDICADOR_ALTURA_BASE
+	if c_objetivo.has_method("get_hit_center"):
+		var centro: Vector3 = c_objetivo.call("get_hit_center")
+		destino = centro + Vector3.UP * INDICADOR_ALTURA
+	_indicador_objetivo.visible = true
+	if delta > 0.0 and _indicador_objetivo.is_inside_tree():
+		var t := clampf(INDICADOR_SUAVIZADO * delta, 0.0, 1.0)
+		_indicador_objetivo.global_position = _indicador_objetivo.global_position.lerp(destino, t)
+	else:
+		_indicador_objetivo.global_position = destino
+
 func _objetivo_valido() -> bool:
 	if c_objetivo == null or not is_instance_valid(c_objetivo):
 		return false
@@ -3653,6 +3774,109 @@ func _on_golpe_realizado(indice: int) -> void:
 			horiz = horiz.normalized() * velocidad_max
 		velocity.x = horiz.x
 		velocity.z = horiz.z
+	# El daño del combo llega al contacto de la animación (no en el primer
+	# fotograma); `_programar_impacto_velocista` lo aplica UNA vez y lo invalida
+	# si el golpe se cancela, se encadena otro o se sale de la forma.
+	_programar_impacto_velocista(indice)
+
+## Daño real del golpe del Velocista, en el fotograma del contacto de la animación.
+## Va por el identificador del golpe: si se cancela (salto, dash, otra forma) o
+## empieza otro golpe, el impacto pendiente se descarta.
+func _programar_impacto_velocista(indice: int) -> void:
+	_vel_golpe_id += 1
+	var id := _vel_golpe_id
+	await get_tree().create_timer(VEL_ATAQUE_IMPACTO).timeout
+	if not is_inside_tree() or id != _vel_golpe_id:
+		return
+	if not _ataque_activo or forma != Forma.VELOCISTA:
+		return
+	_aplicar_impacto_velocista(indice)
+
+## Golpe corto por DELANTE del cuerpo contra el grupo "damageable". Reutiliza los
+## contratos de daño que ya usa la partida (take_hit del módulo de combate,
+## take_damage del paquete Fuerza y apply_damage de las habilidades de agua): no
+## hay sistema de daño nuevo. El jugador no está en ese grupo, así que no hay
+## fuego amigo, y el arco frontal evita golpear lo que queda a la espalda.
+func _aplicar_impacto_velocista(indice: int) -> void:
+	var base: Node3D = visual if visual != null else self
+	var adelante := -base.global_transform.basis.z
+	adelante.y = 0.0
+	if adelante.length_squared() < 0.0001:
+		return
+	adelante = adelante.normalized()
+	var centro := global_position + adelante * VEL_ATAQUE_ALCANCE
+	var dano := VEL_ATAQUE_DANIO_REMATE if indice >= 4 else VEL_ATAQUE_DANIO
+	for nodo_arbol in get_tree().get_nodes_in_group("damageable"):
+		var objetivo := nodo_arbol as Node3D
+		if objetivo == null or objetivo == self or not objetivo.is_inside_tree():
+			continue
+		var radio := VEL_ATAQUE_RADIO
+		if objetivo.has_method("get_hit_radius"):
+			radio += float(objetivo.call("get_hit_radius"))
+		var plano := Vector3(objetivo.global_position.x - centro.x, 0.0,
+				objetivo.global_position.z - centro.z)
+		if plano.length() > radio:
+			continue
+		if absf(objetivo.global_position.y - global_position.y) > VEL_ATAQUE_ALTURA:
+			continue
+		var hacia := Vector3(objetivo.global_position.x - global_position.x, 0.0,
+				objetivo.global_position.z - global_position.z)
+		if hacia.length_squared() > 0.0001 and hacia.normalized().dot(adelante) < VEL_ATAQUE_DOT_MIN:
+			continue
+		var dir := plano.normalized() if plano.length_squared() > 0.0001 else adelante
+		_aplicar_dano_a(objetivo, dano, centro, dir, VEL_ATAQUE_EMPUJE, 0.25, &"melee")
+
+## Aplica daño con el contrato más completo que entienda el objetivo, en este
+## orden: take_hit (módulo de combate) -> take_damage (paquete Fuerza) ->
+## apply_damage (habilidades de agua). Lo comparten el golpe del Velocista y la
+## supervelocidad.
+func _aplicar_dano_a(objetivo: Node, dano: float, centro: Vector3, dir: Vector3,
+		empuje: float, aturde: float, etiqueta: StringName) -> void:
+	var empuje_vec := (dir + Vector3.UP * 0.3).normalized() * empuje
+	if objetivo.has_method("take_hit"):
+		objetivo.call("take_hit", dano, dir, empuje, aturde)
+	elif objetivo.has_method("take_damage"):
+		objetivo.call("take_damage", dano, centro, empuje_vec)
+	elif objetivo.has_method("apply_damage"):
+		objetivo.call("apply_damage", dano, centro, etiqueta)
+
+## Devuelve a la máscara de colisión su valor normal. Idempotente: si no hay
+## ninguna arremetida en curso, no toca nada.
+func _restaurar_mascara() -> void:
+	if _mascara_guardada < 0:
+		return
+	collision_mask = _mascara_guardada
+	_mascara_guardada = -1
+
+## Enemigos que la supervelocidad se lleva por delante: se mide el TRAMO recorrido
+## en el fotograma (no sólo la posición final), así que a 60 m/s no se escapa
+## nadie; cada enemigo recibe daño UNA sola vez por habilidad.
+func _comprobar_arremetida_super(desde: Vector3, hasta: Vector3) -> void:
+	var tramo := Vector3(hasta.x - desde.x, 0.0, hasta.z - desde.z)
+	var largo_cuad := tramo.length_squared()
+	var dir := tramo.normalized() if largo_cuad > 0.0001 else Vector3.ZERO
+	for nodo_arbol in get_tree().get_nodes_in_group("damageable"):
+		var objetivo := nodo_arbol as Node3D
+		if objetivo == null or objetivo == self or not objetivo.is_inside_tree():
+			continue
+		if _super_golpeados.has(objetivo.get_instance_id()):
+			continue
+		var radio := VEL_SUPER_RADIO
+		if objetivo.has_method("get_hit_radius"):
+			radio += float(objetivo.call("get_hit_radius"))
+		var p := Vector3(objetivo.global_position.x - desde.x, 0.0,
+				objetivo.global_position.z - desde.z)
+		var t := 0.0 if largo_cuad <= 0.0001 else clampf(p.dot(tramo) / largo_cuad, 0.0, 1.0)
+		var punto := tramo * t
+		var fuera := p - punto
+		if fuera.length() > radio:
+			continue
+		if absf(objetivo.global_position.y - global_position.y) > VEL_ATAQUE_ALTURA:
+			continue
+		_super_golpeados[objetivo.get_instance_id()] = true
+		var empuje_dir := dir if dir.length_squared() > 0.0001 else fuera.normalized()
+		_aplicar_dano_a(objetivo, VEL_SUPER_DANIO, objetivo.global_position, empuje_dir,
+				VEL_SUPER_EMPUJE, VEL_SUPER_ATURDIMIENTO, &"supervelocidad")
 
 func _cancelar_ataque_por_salto() -> void:
 	_ataque_activo = false
@@ -3839,6 +4063,12 @@ func _procesar_preparado(delta: float) -> void:
 
 func _iniciar_recorrido() -> void:
 	estado = Estado.EJECUCION
+	_super_golpeados.clear()
+	# La arremetida NO se detiene con los enemigos: se les retira de la máscara
+	# SÓLO a ellos (capa 5). Paredes, suelo y límites del mapa siguen bloqueando,
+	# porque van en otras capas. La máscara se restaura al terminar.
+	_mascara_guardada = collision_mask
+	collision_mask = collision_mask & ~CAPA_ENEMIGOS
 	trazador.set_ejecucion(true)
 	efectos.iniciar_ejecucion()
 	pivote.objetivo_largo = pivote.largo_base * 0.9
@@ -3891,6 +4121,9 @@ func _procesar_ejecucion(delta: float) -> void:
 	var antes := global_position
 	move_and_slide()
 	_orientar_instant(dir)
+	# Barrido de la arremetida: quien se cruce en la trayectoria sale empujado y
+	# recibe daño una sola vez por habilidad (nunca cada fotograma).
+	_comprobar_arremetida_super(antes, global_position)
 
 	var avance := global_position - antes
 	avance.y = 0.0
@@ -3945,11 +4178,13 @@ func _salvar_escalon(dir: Vector3) -> void:
 func _terminar_ejecucion() -> void:
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
+	_restaurar_mascara()
 	pivote.objetivo_largo = pivote.largo_base
 	pivote.objetivo_fov = pivote.fov_base
 	pivote.vibracion = 0.0
 	efectos.terminar_ejecucion()
 	trazador.finalizar_ejecucion()
+	_super_golpeados.clear()
 	_bloqueo_anim = BLOQUEO_FIN_VELOCIDAD
 	_reproducir_anim(ANIM_INACTIVO, BLEND_FIN_VELOCIDAD)
 
