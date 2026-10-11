@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://world/_vista_final.gd" id="1_vf"]
+
+[node name="VistaFinal" type="Node3D"]
+script = ExtResource("1_vf")

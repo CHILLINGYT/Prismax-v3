@@ -50,6 +50,7 @@ shader_parameter/intensidad = 0.0
 shader_parameter/tiempo = 0.0
 
 [node name="LeoJugador" type="CharacterBody3D" unique_id=1523380384]
+collision_mask = 17
 script = ExtResource("1_ctrl")
 
 [node name="Humano" type="Node3D" parent="." unique_id=1240323414]
@@ -132,6 +133,7 @@ tiempo_bajada = 0.3
 
 [node name="Estadisticas" type="Node" parent="." unique_id=984732758]
 script = ExtResource("28_stats")
+perfiles = {"humano": {"vida_max": 50.0, "resistencia_max": 50.0}, "velocista": {"vida_max": 80.0, "resistencia_max": 120.0}, "pes": {"vida_max": 100.0, "resistencia_max": 140.0}, "tanque": {"vida_max": 140.0, "resistencia_max": 60.0}, "combate": {"vida_max": 110.0, "resistencia_max": 90.0}}
 
 [node name="HUD" parent="." groups=["hud_juego"] unique_id=2008386120 instance=ExtResource("29_hud")]
 
