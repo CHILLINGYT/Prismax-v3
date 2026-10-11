@@ -48,6 +48,9 @@ var _fade_tween: Tween
 var _abierto: bool = false
 # Pagina activa: false = lista de pausa, true = pantalla de configuracion.
 var _en_config: bool = false
+# Categoria de configuracion cuyo panel de contenido esta abierto (indice en
+# ConfigItems), o -1 si el panel secundario esta oculto.
+var _categoria_abierta: int = -1
 # Progreso de la transicion: 0 = cerrado (sin blur), 1 = abierto.
 var _transicion: float = 0.0
 # Indice de la opcion destructiva pendiente de confirmacion (-1 = ninguna).
@@ -64,6 +67,7 @@ func _ready() -> void:
 	_items.visible = true
 	_config_items.visible = false
 	_config_panel.visible = false
+	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
 
@@ -136,6 +140,7 @@ func abrir() -> void:
 	_items.visible = true
 	_config_items.visible = false
 	_config_panel.visible = false
+	_categoria_abierta = -1
 	_selected = 0
 	_refresh(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -175,10 +180,9 @@ func _refresh(instant: bool) -> void:
 
 	var current := rows[_selected] as MenuOptionRes
 	if current != null:
-		# El panel de contenido muestra el titulo de la categoria seleccionada.
-		# Solo cambia el texto del MISMO panel; nunca se crea otro.
-		if current.action == MenuOptionRes.Action.CATEGORY:
-			_config_title.text = _titulo_categoria(current)
+		# El panel de contenido NO depende del resaltado (hover/seleccion): se
+		# abre y cierra al PULSAR una categoria (ver _toggle_categoria). Aqui solo
+		# se actualiza la descripcion de la fila.
 		_description.text = current.description
 		if not instant:
 			if _fade_tween != null and _fade_tween.is_valid():
@@ -223,10 +227,9 @@ func _activate(index: int) -> void:
 		MenuOptionRes.Action.BACK:
 			_salir_config()
 		MenuOptionRes.Action.CATEGORY:
-			# Categorias de configuracion todavia sin opciones: solo se
-			# seleccionan (responden visualmente con el resaltado y la
-			# descripcion). No ejecutan ningun ajuste por ahora.
-			pass
+			# Interruptor por activacion: pulsar una categoria abre su panel;
+			# volver a pulsarla lo cierra; pulsar otra cambia el titulo.
+			_toggle_categoria(index, row)
 
 ## Entra en la pantalla de configuracion: misma pausa, misma escena, solo se
 ## alternan los nodos visibles y el titulo. No reanuda ni reinicia nada.
@@ -236,7 +239,9 @@ func _entrar_config() -> void:
 	_selected = 0
 	_items.visible = false
 	_config_items.visible = true
-	_config_panel.visible = true
+	# El panel de contenido empieza OCULTO: solo aparece al pulsar una categoria.
+	_config_panel.visible = false
+	_categoria_abierta = -1
 	_title.text = TITULO_CONFIG
 	_refresh(true)
 
@@ -247,9 +252,24 @@ func _salir_config() -> void:
 	_selected = 0
 	_config_items.visible = false
 	_items.visible = true
+	# Se oculta el panel y se restablece la categoria, para que al volver a
+	# entrar en CONFIGURACIÓN el panel no aparezca abierto.
 	_config_panel.visible = false
+	_categoria_abierta = -1
 	_title.text = TITULO_PAUSA
 	_refresh(true)
+
+## Interruptor del panel de contenido (SIEMPRE el mismo nodo, nunca se duplica):
+## - pulsar la categoria ya abierta -> oculta el panel;
+## - pulsar otra categoria        -> mantiene el panel y cambia solo el titulo.
+func _toggle_categoria(index: int, row: MenuOptionRes) -> void:
+	if _categoria_abierta == index:
+		_categoria_abierta = -1
+		_config_panel.visible = false
+		return
+	_categoria_abierta = index
+	_config_title.text = _titulo_categoria(row)
+	_config_panel.visible = true
 
 ## Nombre de la categoria para el titulo del panel de contenido. Se toma de la
 ## propia etiqueta de la fila (p. ej. "> AUDIO" -> "AUDIO"), de modo que el titulo
