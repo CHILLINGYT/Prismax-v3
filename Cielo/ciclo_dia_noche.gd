@@ -19,6 +19,14 @@ extends Node3D
 ##  Tiempos (fáciles de ajustar, ver el grupo "Tiempos"): día y noche se reparten
 ##  media vuelta de la órbita del sol cada uno. Por defecto, 900 s (15 min) de día
 ##  y 900 s de noche: a los 15 minutos de partida el sol se pone y llega la noche.
+##
+##  LAS TRANSICIONES TIENEN DURACIÓN PROPIA (7 min por defecto, ver
+##  `duracion_amanecer_segundos` / `duracion_anochecer_segundos`). No son la
+##  sinusoide de la órbita: el sol recorre su órbita como siempre, pero su ALTURA
+##  sigue un perfil de mesetas (día y noche) y rampas de duración fija. Así el
+##  anochecer y el amanecer duran minutos exactos de juego y la noche queda CERRADA
+##  al terminar el anochecer (no a medianoche), sin saltos ni parpadeos: cada rampa
+##  arranca y termina con pendiente nula.
 ## =============================================================================
 
 @export_group("Tiempos")
@@ -26,9 +34,17 @@ extends Node3D
 @export var duracion_dia_segundos: float = 900.0
 ## Segundos de juego que dura la noche (atardecer -> amanecer).
 @export var duracion_noche_segundos: float = 900.0
+## Duración REAL (s de juego) de la transición del AMANECER: del sol asomando al
+## día pleno. 420 = 7 min.
+@export var duracion_amanecer_segundos: float = 420.0
+## Duración REAL (s de juego) de la transición del ANOCHECER: de la luz de día a la
+## noche cerrada. 420 = 7 min. Termina en el atardecer (fase 0.75), que es donde los
+## faroles acaban de encenderse y la noche queda completa.
+@export var duracion_anochecer_segundos: float = 420.0
 ## Fase de arranque en [0, 1): 0.25 amanecer, 0.5 mediodía, 0.75 atardecer,
-## 0.0/1.0 medianoche. Por defecto arranca poco después del amanecer.
-@export_range(0.0, 1.0, 0.001) var fase_inicial: float = 0.28
+## 0.0/1.0 medianoche. Por defecto arranca EN EL AMANECER: así el anochecer va del
+## minuto 8 al 15 de la partida y los faroles se encienden del 13 al 15.
+@export_range(0.0, 1.0, 0.001) var fase_inicial: float = 0.25
 
 @export_group("Referencias")
 ## Luz direccional que hace de sol (la que ve el shader del cielo).
@@ -62,6 +78,22 @@ extends Node3D
 @export var nube_color_dia: Color = Color(0.9, 0.92, 0.95, 1.0)
 @export var nube_color_noche: Color = Color(0.32, 0.34, 0.44, 1.0)
 
+# --- Perfil de altura del sol -------------------------------------------------
+# Altura = componente Y de la dirección hacia el sol ANTES de inclinar la órbita
+# (la inclinación de 18° la deja en ~0.95 de ese valor). Con estas tres cotas el
+# día y la noche son MESETAS y el amanecer/el anochecer son rampas de duración
+# fija: es lo que hace que la transición dure minutos exactos en lugar de depender
+# de lo deprisa que suba una sinusoide.
+## Meseta de DÍA: el sol en lo más alto.
+const ALTURA_DIA := 1.0
+## Altura a la que la noche está CERRADA (fin del anochecer / principio del
+## amanecer). El sol queda bien por debajo del horizonte (unos 33°), así que el
+## cielo está oscuro de verdad aunque no sea medianoche.
+const ALTURA_NOCHE := -0.55
+## Punto más bajo de la noche (medianoche). La oscuridad no cambia —ya está al
+## máximo—, pero la luna gana altura y recorre el cielo en vez de quedarse fija.
+const ALTURA_MEDIANOCHE := -0.90
+
 # Fase actual del ciclo en [0, 1). Avanza sola cada frame.
 var _fase: float = 0.0
 
@@ -93,18 +125,71 @@ func _avanzar(delta: float) -> void:
 
 func _aplicar() -> void:
 	var direccion_sol: Vector3 = _direccion_sol()
-	var elevacion: float = direccion_sol.y
 	if sol != null:
 		_orientar_sol(direccion_sol)
-		_ajustar_luz_sol(elevacion)
-	_ajustar_entorno(elevacion)
+		# La LUZ del sol sigue su altura real (se apaga al ponerse), pero la
+		# oscuridad del ambiente, la niebla y las nubes la manda `_oscuridad()`, que
+		# llega a su valor de noche justo al terminar el anochecer.
+		_ajustar_luz_sol(direccion_sol.y)
+	_ajustar_entorno()
 
 
-## Dirección normalizada DESDE la escena HACIA el sol. Su componente Y es la
-## elevación: > 0 de día, <= 0 de noche.
+## Tramo de fase que ocupa cada transición dentro de la mitad diurna (0.25 -> 0.75),
+## que se recorre en `duracion_dia_segundos`. Si los dos tramos no caben en esa
+## mitad se reparten en proporción, de modo que nunca se solapan.
+func _tramos() -> Vector2:
+	var a: float = maxf(duracion_amanecer_segundos, 0.0) * 0.5 / maxf(duracion_dia_segundos, 0.001)
+	var o: float = maxf(duracion_anochecer_segundos, 0.0) * 0.5 / maxf(duracion_dia_segundos, 0.001)
+	var suma: float = a + o
+	if suma > 0.5:
+		var k: float = 0.5 / suma
+		a *= k
+		o *= k
+	return Vector2(a, o)
+
+
+## Altura del sol (-1..1) en esa fase: rampas de duración fija en el amanecer y el
+## anochecer, y mesetas planas en el día y la noche. Cada rampa empieza y acaba con
+## pendiente NULA (smoothstep), así que no hay cambios bruscos de brillo.
+func _perfil_altura(fase: float) -> float:
+	var tramos := _tramos()
+	var amanecer: float = tramos.x
+	var anochecer: float = tramos.y
+	var fin_amanecer: float = 0.25 + amanecer
+	var inicio_anochecer: float = 0.75 - anochecer
+	if amanecer > 0.0001 and fase >= 0.25 and fase < fin_amanecer:
+		var u: float = (fase - 0.25) / amanecer
+		return lerpf(ALTURA_NOCHE, ALTURA_DIA, smoothstep(0.0, 1.0, u))
+	if fase >= fin_amanecer and fase < inicio_anochecer:
+		return ALTURA_DIA
+	if anochecer > 0.0001 and fase >= inicio_anochecer and fase < 0.75:
+		var u: float = (fase - inicio_anochecer) / anochecer
+		return lerpf(ALTURA_DIA, ALTURA_NOCHE, smoothstep(0.0, 1.0, u))
+	# Noche: el sol sigue bajando hasta medianoche y vuelve a subir, de forma que la
+	# luna recorra el cielo. La oscuridad NO cambia (ya está al máximo).
+	var s: float = clampf(fposmod(fase - 0.75, 1.0) / 0.5, 0.0, 1.0)
+	return lerpf(ALTURA_NOCHE, ALTURA_MEDIANOCHE, 0.5 - 0.5 * cos(TAU * s))
+
+
+## Oscuridad del cielo: 0 = día pleno, 1 = noche cerrada. Sale del MISMO perfil de
+## altura, así que vale 0 en la meseta de día, sube 0 -> 1 durante el anochecer y
+## baja 1 -> 0 durante el amanecer: la iluminación, la niebla y las nubes llegan a
+## su valor de noche exactamente cuando el anochecer termina.
+func _oscuridad() -> float:
+	var recorrido: float = ALTURA_DIA - ALTURA_NOCHE
+	if recorrido <= 0.0001:
+		return 0.0
+	return clampf((ALTURA_DIA - _perfil_altura(_fase)) / recorrido, 0.0, 1.0)
+
+
+## Dirección normalizada DESDE la escena HACIA el sol. El recorrido horizontal es el
+## de siempre (el sol cruza el cielo de un horizonte al otro) y su componente Y es
+## la del perfil: > 0 de día, <= 0 de noche.
 func _direccion_sol() -> Vector3:
 	var angulo: float = (_fase - 0.25) * TAU
-	var dir: Vector3 = Vector3(0.0, sin(angulo), -cos(angulo))
+	var horizontal: float = -cos(angulo)
+	var altura: float = _perfil_altura(_fase)
+	var dir: Vector3 = Vector3(0.0, altura, horizontal * sqrt(maxf(1.0 - altura * altura, 0.0)))
 	# Girar sobre Z inclina la órbita sin cambiar cuándo cruza el horizonte.
 	return dir.rotated(Vector3(0.0, 0.0, 1.0), deg_to_rad(inclinacion_orbita)).normalized()
 
@@ -137,12 +222,15 @@ func _ajustar_luz_sol(elevacion: float) -> void:
 	sol.light_color = color_sol_dia.lerp(color_sol_atardecer, calidez)
 
 
-func _ajustar_entorno(elevacion: float) -> void:
+func _ajustar_entorno() -> void:
 	if entorno == null or entorno.environment == null:
 		return
 	var env: Environment = entorno.environment
-	var dia: float = clampf(elevacion, 0.0, 1.0)
-	var noche: float = clampf(-elevacion, 0.0, 1.0)
+	# La oscuridad la manda el perfil de transiciones (rampas de duración fija), no
+	# la altura instantánea del sol: así la noche llega completa al terminar el
+	# anochecer y no a medianoche.
+	var oscuridad: float = _oscuridad()
+	var dia: float = 1.0 - oscuridad
 	# El ambiente viene del cielo de día; de noche se mezcla con un azul frío para
 	# que los edificios y calles sigan leyéndose sin quedar en negro.
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -150,18 +238,70 @@ func _ajustar_entorno(elevacion: float) -> void:
 	env.ambient_light_sky_contribution = lerpf(
 		ambiente_contribucion_cielo_noche, ambiente_contribucion_cielo_dia, dia)
 	env.ambient_light_color = ambiente_color_noche
-	env.fog_light_color = niebla_color_dia.lerp(niebla_color_noche, noche)
-	_ajustar_nubes(noche)
+	env.fog_light_color = niebla_color_dia.lerp(niebla_color_noche, oscuridad)
+	_ajustar_nubes(oscuridad)
 
 
 ## Oscurece las nubes del cielo de noche (el asset usa un solo color de nube).
-func _ajustar_nubes(noche: float) -> void:
+func _ajustar_nubes(oscuridad: float) -> void:
 	var material: ShaderMaterial = _material_cielo()
 	if material != null:
-		material.set_shader_parameter("cloud_color", nube_color_dia.lerp(nube_color_noche, noche))
+		material.set_shader_parameter("cloud_color", nube_color_dia.lerp(nube_color_noche, oscuridad))
 
 
 func _material_cielo() -> ShaderMaterial:
 	if entorno == null or entorno.environment == null or entorno.environment.sky == null:
 		return null
 	return entorno.environment.sky.sky_material as ShaderMaterial
+
+
+## Resumen del horario para las comprobaciones del juego: fase, minutos de juego
+## desde el arranque, altura del sol, oscuridad y las fases en las que empiezan y
+## acaban las dos transiciones. También la duración real de cada rampa en segundos.
+func resumen_horario() -> String:
+	var tramos := _tramos()
+	var fin_amanecer: float = 0.25 + tramos.x
+	var inicio_anochecer: float = 0.75 - tramos.y
+	return ("fase=%.4f min=%.2f altura=%.3f oscuridad=%.2f | amanecer 0.25->%.4f (%.0f s) "
+			+ "anochecer %.4f->0.75 (%.0f s)") % [
+		_fase, minutos_desde_arranque(_fase), _perfil_altura(_fase), _oscuridad(),
+		fin_amanecer, duracion_amanecer_segundos,
+		inicio_anochecer, duracion_anochecer_segundos]
+
+
+## Minutos de juego transcurridos desde el arranque (`fase_inicial`) hasta esa fase,
+## avanzando por el ciclo. Es una comprobación del horario: sirve para saber en qué
+## minuto de partida cae cada hito.
+func minutos_desde_arranque(fase: float) -> float:
+	return segundos_entre(fase_inicial, fase) / 60.0
+
+
+## Segundos de juego entre dos fases avanzando por el ciclo. La mitad diurna
+## (0.25 -> 0.75) avanza a 0.5 de fase por `duracion_dia_segundos` y la nocturna a
+## 0.5 por `duracion_noche_segundos`, así que se integra por tramos exactos.
+func segundos_entre(desde: float, hasta: float) -> float:
+	var f: float = fposmod(desde, 1.0)
+	var objetivo: float = fposmod(hasta, 1.0)
+	if objetivo <= f + 0.000001:
+		objetivo += 1.0
+	var total: float = 0.0
+	# Se corta en los hitos de las mitades (0.25 y 0.75) que caigan por delante.
+	for hito_base in [0.25, 0.75]:
+		var hito: float = hito_base
+		while hito <= f + 0.000001:
+			hito += 1.0
+		if hito < objetivo:
+			total += _segundos_tramo(f, hito)
+			f = hito
+	total += _segundos_tramo(f, objetivo)
+	return total
+
+
+func _segundos_tramo(desde: float, hasta: float) -> float:
+	var duracion: float = duracion_dia_segundos if _es_de_dia((desde + hasta) * 0.5) else duracion_noche_segundos
+	return (hasta - desde) * 2.0 * maxf(duracion, 0.001)
+
+
+func _es_de_dia(fase: float) -> bool:
+	var f: float = fposmod(fase, 1.0)
+	return f >= 0.25 and f < 0.75

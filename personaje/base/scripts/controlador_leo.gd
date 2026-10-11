@@ -102,6 +102,11 @@ const A_GOLPE_IMPACTO_U := 0.35
 ## primer fotograma.
 const A_T_ENTRADA_AGUA := 1.50
 const A_T_SALIDA_AGUA := 1.40
+## ESCALERA DEL BARCO: velocidad (m/s) a la que la forma acuática trepa.
+const E_VEL_ESCALERA := 2.4
+## ESCALERA DEL BARCO: distancia (m) por debajo de la cubierta en la que el cuerpo
+## deja de subir en vertical y entra hacia dentro para coronar sobre ella.
+const E_TREPADO_MUELLE := 1.5
 # Metro extra de avance sobre el radio de la cápsula: garantiza que el centro del
 # cuerpo quede claramente encima de la superficie de destino (no justo en el canto).
 const MARGEN_ESCALON := 0.12
@@ -461,6 +466,12 @@ var a_nadando: bool = false
 var a_t_transicion: float = 0.0
 ## Clip de transición en curso ("" = ninguna).
 var a_clip_transicion: String = ""
+# ESCALERA DEL BARCO: true mientras la forma acuática trepa por la escalera de un
+# barco. Lo manda _procesar_subida_escalera (no la lógica de nado). Sólo la forma
+# acuática la usa; ninguna otra forma puede agarrarse.
+var a_subiendo_escalera: bool = false
+# La escalera (EscaleraBarco) que se está subiendo, o null.
+var _escalera_actual: Node3D = null
 ## Relieve compartido: ÚNICA fuente de verdad de dónde empieza el agua y de cuánto
 ## honda es en cada punto (lo usan el límite de las formas terrestres y el nado).
 var _relieve := Relieve.new()
@@ -765,7 +776,7 @@ func _physics_process(delta: float) -> void:
 	# Durante la EJECUCIÓN del trazado del Velocista NO se ejecuta aquí: ese estado
 	# usa _intentar_escalon_ejecucion() sobre su propia colisión con move_and_collide,
 	# y encadenar ambos podría provocar dobles ascensos o saltos de posición.
-	if estado != Estado.EJECUCION:
+	if estado != Estado.EJECUCION and not a_subiendo_escalera:
 		_resolver_escalon()
 
 # Menú abierto: sin control horizontal, sólo gravedad y pose quieta, para que
@@ -1095,6 +1106,11 @@ func _alternar_forma_con_efecto() -> void:
 # Elige una forma desde el menú radial (F): si ya se está en esa forma, vuelve
 # a humano. Así cualquier transformación se puede "desactivar" desde el HUD.
 func _cambiar_forma_con_efecto(destino: int) -> void:
+	# Subir por la escalera es exclusivo de la forma acuática: al transformarse se
+	# suelta la escalera (el cuerpo queda donde esté, sin quedar "colgado").
+	if a_subiendo_escalera:
+		a_subiendo_escalera = false
+		_escalera_actual = null
 	if forma == destino:
 		destino = Forma.HUMANO
 	_transicionar(destino)
@@ -1135,6 +1151,8 @@ func _entrar_acuatico() -> void:
 	a_t_ataque = 0.0
 	a_ataque_dur = 0.0
 	a_golpe_dado = false
+	a_subiendo_escalera = false
+	_escalera_actual = null
 	pivote.position.y = h_pivote_y_base
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
@@ -1455,9 +1473,22 @@ func _animar_agachado_quieto(delta: float) -> void:
 # Además es la ÚNICA forma que puede nadar: en agua honda el cuerpo flota, se
 # desplaza en 3D y puede sumergirse (ver _procesar_nado).
 func _procesar_acuatico(delta: float) -> void:
+	# ESCALERA DEL BARCO: mientras se trepa, manda la escalera y no el agua, así el
+	# cuerpo sube en vertical sobre la superficie sin que la flotabilidad lo devuelva.
+	if a_subiendo_escalera:
+		_procesar_subida_escalera(delta)
+		return
 	_tick_cooldowns_agua(delta)
 	# 1) ¿Nadar o andar? Lo decide la profundidad REAL del agua bajo los pies.
 	_actualizar_estado_agua(delta)
+
+	# 1b) Interacción con la escalera del barco: nadando junto al casco, INTERACTUAR
+	# (E) agarra la escalera y sube a la cubierta. Sólo la forma acuática llega aquí.
+	if a_nadando and not a_en_habilidad and Input.is_action_just_pressed("interactuar"):
+		_intentar_subir_escalera()
+		if a_subiendo_escalera:
+			_procesar_subida_escalera(delta)
+			return
 
 	# 2) Mientras corre una habilidad acuática (1-4): sin movimiento horizontal; la
 	# animación la manda la habilidad, no se sobrescribe. La vertical sí responde al
@@ -1630,6 +1661,65 @@ func _procesar_nado(delta: float) -> void:
 	move_and_slide()
 	_orientar_acuatico(delta, dir)
 	_actualizar_anim_acuatico(delta)
+
+
+# --- Escalera del barco (sólo la forma acuática) -------------------------------
+## Busca una escalera de barco cerca del cuerpo (nadando junto al casco) y se
+## agarra a ella. Si ninguna está a mano, no pasa nada.
+func _intentar_subir_escalera() -> void:
+	for nodo_arbol in get_tree().get_nodes_in_group("escalera_barco"):
+		var esc := nodo_arbol as EscaleraBarco
+		if esc == null:
+			continue
+		if esc.puede_subir(global_position):
+			_escalera_actual = esc
+			a_subiendo_escalera = true
+			a_nadando = false
+			a_en_habilidad = false
+			a_ataque_activo = false
+			a_agachado = false
+			a_t_ataque = 0.0
+			velocity = Vector3.ZERO
+			_reproducir_acuatico(ANIM_A_SWIM_UP, BLEND_AGUA, true)
+			return
+
+
+## Trepa por la escalera: sube en vertical a lo largo de la columna y, cerca de la
+## cubierta, entra hacia dentro para coronar sobre ella. CTRL suelta y devuelve el
+## cuerpo al agua. Se mueve la posición directamente (no es física de nado): la
+## escalera es un recorrido guiado.
+func _procesar_subida_escalera(delta: float) -> void:
+	if _escalera_actual == null or not is_instance_valid(_escalera_actual):
+		a_subiendo_escalera = false
+		_escalera_actual = null
+		return
+	if Input.is_key_pressed(KEY_CTRL):
+		a_subiendo_escalera = false
+		_escalera_actual = null
+		a_nadando = true
+		_reproducir_acuatico(ANIM_A_SWIM_IDLE, BLEND_AGUA, true)
+		return
+	var p_pie: Vector3 = _escalera_actual.pie()
+	var p_cima: Vector3 = _escalera_actual.cima()
+	var pos := global_position
+	pos.y = minf(pos.y + E_VEL_ESCALERA * delta, p_cima.y)
+	var t := clampf((pos.y - (p_cima.y - E_TREPADO_MUELLE)) / E_TREPADO_MUELLE, 0.0, 1.0)
+	t = t * t * (3.0 - 2.0 * t)
+	pos.x = lerpf(p_pie.x, p_cima.x, t)
+	pos.z = lerpf(p_pie.z, p_cima.z, t)
+	global_position = pos
+	velocity = Vector3.ZERO
+	var dir: Vector3 = _escalera_actual.direccion_mirada()
+	if dir.length_squared() > 0.0001:
+		acuatico.rotation.y = lerp_angle(acuatico.rotation.y, atan2(-dir.x, -dir.z), 10.0 * delta)
+	_reproducir_acuatico(ANIM_A_SWIM_UP, BLEND_AGUA)
+	if global_position.y >= p_cima.y - 0.01:
+		global_position = p_cima
+		a_subiendo_escalera = false
+		_escalera_actual = null
+		a_nadando = false
+		velocity = Vector3.ZERO
+		_reproducir_acuatico(ANIM_A_IDLE, BLEND_AGUA, true)
 
 
 func _iniciar_ataque_acuatico() -> void:
