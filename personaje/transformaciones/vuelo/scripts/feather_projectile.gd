@@ -13,9 +13,10 @@ class_name VueloFeatherProjectile
 @export_range(1, 100, 1) var danio: int = 12
 ## Empujón que recibe el golpeado (maniquí) o la caja al ser rozada.
 @export_range(0.0, 15.0, 0.5) var empujon: float = 3.5
-## Máscara de colisión del proyectil: qué capas detecta (por defecto 1, la capa
-## por defecto de Godot, donde suelen estar el suelo y los objetivos).
-@export var mascara_colision: int = 1
+## Máscara de colisión del proyectil: qué capas detecta. Por defecto capa 1
+## (mundo y maniquíes de práctica) + la capa de enemigos del proyecto (valor 16,
+## el mismo que usa enemigo_base), para darle a los dos tipos de objetivo.
+@export var mascara_colision: int = 17
 
 var _direction: Vector3 = Vector3.FORWARD
 var _remaining_lifetime: float = 0.0
@@ -71,15 +72,17 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 
-## Consecuencia del impacto: daño dirigido a maniquíes, empujón físico
-## a cajas y otros RigidBody. El piso no hace nada (solo muere la pluma).
+## Consecuencia del impacto: daño a maniquíes Y enemigos reales del proyecto
+## (cada uno por su contrato, vía el puente compartido), empujón físico a cajas
+## y otros RigidBody. El piso no hace nada (solo muere la pluma).
 func _impactar(golpeado: Object) -> void:
 	if golpeado == null:
 		return
-	if golpeado.is_in_group("maniqui") and golpeado.has_method("recibir_golpe"):
-		golpeado.recibir_golpe(danio, _direction, empujon)
-		print("[Pluma] Impacto: %d de daño a %s" % [danio, golpeado.name])
-		return
+	var nodo := golpeado as Node
+	if nodo != null and (nodo.is_in_group("maniqui") or nodo.is_in_group("damageable")):
+		if VueloDano.aplicar(golpeado, danio, _direction, empujon):
+			print("[Pluma] Impacto: %d de daño a %s" % [danio, nodo.name])
+			return
 	if golpeado is RigidBody3D:
 		(golpeado as RigidBody3D).apply_central_impulse(
 			_direction * empujon * 0.6

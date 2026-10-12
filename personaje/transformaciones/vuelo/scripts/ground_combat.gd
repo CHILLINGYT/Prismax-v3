@@ -150,6 +150,10 @@ func _lanzar(indice: int) -> void:
 		printerr("[GroundCombat] No está el clip: ", cadena[indice])
 		_terminar()
 		return
+	# ESTAMINA: cada golpe del combo se cobra al LANZARSE de verdad (con su clip
+	# ya resuelto); sin energía no arranca (uno en curso termina solo).
+	if not CostosEstamina.activar_ataque(get_parent(), &"golpe"):
+		return
 	_indice = indice
 	_buffer = false
 	_clip_actual = clip
@@ -188,13 +192,23 @@ func _impacto_melee(indice: int) -> void:
 		_body.global_position + adelante * 1.2 + Vector3.UP * 0.9
 	)
 	consulta.collide_with_bodies = true
-	consulta.collision_mask = 1
+	# Capa 1 (mundo/jugador) + capa de enemigos del proyecto (valor 16, el mismo
+	# que usa la raíz de enemigo_base): antes sólo miraba la 1 y los enemigos de
+	# la partida eran intocables para el puño.
+	consulta.collision_mask = 1 | 16
+	consulta.exclude = [_body.get_rid()]
 	for resultado in espacio.intersect_shape(consulta, 6):
 		var cuerpo: Object = resultado["collider"]
-		if cuerpo != null and cuerpo.is_in_group("maniqui"):
-			var danio := 8 + indice * 4
-			cuerpo.recibir_golpe(danio, adelante, 4.5)
-			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño")
+		var nodo := cuerpo as Node
+		if nodo == null:
+			continue
+		# Sólo objetivos legítimos: maniquíes de práctica o enemigos reales
+		# ("damageable"). El jugador no está en ninguno de esos grupos.
+		if not (nodo.is_in_group("maniqui") or nodo.is_in_group("damageable")):
+			continue
+		var danio := 8 + indice * 4
+		if VueloDano.aplicar(cuerpo, danio, adelante, 4.5):
+			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", nodo.name)
 			return
 
 func _terminar() -> void:

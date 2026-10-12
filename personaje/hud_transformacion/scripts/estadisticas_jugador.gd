@@ -1,8 +1,9 @@
 class_name EstadisticasJugador
 extends Node
 
-## Estadísticas de los PERSONAJES jugables (las cinco formas del jugador): VIDA y
-## RESISTENCIA (escudo) INDEPENDIENTES para cada uno, más su regeneración.
+## Estadísticas de los PERSONAJES jugables: VIDA, RESISTENCIA (escudo) y
+## ESTAMINA (energía de las acciones) INDEPENDIENTES para cada uno, más sus
+## regeneraciones.
 ##
 ## - La VIDA es la salud real del personaje.
 ## - La RESISTENCIA funciona como escudo: mientras tenga carga absorbe el 80 %
@@ -10,6 +11,10 @@ extends Node
 ##   resistencia está agotada, el 100 % del daño va a la vida.
 ## - La resistencia NO depende del número de golpes: cada golpe consume una
 ##   cantidad de resistencia proporcional a su daño.
+## - MUERTE: sólo cuando la vida Y la resistencia llegan a cero. Con la
+##   resistencia en positivo el personaje no muere (última reserva defensiva):
+##   puede quedar a 0 de vida y recuperarse si deja de recibir daño. La señal
+##   `murio` se emite UNA vez, en el golpe que agota las dos.
 ##
 ## RECURSOS POR PERSONAJE (no se comparten):
 ##   · Cada forma (humano, velocista, pes, tanque, combate) guarda su propia vida
@@ -33,6 +38,17 @@ extends Node
 ##
 ## Es un componente puramente lógico, sin UI: el HUD se suscribe a sus señales
 ## y lee `vida`, `resistencia`, `vida_max`, `resistencia_max`.
+##
+## ESTAMINA (energía del movimiento, los ataques y las habilidades):
+##   · Cada personaje guarda la suya, igual que vida y escudo, y NO se restaura
+##     al transformarse. Los COSTES están centralizados en `CostosEstamina`.
+##   · Regenera con su PROPIO reloj (`espera_regen_estamina` desde el último
+##     gasto, no desde el último daño) y nunca pasa del máximo. Mientras una
+##     acción siga consumiendo (gastar_continuo), la regeneración queda apagada.
+##   · Con la estamina agotada se bloquean ataques, habilidades y sprint/turbo
+##     NUEVOS; el movimiento básico, el salto normal y el aterrizaje siguen
+##     siempre disponibles. `probar_gasto` cobra una vez y `gastar_continuo`
+##     nunca deja el valor en negativo.
 
 signal vida_cambiada(actual: float, maxima: float)
 signal resistencia_cambiada(actual: float, maxima: float)
@@ -41,10 +57,17 @@ signal regenerando_cambiado(regenerando: bool)
 ## Daño total entrante recibido en un golpe (antes de repartirlo entre escudo y vida).
 signal danio_recibido(cantidad: float)
 signal murio
+## Estamina del personaje ACTIVO (actual, máxima). Como vida/resistencia, cada
+## personaje guarda la suya y sólo se emite la del que se ve.
+signal stamina_cambiada(actual: float, maxima: float)
 
 ## Personaje con el que arranca la partida (coincide con la forma inicial del
 ## controlador).
 const FORMA_INICIAL := &"humano"
+
+## Con la estamina en este valor (o menos) el personaje está AGOTADO: se bloquean
+## ataques, habilidades, dash/turbo y sprint nuevos (el caminar nunca se bloquea).
+const UMBRAL_AGOTADA := 0.5
 
 @export_group("Vida")
 @export var vida_max: float = 100.0
@@ -64,7 +87,20 @@ const FORMA_INICIAL := &"humano"
 ## 0.5 = exactamente la mitad (regla de diseño).
 @export_range(0.0, 1.0, 0.01) var factor_inactivo: float = 0.5
 
-## Perfiles por transformación: id (StringName) -> {"vida_max", "resistencia_max"}.
+@export_group("Estamina")
+## ESTAMINA: recurso de energía de las acciones (movimiento, ataques y
+## habilidades). Igual que la vida y la resistencia, CADA personaje guarda la
+## suya en `_estados`: cambiar de forma no la restaura ni la reinicia.
+@export var stamina_max: float = 100.0
+## Puntos de ESTAMINA por segundo que recupera el personaje ACTIVO (los
+## inactivos usan esta misma tasa multiplicada por `factor_inactivo`).
+@export var velocidad_regen_estamina: float = 20.0
+## Segundos sin gastar NADA antes de empezar a regenerar estamina. Cada gasto
+## (ataque, habilidad, caminar...) reinicia este reloj; mientras una acción
+## sostenida siga consumiendo, la regeneración queda apagada.
+@export var espera_regen_estamina: float = 1.6
+
+## Perfiles por transformación: id (StringName) -> {"vida_max", "resistencia_max", "stamina_max"}.
 ## Es donde vive la tabla de máximos de cada personaje; el HUD no necesita cambios
 ## para ello. Una forma sin perfil usa los máximos base del nodo.
 ## Acepta claves String o StringName (se normalizan al arrancar).
@@ -75,6 +111,10 @@ const FORMA_INICIAL := &"humano"
 var vida: float = 0.0
 var resistencia: float = 0.0
 var muerto: bool = false
+## Estamina del personaje ACTIVO (espejo de `_estados[_forma_actual]`).
+var stamina: float = 0.0
+## Última clave de gasto registrada (diagnóstico y pruebas; nunca decide nada).
+var ultimo_gasto: StringName = &""
 
 var _forma_actual: StringName = FORMA_INICIAL
 ## id (StringName) -> {"vida", "resistencia", "t_desde_dano", "muerto"}.
@@ -84,6 +124,7 @@ var _estados: Dictionary = {}
 ## entonces `vida_max`/`resistencia_max` publican los del personaje ACTIVO.
 var _vida_max_base: float = 0.0
 var _resistencia_max_base: float = 0.0
+var _stamina_max_base: float = 0.0
 ## Copia de `perfiles` con las claves ya en StringName (una sola vez al arrancar).
 var _perfiles_norm: Dictionary = {}
 var _regenerando: bool = false
@@ -93,6 +134,7 @@ func _ready() -> void:
 	# publicar los del personaje activo.
 	_vida_max_base = vida_max
 	_resistencia_max_base = resistencia_max
+	_stamina_max_base = stamina_max
 	for k in perfiles.keys():
 		_perfiles_norm[StringName(k)] = perfiles[k]
 	_estados[FORMA_INICIAL] = _estado_nuevo(FORMA_INICIAL)
@@ -135,7 +177,13 @@ func recibir_danio(cantidad: float) -> void:
 	est["t_desde_dano"] = 0.0
 	_fijar_regenerando(false)
 
-	if vida <= 0.0:
+	# CONDICIÓN DE MUERTE (regla del juego): el personaje muere únicamente cuando
+	# la VIDA y la RESISTENCIA están agotadas las dos. Mientras quede reserva
+	# defensiva (resistencia > 0), el golpe mortal lo deja en pie a 0 de vida: es
+	# su ÚLTIMA RESERVA y puede recuperarse si deja de recibir daño (la
+	# regeneración sigue funcionando: no está muerto). El golpe que termina de
+	# vaciar la resistencia lo mata.
+	if vida <= 0.0 and resistencia <= 0.0:
 		est["muerto"] = true
 		_sincronizar_activa()
 		murio.emit()
@@ -160,6 +208,57 @@ func notificar_ataque(_indice: int = 0) -> void:
 	est["t_desde_dano"] = 0.0
 	_fijar_regenerando(false)
 
+# =============================================================== Estamina
+## ¿Hay estamina suficiente en el personaje ACTIVO para pagar `costo` ahora mismo?
+func puede_gastar(costo: float) -> bool:
+	if costo <= 0.0:
+		return true
+	var e: Dictionary = _estados[_forma_actual]
+	if bool(e["muerto"]):
+		return false
+	return float(e["stamina"]) + 0.0001 >= costo
+
+## Gasto ÚNICO (ataque o habilidad que arranca de verdad): si alcanza, lo cobra
+## UNA sola vez, reinicia el reloj de regeneración y devuelve true; si no
+## alcanza no toca nada y devuelve false (el llamador no ejecuta la acción).
+## `motivo` es sólo diagnóstico: la clave cobrada queda en `ultimo_gasto`.
+func probar_gasto(costo: float, motivo: StringName = &"") -> bool:
+	if costo <= 0.0:
+		return true
+	var e: Dictionary = _estados[_forma_actual]
+	if bool(e["muerto"]) or float(e["stamina"]) + 0.0001 < costo:
+		return false
+	e["stamina"] = maxf(0.0, float(e["stamina"]) - costo)
+	e["t_desde_gasto"] = 0.0
+	ultimo_gasto = motivo
+	_sincronizar_activa()
+	stamina_cambiada.emit(stamina, stamina_max)
+	return true
+
+## Gasto SOSTENIDO (caminar/correr, nado, vuelo, turbo): descuenta lo que haya
+## SIN bloquear nunca (jamás deja la estamina en negativo), reinicia el reloj de
+## regeneración mientras consuma y no hace nada con el personaje muerto.
+func gastar_continuo(cantidad: float) -> void:
+	if cantidad <= 0.0:
+		return
+	var e: Dictionary = _estados[_forma_actual]
+	if bool(e["muerto"]):
+		return
+	e["t_desde_gasto"] = 0.0
+	var s: float = float(e["stamina"])
+	if s <= 0.0:
+		return
+	e["stamina"] = maxf(0.0, s - cantidad)
+	_sincronizar_activa()
+	stamina_cambiada.emit(stamina, stamina_max)
+
+## ¿El personaje ACTIVO está AGOTADO? (bloquea ataques, habilidades, dash, turbo
+## y sprint NUEVOS; el movimiento básico y el aterrizaje siempre siguen vivos).
+## Lee el valor REAL del personaje activo (no el espejo público): cualquier
+## llamada, sin importar quién haya tocado la estamina, obtiene la verdad.
+func stamina_agotada() -> bool:
+	return float((_estados[_forma_actual] as Dictionary)["stamina"]) <= UMBRAL_AGOTADA
+
 # =============================================================== Formas / utilidades
 ## Cambia el personaje ACTIVO: guarda los recursos del que sale y recupera los del
 ## que entra, SIN restaurarlos. Emite las señales para que el HUD se actualice al
@@ -181,8 +280,10 @@ func estado_de_forma(id: StringName) -> Dictionary:
 	return {
 		"vida": float(e["vida"]),
 		"resistencia": float(e["resistencia"]),
+		"stamina": float(e["stamina"]),
 		"vida_max": _vida_max_de(id),
 		"resistencia_max": _resistencia_max_de(id),
+		"stamina_max": _stamina_max_de(id),
 		"muerto": bool(e["muerto"]),
 	}
 
@@ -210,6 +311,7 @@ func _fijar_regenerando(v: bool) -> void:
 func _emitir_todo() -> void:
 	vida_cambiada.emit(vida, vida_max)
 	resistencia_cambiada.emit(resistencia, resistencia_max)
+	stamina_cambiada.emit(stamina, stamina_max)
 
 # =============================================================== Interno
 ## Estado inicial de un personaje: a tope, sin daño reciente y vivo.
@@ -217,7 +319,9 @@ func _estado_nuevo(id: StringName) -> Dictionary:
 	return {
 		"vida": _vida_max_de(id),
 		"resistencia": _resistencia_max_de(id),
+		"stamina": _stamina_max_de(id),
 		"t_desde_dano": espera_regeneracion,
+		"t_desde_gasto": espera_regen_estamina,
 		"muerto": false,
 	}
 
@@ -228,9 +332,11 @@ func _sincronizar_activa() -> void:
 	var e: Dictionary = _estados[_forma_actual]
 	vida = float(e["vida"])
 	resistencia = float(e["resistencia"])
+	stamina = float(e["stamina"])
 	muerto = bool(e["muerto"])
 	vida_max = _vida_max_de(_forma_actual)
 	resistencia_max = _resistencia_max_de(_forma_actual)
+	stamina_max = _stamina_max_de(_forma_actual)
 
 ## Perfil de un personaje (vacío si no tiene).
 func _perfil_de(id: StringName) -> Dictionary:
@@ -248,6 +354,12 @@ func _resistencia_max_de(id: StringName) -> float:
 		return float(p["resistencia_max"])
 	return _resistencia_max_base
 
+func _stamina_max_de(id: StringName) -> float:
+	var p := _perfil_de(id)
+	if p.has("stamina_max"):
+		return float(p["stamina_max"])
+	return _stamina_max_base
+
 ## Regeneración de UN personaje. `factor` es 1.0 para el activo y `factor_inactivo`
 ## (0.5) para los inactivos; el retraso y los topes son los mismos para todos.
 func _regenerar_forma(id: StringName, delta: float) -> void:
@@ -256,6 +368,19 @@ func _regenerar_forma(id: StringName, delta: float) -> void:
 		return
 	var activo := id == _forma_actual
 	var factor := 1.0 if activo else factor_inactivo
+
+	# --- Estamina: reloj PROPIO (lo reinicia cada gasto, no el daño) e
+	# INDEPENDIENTE del escudo: regenera aunque el escudo siga esperando. ---
+	var s_max := _stamina_max_de(id)
+	var t_est: float = float(e["t_desde_gasto"])
+	if t_est < espera_regen_estamina:
+		e["t_desde_gasto"] = minf(espera_regen_estamina, t_est + delta)
+	elif factor > 0.0 and float(e["stamina"]) < s_max:
+		e["stamina"] = minf(s_max, float(e["stamina"]) + velocidad_regen_estamina * factor * delta)
+		if activo:
+			_sincronizar_activa()
+			stamina_cambiada.emit(stamina, stamina_max)
+
 	var t: float = float(e["t_desde_dano"])
 	if t < espera_regeneracion:
 		e["t_desde_dano"] = minf(espera_regeneracion, t + delta)

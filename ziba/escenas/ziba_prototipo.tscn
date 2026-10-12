@@ -33,7 +33,8 @@
 [ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="30_config"]
 [ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
 [ext_resource type="Script" uid="uid://dfm5npml16np4" path="res://world/ambiente_dinamico.gd" id="43_ambiente"]
-[ext_resource type="Script" path="res://world/streaming/gestor_streaming_mundo.gd" id="44_streaming"]
+[ext_resource type="Script" path="res://eventos/director_eventos.gd" id="44_eventos"]
+[ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://world/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -111,6 +112,14 @@ config = ExtResource("30_config")
 [node name="EnemigosPrueba" type="Node3D" parent="."]
 script = ExtResource("31_gerente")
 
+[node name="DirectorEventos" type="Node3D" parent="."]
+script = ExtResource("44_eventos")
+
+[node name="StreamingMundo" type="Node" parent="."]
+script = ExtResource("45_streaming")
+activo = false
+modo_diagnostico = false
+
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
 collision_mask = 3
@@ -177,11 +186,6 @@ libraries/superduper_velocidad = ExtResource("9_luf5j")
 [node name="AmbienteDinamico" type="Node" parent="."]
 script = ExtResource("43_ambiente")
 ruta_jugador = NodePath("../Jugador")
-
-[node name="StreamingMundo" type="Node" parent="."]
-script = ExtResource("44_streaming")
-activo = false
-modo_diagnostico = false
 
 [editable path="Jugador"]
 [editable path="Jugador/Visual/Pose/Volteo/Modelo"]

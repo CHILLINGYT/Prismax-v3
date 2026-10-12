@@ -14,6 +14,11 @@ void fragment() {
 	vec2 q = abs(UV * tam - media) - (media - vec2(radio));
 	float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radio;
 	float a = 1.0 - smoothstep(-1.0, 1.0, d);
-	COLOR = texture(TEXTURE, UV) * COLOR;
+	// IMPORTANTE: NO multiplicar la textura por COLOR. En Godot 4, el `COLOR` de
+	// entrada del fragmento ya lleva la textura (y el modulate); volver a
+	// multiplicarla la elevaba al cuadrado y oscurecía el minimapa (parecía de
+	// noche a plena luz del día). Se escribe el color tal cual y sólo se recorta
+	// el alfa a la forma redondeada.
+	COLOR = texture(TEXTURE, UV);
 	COLOR.a *= a;
 }

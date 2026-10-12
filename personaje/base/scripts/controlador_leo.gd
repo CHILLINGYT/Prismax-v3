@@ -147,6 +147,82 @@ const A_VFX_MAREA_FUERZA := 1.35
 ## golpes, `attack` y `attack_2`). Siguen en la librería del modelo por si se
 ## quisieran recuperar, pero el juego no los reproduce.
 
+# --- MUERTE del jugador -------------------------------------------------------
+## Los FBX de muerte NO traen malla: sólo un esqueleto Mixamo y un clip. Sus
+## animaciones se copian al AnimationPlayer de la forma ACTIVA por NOMBRE de hueso
+## (retarget), así el cadáver es el propio modelo del personaje: ni segundo
+## esqueleto, ni cambio de forma, ni teletransporte. `muerte` se reproduce una vez
+## (dura lo que dura el clip real); `morido` es la pose de cadáver, en bucle.
+const ESC_MUERTE := "res://personaje/transformaciones/Muerte.fbx"
+const ESC_MORIDO := "res://personaje/transformaciones/Morido.fbx"
+const CLIP_MUERTE := &"muerte"
+const CLIP_MORIDO := &"morido"
+## Clip de muerte de la forma VUELO: su rig NO es Mixamo, así que los FBX no
+## encajan en su esqueleto. Se usa el clip de muerte que YA trae su librería.
+const ANIM_MUERTE_VUELO := "Death01"
+## Mapa de huesos Mixamo -> maniquí Godot (el rig de la forma VUELO no es Mixamo:
+## sus huesos son los estándar de Godot). Con él, `muerte`/`morido` se RETARGETEAN
+## al esqueleto del águila (misma técnica por reposos que las demás formas) en
+## vez de copiar los cuaterniones crudos, que retorcerían el cuerpo.
+const MAPA_MIXAMO_MANIQUE := {
+	"mixamorig_Hips": "Hips",
+	"mixamorig_Spine": "Spine",
+	"mixamorig_Spine1": "Chest",
+	"mixamorig_Spine2": "UpperChest",
+	"mixamorig_Neck": "Neck",
+	"mixamorig_Head": "Head",
+	"mixamorig_LeftShoulder": "LeftShoulder",
+	"mixamorig_LeftArm": "LeftUpperArm",
+	"mixamorig_LeftForeArm": "LeftLowerArm",
+	"mixamorig_LeftHand": "LeftHand",
+	"mixamorig_LeftHandThumb1": "LeftThumbMetacarpal",
+	"mixamorig_LeftHandThumb2": "LeftThumbProximal",
+	"mixamorig_LeftHandThumb3": "LeftThumbDistal",
+	"mixamorig_LeftHandIndex1": "LeftIndexProximal",
+	"mixamorig_LeftHandIndex2": "LeftIndexIntermediate",
+	"mixamorig_LeftHandIndex3": "LeftIndexDistal",
+	"mixamorig_LeftHandMiddle1": "LeftMiddleProximal",
+	"mixamorig_LeftHandMiddle2": "LeftMiddleIntermediate",
+	"mixamorig_LeftHandMiddle3": "LeftMiddleDistal",
+	"mixamorig_LeftHandRing1": "LeftRingProximal",
+	"mixamorig_LeftHandRing2": "LeftRingIntermediate",
+	"mixamorig_LeftHandRing3": "LeftRingDistal",
+	"mixamorig_LeftHandPinky1": "LeftLittleProximal",
+	"mixamorig_LeftHandPinky2": "LeftLittleIntermediate",
+	"mixamorig_LeftHandPinky3": "LeftLittleDistal",
+	"mixamorig_LeftUpLeg": "LeftUpperLeg",
+	"mixamorig_LeftLeg": "LeftLowerLeg",
+	"mixamorig_LeftFoot": "LeftFoot",
+	"mixamorig_LeftToeBase": "LeftToes",
+	"mixamorig_RightShoulder": "RightShoulder",
+	"mixamorig_RightArm": "RightUpperArm",
+	"mixamorig_RightForeArm": "RightLowerArm",
+	"mixamorig_RightHand": "RightHand",
+	"mixamorig_RightHandThumb1": "RightThumbMetacarpal",
+	"mixamorig_RightHandThumb2": "RightThumbProximal",
+	"mixamorig_RightHandThumb3": "RightThumbDistal",
+	"mixamorig_RightHandIndex1": "RightIndexProximal",
+	"mixamorig_RightHandIndex2": "RightIndexIntermediate",
+	"mixamorig_RightHandIndex3": "RightIndexDistal",
+	"mixamorig_RightHandMiddle1": "RightMiddleProximal",
+	"mixamorig_RightHandMiddle2": "RightMiddleIntermediate",
+	"mixamorig_RightHandMiddle3": "RightMiddleDistal",
+	"mixamorig_RightHandRing1": "RightRingProximal",
+	"mixamorig_RightHandRing2": "RightRingIntermediate",
+	"mixamorig_RightHandRing3": "RightRingDistal",
+	"mixamorig_RightHandPinky1": "RightLittleProximal",
+	"mixamorig_RightHandPinky2": "RightLittleIntermediate",
+	"mixamorig_RightHandPinky3": "RightLittleDistal",
+	"mixamorig_RightUpLeg": "RightUpperLeg",
+	"mixamorig_RightLeg": "RightLowerLeg",
+	"mixamorig_RightFoot": "RightFoot",
+	"mixamorig_RightToeBase": "RightToes",
+}
+## Segundos que el cadáver se queda con `morido` en bucle antes de fundir a negro.
+const MUERTE_ESPERA_FUNDIDO := 1.1
+## Pantalla final (fundido + logo real + NUEVA PARTIDA / VOLVER AL MENÚ).
+const ESCENA_MUERTE_PANTALLA := preload("res://ui/scenes/DeathScreen.tscn")
+
 # --- SONIDOS de la forma acuática (mismo bus "Efectos" que el resto) -----------
 # Volumen de las dos capas del golpe: el físico aporta la contundencia y el acuático
 # complementa el impacto sin taparlo. Los archivos ya miden parecido en pico
@@ -336,8 +412,16 @@ const F_EMBESTIDA_RADIO := 1.6
 const F_EMBESTIDA_RECUP := 0.3
 # Supersalto / pisotón aéreo (E en el aire) con onda expansiva al aterrizar.
 const F_SLAM_VEL := 45.0
-const F_SLAM_DANIO := 60.0
+## Daño en el CENTRO del pisotón = golpe normal pleno del Tanque
+## (F_DANIO_ESTANDAR = 30/0.61 ≈ 49.2). El pisotón NO es un ataque de daño
+## masivo: su ventaja es el ÁREA (golpea a varios enemigos de una vez), no pegar
+## más fuerte que un puñetazo bien puesto. En el borde de la onda cae al 45%.
+const F_SLAM_DANIO := 30.0 / 0.61
 const F_SLAM_RADIO := 4.5
+## Recuperación tras el impacto (misma variable que usan embestida y golpes):
+## el personaje retoma el control con un instante de peso y no encadena otro
+## pisotón ni ataques con el cuerpo aún asentándose.
+const F_SLAM_RECUP := 0.35
 # Cuerpo a cuerpo (clic izq. = puñetazo / combo, clic der. = patada).
 ## Daño de referencia del Tanque: la mitad de la vida máxima (60 PV) del enemigo
 ## estándar de la partida (`EnemigoPrueba`), medido EN EL JUEGO. El golpe básico
@@ -596,6 +680,18 @@ var estado: int = Estado.NORMAL
 var _transformando: bool = false
 # Verdadero mientras el menú radial de transformaciones (F) está abierto.
 var _menu_abierto: bool = false
+
+# --- MUERTE del jugador -------------------------------------------------------
+## Estados de la secuencia: VIVO (juego normal) -> MURIENDO (clip `muerte`) ->
+## MORIDO (pose de cadáver en bucle + fundido y pantalla final). Se activa UNA vez.
+enum Muerte { VIVO, MURIENDO, MORIDO }
+var _muerte_estado: int = Muerte.VIVO
+## AnimationPlayer de la forma activa que reproduce la secuencia de muerte.
+var _anim_muerte: AnimationPlayer = null
+## Pantalla final (CanvasLayer por encima de todo) instanciada al morir.
+var _pantalla_muerte: DeathScreen = null
+## Caché de los clips de los FBX de muerte (ruta -> Animation), para no releerlos.
+var _clips_muerte: Dictionary = {}
 
 @onready var humano: Node3D = $Humano
 @onready var anim_humano: AnimationPlayer = $Humano/Animador
@@ -868,6 +964,10 @@ func _ready() -> void:
 	# módulos, así que aquí no se crea ningún sistema nuevo.
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# MUERTE: la señal del sistema de vida/escudo (vida y resistencia agotadas) es
+	# la ÚNICA puerta a la secuencia de muerte. Se conecta aquí, una sola vez.
+	if not estadisticas.murio.is_connected(_al_morir):
+		estadisticas.murio.connect(_al_morir)
 	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
 	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
 	floor_snap_length = 0.2
@@ -957,6 +1057,11 @@ func id_forma() -> StringName:
 			return &"humano"
 
 func _unhandled_input(event: InputEvent) -> void:
+	# MUERTO: no se atiende NINGUNA acción de juego (movimiento, salto, ataque,
+	# habilidades, transformaciones, turbo, daño de prueba...). La secuencia de
+	# muerte manda; los menús se cierran al morir y dejan de leer sus teclas.
+	if _muerte_estado != Muerte.VIVO:
+		return
 	# Con el menú de transformaciones abierto el ratón debe quedar libre para
 	# pulsar los iconos: se anula el "clic para recapturar" durante ese tiempo.
 	if _menu_abierto:
@@ -1000,6 +1105,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
+	# MUERTE: la secuencia manda. Nada de movimiento, combate, habilidades,
+	# transformaciones ni cámara: sólo el cuerpo cayendo (si murió en el aire)
+	# mientras corre la animación de muerte y su comprobación de fin.
+	if _muerte_estado != Muerte.VIVO:
+		_procesar_muerte(delta)
+		return
 	# El sonido del nado se evalúa SIEMPRE, sea cual sea el camino que tome la forma
 	# acuática en este fotograma (nado, golpe, habilidad, trepada, menú o
 	# transformación): así el bucle arranca y se corta en el fotograma correcto y
@@ -1012,6 +1123,9 @@ func _physics_process(delta: float) -> void:
 	# "Vuelo") que se mueve por sí mismo. Este cuerpo principal queda como ancla
 	# quieta: no procesa movimiento ni gravedad para no competir con él.
 	if forma == Forma.VUELO:
+		# La estamina del águila (volar/boost/picada y caminar en el suelo) se
+		# evalúa aquí: este cuerpo no procesa el movimiento del volador.
+		_procesar_estamina_vuelo(delta)
 		return
 	# Con el menú radial de transformaciones abierto (F): se congela el control
 	# de movimiento (sin tocar la cámara ni la posición de forma brusca) hasta
@@ -1090,6 +1204,78 @@ func _physics_process(delta: float) -> void:
 	# y encadenar ambos podría provocar dobles ascensos o saltos de posición.
 	if estado != Estado.EJECUCION and not a_subiendo_escalera:
 		_resolver_escalon()
+
+	# ESTAMINA: consumo del movimiento REAL de este fotograma (una sola clave por
+	# forma y tramo; quieto, contra una pared o con el menú abierto no gasta).
+	_procesar_estamina_movimiento(delta)
+
+# =============================================================== ESTAMINA
+# El SISTEMA (valores, regeneración y bloqueo) vive en EstadisticasJugador; aquí
+# sólo se llama, con las claves centralizadas de CostosEstamina. Reglas:
+#   · El movimiento cobra el tramo que corresponda (caminar/correr/esprintar,
+#     nadar/nado rápido/turbo, volar/boost/picada) y sólo con desplazamiento real.
+#   · Nada cobra dos veces: cada ataque paga al ARRANCAR de verdad y cada
+#     habilidad al activarse (nunca al presionar ni al confirmar el impacto).
+#   · Sin estamina se bloquean acciones NUEVAS (ataques, habilidades, dash,
+#     turbo, sprint); caminar, el salto básico y aterrizar siguen siempre vivos.
+
+## ¿La forma activa se quedó sin estamina? (bloquea correr/esprint nuevos).
+func _est_agotada() -> bool:
+	return estadisticas != null and estadisticas.stamina_agotada()
+
+## Consumo del movimiento del fotograma, por forma y tramo real (una sola clave).
+func _procesar_estamina_movimiento(delta: float) -> void:
+	if estadisticas == null:
+		return
+	var v := Vector2(velocity.x, velocity.z).length()
+	var quieto := v < CostosEstamina.UMBRAL_MOVIMIENTO
+	if forma == Forma.ACUATICO:
+		if a_nadando:
+			if not quieto:
+				var rapido := Input.is_action_pressed("correr") and not _est_agotada()
+				CostosEstamina.gastar_movimiento(self, &"nadar_rapido" if rapido else &"nadar", delta)
+			# Propulsión del turbo: gasta por segundo ENCIMA de su activación.
+			if a_turbo_t > 0.0:
+				CostosEstamina.gastar_movimiento(self, &"turbo", delta)
+		elif not quieto:
+			_tramo_tierra_estamina(delta)
+	elif forma == Forma.VELOCISTA:
+		if estado == Estado.EJECUCION:
+			# La supervelocidad consume mientras corre el trayecto (su activación
+			# ya se cobró al confirmar la ruta).
+			CostosEstamina.gastar_movimiento(self, &"supervelocidad", delta)
+		elif estado == Estado.NORMAL and not quieto:
+			_tramo_tierra_estamina(delta)
+	elif not quieto:
+		_tramo_tierra_estamina(delta)
+
+## Tramo terrestre: esprintar/correr con SHIFT (sólo con estamina) o caminar.
+## El velocista usa su propia clave de esprint (su tabla no tiene "correr": su
+## máximo terrestre es el esprint, la tasa más alta de las formas terrestres).
+func _tramo_tierra_estamina(delta: float) -> void:
+	var corriendo := Input.is_action_pressed("correr") and not _est_agotada()
+	var clave := &"caminar"
+	if corriendo:
+		clave = &"esprintar" if forma == Forma.VELOCISTA else &"correr"
+	CostosEstamina.gastar_movimiento(self, clave, delta)
+
+## Consumo del ÁGUILA: volar (con boost/picada) mientras vuela de verdad, y el
+## tramo terrestre cuando camina por el suelo. El cuerpo real es el nodo "Vuelo".
+func _procesar_estamina_vuelo(delta: float) -> void:
+	if estadisticas == null or not (vuelo is CharacterBody3D):
+		return
+	var fc := vuelo.get_node_or_null("FlightController")
+	if fc != null and bool(fc.is_flying):
+		var clave := &"volar"
+		if bool(fc.is_diving):
+			clave = &"volar_picada"
+		elif fc.has_method("is_boosting") and bool(fc.is_boosting()):
+			clave = &"volar_boost"
+		CostosEstamina.gastar_movimiento(self, clave, delta)
+		return
+	var cuerpo := vuelo as CharacterBody3D
+	if Vector2(cuerpo.velocity.x, cuerpo.velocity.z).length() >= CostosEstamina.UMBRAL_MOVIMIENTO:
+		_tramo_tierra_estamina(delta)
 
 # Menú abierto: sin control horizontal, sólo gravedad y pose quieta, para que
 # el personaje no se mueva ni quede flotando. La cámara no se modifica.
@@ -1549,6 +1735,9 @@ func _detener_acuatico() -> void:
 	a_clip_transicion = ""
 	# El chapoteo del nado se corta al salir de la forma: no queda sonando.
 	_parar_sonido_nado()
+	# Las pisadas terrestres también se cortan al salir de la forma.
+	if pasos != null:
+		pasos.detener()
 	# Cancela cualquier habilidad en curso y su carga (no debe quedar nada activo).
 	a_en_habilidad = false
 	a_t_habilidad = 0.0
@@ -1771,6 +1960,16 @@ func _detener_vuelo() -> void:
 	if _colision != null:
 		_colision.disabled = false
 
+# Cuerpo REAL del jugador para el resto de sistemas (enemigos, formación de
+# combate, distancias y apuntado). En la forma VUELO la raíz queda como ancla
+# inmóvil y el cuerpo que realmente se mueve es el hijo "Vuelo": sin esto, los
+# enemigos perseguían y atacaban la posición VIEJA del ancla. En todas las demás
+# formas el cuerpo activo es esta misma raíz.
+func cuerpo_activo() -> Node3D:
+	if forma == Forma.VUELO and vuelo != null:
+		return vuelo
+	return self
+
 # Cede o recupera la cámara activa entre el cuerpo terrestre y el volador. La
 # cámara terrestre deja de procesar durante el vuelo (no compite por el ratón).
 func _camara_vuelo(activar: bool) -> void:
@@ -1933,7 +2132,7 @@ func _procesar_humano(delta: float) -> void:
 	h_agachado = Input.is_action_pressed("agacharse") and not h_salto_aire
 
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_action_pressed("correr") and not h_agachado
+	var corriendo := Input.is_action_pressed("correr") and not h_agachado and not _est_agotada()
 	var vel_objetivo := h_vel_caminar
 	if h_agachado:
 		vel_objetivo = H_VEL_AGACHADO
@@ -2108,7 +2307,7 @@ func _procesar_acuatico(delta: float) -> void:
 		_actualizar_anim_acuatico(delta)
 		return
 
-	var corriendo := Input.is_action_pressed("correr") and not a_agachado
+	var corriendo := Input.is_action_pressed("correr") and not a_agachado and not _est_agotada()
 	var vel_objetivo := h_vel_caminar
 	if a_agachado:
 		vel_objetivo = H_VEL_AGACHADO
@@ -2141,6 +2340,12 @@ func _procesar_acuatico(delta: float) -> void:
 	# ni la cámara, ni las colisiones, ni el movimiento general se ven afectados.
 	_orientar_acuatico(delta, dir)
 	_actualizar_anim_acuatico(delta)
+	# PISADAS de la forma acuática EN TIERRA (walk/run): el sistema común (PasosJugador)
+	# lee la fase real del clip y suena en cada contacto de pie. Sólo se llega aquí en
+	# locomoción terrestre (nadar, atacar, habilidad y trepada retornan antes), así que
+	# basta con exigir suelo firme y no estar en el aire ni con el menú abierto. Las
+	# pisadas de nado ya las cubre el bucle de AudioNado, no se solapan.
+	_pasos_actualizar("acuatico", anim_acuatico, is_on_floor() and not a_salto_aire and not _menu_abierto, delta)
 
 # --- SONIDOS de la forma acuática (nado + golpes) -----------------------------
 # Los tres son AudioStreamPlayer hijos del jugador (bus "Efectos"), igual que los
@@ -2333,6 +2538,10 @@ func _intentar_turbo_acuatico() -> void:
 	# funciones coexisten y la propulsión sigue su cuenta.
 	if a_en_habilidad or a_ataque_activo or a_subiendo_escalera:
 		return
+	# ESTAMINA: la activación del turbo se paga UNA vez aquí (su propulsión
+	# además gasta por segundo en el bucle de nado); sin energía no arranca.
+	if not CostosEstamina.activar_habilidad(self, &"turbo"):
+		return
 	a_turbo_t = A_TURBO_DURACION
 	a_turbo_cooldown = A_TURBO_ENFRIAMIENTO
 	a_turbo_dir = _direccion_entrada()
@@ -2388,6 +2597,10 @@ func _golpe_acuatico() -> void:
 ## entero desde el principio, con su instante de impacto medido y el golpe todavía
 ## sin conectar. Un golpe = UNA sola aplicación de daño.
 func _iniciar_ataque_acuatico(clip: String) -> void:
+	# ESTAMINA: cada golpe del pez (jab o cruzado) se cobra al ARRANCAR; sin
+	# estamina el golpe no sale (uno ya en curso nunca se corta por esto).
+	if not CostosEstamina.activar_ataque(self, &"golpe"):
+		return
 	a_ataque_activo = true
 	a_ataque_clip = clip
 	a_ataque_dur = _duracion_clip_acuatico(clip)
@@ -2977,6 +3190,10 @@ func _intentar_habilidad_agua(idx: int) -> void:
 	var nombre_estado := "ability_%d" % idx
 	if anim_acuatico == null or not anim_acuatico.has_animation(nombre_estado):
 		return
+	# ESTAMINA: la habilidad se cobra al ACTIVARSE (ya pasaron todos los
+	# chequeos): si no alcanza no se enciende y el enfriamiento no se gasta.
+	if not CostosEstamina.activar_habilidad(self, CostosEstamina.clave_habilidad_agua(idx)):
+		return
 	a_en_habilidad = true
 	a_t_habilidad = _duracion_clip_acuatico(nombre_estado) + 0.15
 	a_pendiente = idx
@@ -3193,7 +3410,7 @@ func _procesar_fuerza(delta: float) -> void:
 
 	f_agachado = Input.is_action_pressed("agacharse") and not f_salto_aire
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_action_pressed("correr") and not f_agachado
+	var corriendo := Input.is_action_pressed("correr") and not f_agachado and not _est_agotada()
 	var vel := F_VEL_CAMINAR
 	if f_agachado:
 		vel = F_VEL_CAMINAR * 0.6
@@ -3355,6 +3572,9 @@ func _iniciar_embestida_fuerza() -> void:
 	# interrumpe a medias (se suelta ESPACIO y ya se decide).
 	if f_embestiendo or f_cargando_roca or f_super_cargando or not is_on_floor():
 		return
+	# ESTAMINA: la embestida se paga al arrancar; sin energía no sale.
+	if not CostosEstamina.activar_habilidad(self, &"embestida"):
+		return
 	f_embestiendo = true
 	f_t_embestida = 0.0
 	f_embestida_golpeados.clear()
@@ -3395,6 +3615,9 @@ func _procesar_embestida_fuerza(delta: float) -> void:
 func _intentar_slam_fuerza() -> void:
 	if f_slam or is_on_floor():
 		return
+	# ESTAMINA: el pisotón aéreo se paga al arrancar; sin energía no sale.
+	if not CostosEstamina.activar_habilidad(self, &"pisotón"):
+		return
 	f_slam = true
 
 func _procesar_slam_fuerza(_delta: float) -> void:
@@ -3408,6 +3631,7 @@ func _procesar_slam_fuerza(_delta: float) -> void:
 		_reproducir_fuerza(ANIM_F_SLAMIMPACT, BLEND_ATAQUE, true)
 		_sonar_fuerza_impacto()
 		_f_bloqueo_anim = 0.6
+		f_recuperacion = maxf(f_recuperacion, F_SLAM_RECUP)
 		var onda := FuerzaShockwave.new()
 		onda.radius = F_SLAM_RADIO
 		onda.damage = F_SLAM_DANIO
@@ -3434,6 +3658,10 @@ func _intentar_roca_fuerza() -> void:
 	# Mientras la última piedra LANZADA siga existiendo en el mundo no se
 	# arranca otra: soltarla de las manos no significa que haya desaparecido.
 	if not _puede_levantar_roca():
+		return
+	# ESTAMINA: levantar la mole se paga al empezar (el levantamiento entero es
+	# la habilidad); sin energía no se intenta.
+	if not CostosEstamina.activar_habilidad(self, &"roca"):
 		return
 	if _f_ik == null:
 		_preparar_ik_roca()
@@ -3632,6 +3860,10 @@ func _buscar_esqueleto_fuerza() -> Skeleton3D:
 # anillo del HUD, colocado abajo en el centro de la pantalla.
 
 func _puede_cargar_super() -> bool:
+	# Con la estamina agotada NO se carga el supersalto: el toque de ESPACIO cae
+	# al salto normal de siempre (el salto básico nunca se bloquea).
+	if _est_agotada():
+		return false
 	return not f_embestiendo and not f_slam and not f_cargando_roca \
 		and not f_ataque and f_recuperacion <= 0.0
 
@@ -3672,6 +3904,14 @@ func _ejecutar_super() -> void:
 		return
 	if cargado < F_SUPER_CARGA_MIN:
 		# Toque corto: el salto NORMAL de siempre, sin ceremonial.
+		velocity.y = F_SALTO
+		f_salto_aire = true
+		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+		_sonar_fuerza_salto()
+		return
+	# ESTAMINA: el supersalto (carga completa) se paga al EJECUTARSE. Sin energía
+	# no hay supersalto, pero el salto básico sigue disponible: nunca se bloquea.
+	if not CostosEstamina.activar_habilidad(self, &"super_salto"):
 		velocity.y = F_SALTO
 		f_salto_aire = true
 		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
@@ -3911,6 +4151,11 @@ func _golpe_fuerza(es_patada: bool) -> void:
 ## Arranca un golpe completo: clip entero desde el principio y daño pendiente
 ## hasta la extensión real del puño o del pie.
 func _iniciar_ataque_fuerza(clip: String) -> void:
+	# ESTAMINA: los golpes de Fuerza se cobran al ARRANCAR de verdad (aquí),
+	# incluidos los encadenados del combo; sin energía el golpe no sale.
+	var clave := &"patada" if clip == ANIM_F_KICK else &"golpe"
+	if not CostosEstamina.activar_ataque(self, clave):
+		return
 	f_ataque = true
 	_f_ataque_clip = clip
 	_f_ataque_dur = _duracion_fuerza(clip)
@@ -4279,6 +4524,13 @@ func _cadena_combate(cfg: Variant) -> Array:
 	return _c_cadena_datos
 
 func _c_iniciar_fase_golpe() -> void:
+	# ESTAMINA: cada golpe del FreeFlow se cobra al ARRANCAR la fase de verdad
+	# (una vez por golpe, nunca al confirmar el impacto). Sin estamina el golpe
+	# no sale y el estado vuelve a LIBRE: ni combos colgados ni atascos.
+	if not CostosEstamina.activar_ataque(self, &"golpe"):
+		c_estado = C_E.LIBRE
+		c_objetivo = null
+		return
 	c_estado = C_E.PREPARAR
 	c_fase = c_golpe.windup
 	c_golpe_hecho = false
@@ -4636,7 +4888,10 @@ func _procesar_normal(delta: float) -> void:
 		_orientar(delta, -dir if retrocede else dir)
 
 	if is_on_floor() and Input.is_action_just_pressed("atacar"):
-		combate.intentar_golpe()
+		# ESTAMINA: la pulsación sólo llega al sistema si alcanza; el cobro real
+		# del golpe ocurre en _on_golpe_realizado (un golpe aceptado = un cobro).
+		if CostosEstamina.puede_ataque(self, &"golpe"):
+			combate.intentar_golpe()
 	if Input.is_action_just_pressed("emote"):
 		_intentar_emote()
 	if Input.is_action_just_pressed("dash"):
@@ -4645,6 +4900,9 @@ func _procesar_normal(delta: float) -> void:
 		_iniciar_carga()
 
 func _on_golpe_realizado(indice: int) -> void:
+	# ESTAMINA: un golpe REALIZADO cuesta una vez (el velocista es el que más
+	# gasta por golpe: su combo es pura velocidad).
+	CostosEstamina.activar_ataque(self, &"golpe")
 	_sonar_golpe()
 	_en_modo_ataque = true
 	_t_modo_ataque = TIEMPO_MODO_ATAQUE
@@ -4837,6 +5095,10 @@ func _actualizar_logica_atras(delta: float, dir: Vector3) -> void:
 
 # ---------------- Dash ----------------
 func _intentar_dash() -> void:
+	# ESTAMINA: el dash (en suelo o en el aire) se paga al arrancar; sin energía
+	# no sale ni cambia el estado del velocista.
+	if not CostosEstamina.activar_habilidad(self, &"dash"):
+		return
 	var dir := _direccion_entrada()
 	if dir.length() < 0.05:
 		dir = -pivote.global_transform.basis.z
@@ -4955,6 +5217,12 @@ func _procesar_preparado(delta: float) -> void:
 		_iniciar_recorrido()
 
 func _iniciar_recorrido() -> void:
+	# ESTAMINA: activar la supervelocidad se paga aquí (el recorrido además
+	# consume por segundo). Sin energía la ruta se cancela con seguridad: se
+	# vuelve al estado normal con el mismo cierre que al salir de la forma.
+	if not CostosEstamina.activar_habilidad(self, &"supervelocidad"):
+		_detener_velocista()
+		return
 	estado = Estado.EJECUCION
 	_super_golpeados.clear()
 	# La arremetida NO se detiene con los enemigos: se les retira de la máscara
@@ -5215,3 +5483,536 @@ func _orientar_instant(dir: Vector3) -> void:
 	if dir.length() < 0.05:
 		return
 	visual.rotation.y = atan2(-dir.x, -dir.z)
+
+# =============================================================================
+#  MUERTE DEL JUGADOR
+# =============================================================================
+## Secuencia: `muerte` (una vez, el clip real importado) -> `morido` (pose de
+## cadáver en bucle) -> fundido a negro -> pantalla final con el logo de Prismax y
+## los dos botones. Se activa UNA vez, desde la señal `murio` de Estadisticas
+## (vida y resistencia agotadas). Mientras dura, TODA la entrada de juego se
+## ignora (movimiento, salto, combate, habilidades, transformaciones, turbo) y la
+## forma activa NO cambia: el cadáver es el propio modelo del personaje.
+## Velocidad de caída del cadáver del VUELO (su cuerpo real es el nodo "Vuelo",
+## no la raíz) y si ya tocó el suelo: una vez en el suelo, no se mueve más.
+var _muerte_vuelo_vel: float = 0.0
+var _muerte_vuelo_aterrizado: bool = false
+
+
+func _procesar_muerte(delta: float) -> void:
+	# Si murió en el aire, el cuerpo cae hasta el suelo y se queda ahí: nada de
+	# deslizamientos ni movimientos involuntarios mientras corre la animación.
+	if forma == Forma.VUELO and vuelo != null:
+		# El cuerpo REAL de esta forma es el nodo "Vuelo" (la raíz quedó como
+		# ancla inmóvil y su cápsula está desactivada): la caída del cadáver se
+		# aplica al volador, con su propia colisión, no a la raíz.
+		velocity = Vector3.ZERO
+		_procesar_caida_muerte_vuelo(delta)
+	elif _muerte_estado == Muerte.MURIENDO and not is_on_floor():
+		velocity.x = 0.0
+		velocity.z = 0.0
+		velocity.y -= H_GRAVEDAD * delta
+		move_and_slide()
+	elif velocity != Vector3.ZERO:
+		velocity = Vector3.ZERO
+	# Alternativa ROBUSTA al final de la animación: la posición REAL del clip que
+	# se está reproduciendo (nunca una duración inventada). El camino normal es la
+	# señal `animation_finished` del AnimationPlayer.
+	if _muerte_estado == Muerte.MURIENDO and _anim_muerte != null \
+			and (_anim_muerte.current_animation == CLIP_MUERTE \
+					or _anim_muerte.current_animation == ANIM_MUERTE_VUELO) \
+			and _anim_muerte.current_animation_length > 0.0 \
+			and _anim_muerte.current_animation_position >= _anim_muerte.current_animation_length - 0.05:
+		_pasar_a_morido()
+
+
+## Caída del cadáver del águila: desciende su PROPIO cuerpo con física real
+## (move_and_collide contra su collider) hasta tocar el suelo y ahí se queda
+## mientras el clip `muerte` termina y `morido` se queda en bucle.
+func _procesar_caida_muerte_vuelo(delta: float) -> void:
+	if _muerte_estado != Muerte.MURIENDO or _muerte_vuelo_aterrizado:
+		return
+	var cuerpo := vuelo as CharacterBody3D
+	if cuerpo == null:
+		return
+	_muerte_vuelo_vel += H_GRAVEDAD * delta
+	var choque := cuerpo.move_and_collide(Vector3.DOWN * _muerte_vuelo_vel * delta)
+	if choque != null:
+		_muerte_vuelo_aterrizado = true
+
+
+## La señal `murio` de las estadísticas llega aquí UNA sola vez (recibir_danio ya
+## ignora todo cuando el personaje está muerto).
+func _al_morir() -> void:
+	if _muerte_estado != Muerte.VIVO:
+		return
+	_muerte_estado = Muerte.MURIENDO
+	# 1) Cortar lo que estuviera en curso (habilidad, carga, golpe, turbo,
+	#    transformación a medias, nado) SIN tocar la forma elegida.
+	_transformando = false
+	_menu_abierto = false
+	a_en_habilidad = false
+	a_pendiente = 0
+	a_pendiente_t = 0.0
+	a_ataque_activo = false
+	a_ataque_clip = ""
+	a_combo_pedido = false
+	a_nadando = false
+	a_turbo_t = 0.0
+	a_turbo_dir = Vector3.ZERO
+	c_estado = C_E.LIBRE
+	_cancelar_carga_agua()
+	_parar_sonido_nado()
+	velocity = Vector3.ZERO
+	_muerte_vuelo_vel = 0.0
+	_muerte_vuelo_aterrizado = false
+	# 2) Los menús no siguen funcionando sobre un cadáver: el radial (F) se cierra y
+	#    deja de leer la tecla; la pausa no puede abrirse encima de la secuencia.
+	if menu_transf != null:
+		if menu_transf.esta_abierto():
+			menu_transf.cerrar()
+		menu_transf.set_process_unhandled_input(false)
+	var host: Node = get_parent()
+	if host != null:
+		var pausa := host.get_node_or_null("Pausa")
+		if pausa != null:
+			pausa.set_process_unhandled_input(false)
+			if pausa.has_method("esta_abierto") and bool(pausa.call("esta_abierto")):
+				pausa.call("cerrar")
+	# 3) La forma VUELO se mueve con SU propio cuerpo: se congela entero (su
+	#    AnimationPlayer sigue vivo: es lo que reproduce la muerte).
+	if forma == Forma.VUELO and vuelo != null:
+		_congelar_ramas(vuelo)
+	# 3b) La representación de la forma activa queda VISIBLE y las demás no: si la
+	#     muerte llegó a mitad de una transformación, no se queda a medias.
+	var activa := _nodo_forma_actual()
+	for n in [humano, visual, acuatico, fuerza, ataque_visual, vuelo]:
+		if n != null:
+			n.visible = n == activa
+	# 4) Pantalla final desde ya (negra y transparente): el fundido lo lanza ella
+	#    misma cuando empieza `morido`.
+	if _pantalla_muerte == null or not is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte = ESCENA_MUERTE_PANTALLA.instantiate() as DeathScreen
+		if _pantalla_muerte != null:
+			if host == null:
+				host = self
+			host.add_child(_pantalla_muerte)
+	# 5) Animación de muerte sobre el modelo ACTIVO.
+	_iniciar_animacion_muerte()
+
+
+## Prepara y arranca `muerte` sobre el AnimationPlayer de la forma activa. Los FBX
+## importados NO traen malla: sólo un esqueleto Mixamo y el clip. Por eso el clip se
+## copia al reproductor de la forma (retarget por NOMBRE de hueso) y el cadáver es
+## el propio modelo del personaje. La forma VUELO tiene otro rig (maniquí Godot, no
+## Mixamo): sus clips se retargetean con MAPA_MIXAMO_MANIQUE.
+func _iniciar_animacion_muerte() -> void:
+	var nodo := _nodo_forma_actual()
+	var anim := _animador_forma(nodo)
+	var skel := _esqueleto_de(nodo)
+	_anim_muerte = anim
+	if anim == null:
+		# Sin reproductor no hay animación que esperar: se pasa al final.
+		_pasar_a_morido()
+		return
+	# La animación de muerte no puede depender de una pausa (y la secuencia sigue
+	# aunque el jugador pulse ESC).
+	anim.process_mode = Node.PROCESS_MODE_ALWAYS
+	# Ningún OTRO reproductor del modelo sigue animando el esqueleto: los modelos
+	# FBX traen su propio AnimationPlayer importado y el juego tiene el suyo, y si
+	# cualquiera de ellos sigue reproduciendo (idle, andar...) pisa la pose de
+	# muerte en cada fotograma. Sólo se paran los que están reproduciendo algo.
+	for otro in nodo.find_children("*", "AnimationMixer", true, false):
+		if otro == anim:
+			continue
+		if otro is AnimationPlayer:
+			if (otro as AnimationPlayer).is_playing():
+				(otro as AnimationPlayer).stop()
+		elif otro is AnimationTree:
+			(otro as AnimationTree).active = false
+	if not anim.animation_finished.is_connected(_al_terminar_muerte):
+		anim.animation_finished.connect(_al_terminar_muerte)
+	if nodo == vuelo:
+		# El rig del águila NO es Mixamo (maniquí Godot: huesos propios, reposo
+		# T): los FBX de muerte se RETARGETEAN con el mapa Mixamo->maniquí —
+		# misma técnica por reposos que las demás formas, que da la pose exacta.
+		# Si algo faltara, repuesto: el clip de muerte propio de su librería.
+		var hay := anim.has_animation(CLIP_MUERTE)
+		if not hay:
+			hay = _retarget_clip(_clip_de_fbx(ESC_MUERTE), anim, skel, CLIP_MUERTE,
+					false, ESC_MUERTE, MAPA_MIXAMO_MANIQUE)
+		if not anim.has_animation(CLIP_MORIDO):
+			_retarget_clip(_clip_de_fbx(ESC_MORIDO), anim, skel, CLIP_MORIDO,
+					true, ESC_MORIDO, MAPA_MIXAMO_MANIQUE)
+		if hay:
+			anim.stop()
+			anim.play(CLIP_MUERTE, 0.0, 1.0)
+			return
+		if anim.has_animation(ANIM_MUERTE_VUELO):
+			anim.stop()
+			anim.play(ANIM_MUERTE_VUELO)
+			return
+		_pasar_a_morido()
+		return
+	# `muerte` y `morido` se añaden al reproductor UNA vez (si ya están, se
+	# reutilizan): no se duplican clips ni se recrean cada muerte.
+	var hay_muerte := anim.has_animation(CLIP_MUERTE)
+	if not hay_muerte:
+		hay_muerte = _retarget_clip(_clip_de_fbx(ESC_MUERTE), anim, skel, CLIP_MUERTE, false, ESC_MUERTE)
+	if not anim.has_animation(CLIP_MORIDO):
+		_retarget_clip(_clip_de_fbx(ESC_MORIDO), anim, skel, CLIP_MORIDO, true, ESC_MORIDO)
+	if not hay_muerte:
+		# Ninguna pista casó con este esqueleto: mejor sin animación que con una
+		# reproducción incorrecta.
+		push_warning("[Muerte] El clip de muerte no encaja en el esqueleto de la forma activa.")
+		_pasar_a_morido()
+		return
+	anim.stop()
+	anim.play(CLIP_MUERTE, 0.0, 1.0)
+
+
+## Fin del clip `muerte` (señal real del AnimationPlayer). Pasa a `morido` en bucle.
+func _al_terminar_muerte(nombre_clip: StringName) -> void:
+	if _muerte_estado != Muerte.MURIENDO:
+		return
+	if nombre_clip != CLIP_MUERTE and nombre_clip != ANIM_MUERTE_VUELO:
+		return
+	_pasar_a_morido()
+
+
+## Estado MORIDO: la pose de cadáver en bucle (transición corta y controlada) y el
+## aviso a la pantalla final para que empiece el fundido.
+func _pasar_a_morido() -> void:
+	if _muerte_estado != Muerte.MURIENDO:
+		return
+	_muerte_estado = Muerte.MORIDO
+	if _anim_muerte != null and _anim_muerte.has_animation(CLIP_MORIDO):
+		_anim_muerte.play(CLIP_MORIDO, 0.15)
+	if _pantalla_muerte != null and is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte.iniciar_fundido(MUERTE_ESPERA_FUNDIDO)
+
+
+## Representación (nodo del modelo) de la forma ACTIVA. La muerte se aplica ahí,
+## sea la que sea: no cambia de forma ni vuelve a la base.
+func _nodo_forma_actual() -> Node3D:
+	match forma:
+		Forma.VELOCISTA:
+			return visual
+		Forma.ACUATICO:
+			return acuatico
+		Forma.FUERZA:
+			return fuerza
+		Forma.COMBATE:
+			return ataque_visual
+		Forma.VUELO:
+			return vuelo
+		_:
+			return humano
+
+
+## AnimationPlayer del subárbol de una representación (la forma activa trae el suyo).
+func _animador_de(nodo: Node) -> AnimationPlayer:
+	if nodo == null:
+		return null
+	if nodo is AnimationPlayer:
+		return nodo as AnimationPlayer
+	for n in nodo.find_children("*", "AnimationPlayer", true, false):
+		return n as AnimationPlayer
+	return null
+
+
+## AnimationPlayer del JUEGO para la forma activa: es el que reproduce sus clips
+## (idle, andar, nadar...). NO sirve para esto el AnimationPlayer que los modelos
+## FBX traen importado dentro de su escena: ése sólo guarda el clip original del
+## modelo. La forma VUELO usa el reproductor que trae su propio clip de muerte.
+func _animador_forma(nodo: Node) -> AnimationPlayer:
+	match forma:
+		Forma.ACUATICO:
+			return anim_acuatico if anim_acuatico != null else _animador_de(nodo)
+		Forma.FUERZA:
+			return anim_fuerza if anim_fuerza != null else _animador_de(nodo)
+		Forma.COMBATE:
+			return anim_ataque if anim_ataque != null else _animador_de(nodo)
+		Forma.VELOCISTA:
+			return _anim if _anim != null else _animador_de(nodo)
+		Forma.VUELO:
+			for n in nodo.find_children("*", "AnimationPlayer", true, false):
+				var p := n as AnimationPlayer
+				if p != null and p.has_animation(ANIM_MUERTE_VUELO):
+					return p
+			return _animador_de(nodo)
+		_:
+			return anim_humano if anim_humano != null else _animador_de(nodo)
+
+
+## Skeleton3D del subárbol de una representación.
+func _esqueleto_de(nodo: Node) -> Skeleton3D:
+	if nodo == null:
+		return null
+	for n in nodo.find_children("*", "Skeleton3D", true, false):
+		return n as Skeleton3D
+	return null
+
+
+## Reposo de la cadera del FBX (cacheado): con él se convierten las unidades del
+## clip (metros) a las del esqueleto destino.
+var _resto_fbx: Dictionary = {}
+
+
+## Clip del FBX de muerte (cargado UNA vez y cacheado). El FBX no trae malla: se
+## instancia sólo para leer su AnimationPlayer y se libera enseguida.
+func _clip_de_fbx(ruta: String) -> Animation:
+	if _clips_muerte.has(ruta):
+		return _clips_muerte[ruta] as Animation
+	var clip: Animation = null
+	var ps := load(ruta) as PackedScene
+	if ps != null:
+		var raiz := ps.instantiate()
+		var anim := _animador_de(raiz)
+		if anim != null:
+			var lista := anim.get_animation_list()
+			if not lista.is_empty():
+				clip = anim.get_animation(lista[0])
+				if clip != null:
+					clip = clip.duplicate(true) as Animation
+		raiz.free()
+	_clips_muerte[ruta] = clip
+	return clip
+
+
+## Conversión de UNIDADES entre el FBX de la animación y el esqueleto del jugador.
+## Los FBX Mixamo vienen en METROS, pero los modelos del proyecto pueden estar a
+## otra escala (el de Leo humano, a 200): las POSICIONES del clip hay que pasarlas a
+## las unidades del destino o el cuerpo quedaría a años luz del suelo. Se mide con el
+## reposo de la cadera, que es el mismo rig Mixamo en los dos.
+func _factor_unidades_fbx(ruta: String, skel: Skeleton3D) -> float:
+	if skel == null:
+		return 1.0
+	var i := skel.find_bone("mixamorig_Hips")
+	if i < 0:
+		return 1.0
+	var destino := skel.get_bone_rest(i).origin.y
+	var fuente := float(_resto_fbx.get(ruta, 0.0))
+	if fuente <= 0.0:
+		var ps := load(ruta) as PackedScene
+		if ps != null:
+			var raiz := ps.instantiate()
+			for n in raiz.find_children("*", "Skeleton3D", true, false):
+				var sk := n as Skeleton3D
+				var j := sk.find_bone("mixamorig_Hips")
+				if j >= 0:
+					fuente = sk.get_bone_rest(j).origin.y
+				break
+			raiz.free()
+		_resto_fbx[ruta] = fuente
+	if fuente <= 0.0 or destino <= 0.0:
+		return 1.0
+	return destino / fuente
+
+
+## Reposos del esqueleto de un FBX de animación, por nombre de hueso: rotaciones
+## en espacio de MODELO (acumuladas), jerarquía de padres y reposo de la cadera.
+## Se cachea por ruta (el FBX sólo se instancia una vez por partida).
+var _reposos_fbx: Dictionary = {}
+
+
+func _reposos_de_fbx(ruta: String) -> Dictionary:
+	if _reposos_fbx.has(ruta):
+		return _reposos_fbx[ruta]
+	var datos := {"rot": {}, "padre": {}, "hips": Vector3.ZERO, "hips_padre": "", "hay": false}
+	var ps := load(ruta) as PackedScene
+	if ps != null:
+		var raiz := ps.instantiate()
+		var sk := _esqueleto_de(raiz)
+		if sk != null:
+			var rot: Dictionary = {}
+			var padre: Dictionary = {}
+			var mundos: Array[Quaternion] = []
+			for i in sk.get_bone_count():
+				var q: Quaternion = sk.get_bone_rest(i).basis.get_rotation_quaternion()
+				var par := sk.get_bone_parent(i)
+				if par >= 0:
+					q = mundos[par] * q
+					padre[sk.get_bone_name(i)] = sk.get_bone_name(par)
+				else:
+					padre[sk.get_bone_name(i)] = ""
+				mundos.append(q)
+			for i in sk.get_bone_count():
+				rot[sk.get_bone_name(i)] = mundos[i]
+			datos["rot"] = rot
+			datos["padre"] = padre
+			var hb := sk.find_bone("mixamorig_Hips")
+			if hb >= 0:
+				datos["hips"] = sk.get_bone_rest(hb).origin
+				datos["hips_padre"] = padre.get("mixamorig_Hips", "")
+			datos["hay"] = true
+		raiz.free()
+	_reposos_fbx[ruta] = datos
+	return datos
+
+
+## Reposos (rotaciones en espacio de MODELO + jerarquía de padres) del esqueleto
+## de una forma del jugador.
+func _reposos_mundo(sk: Skeleton3D) -> Dictionary:
+	var rot: Dictionary = {}
+	var padre: Dictionary = {}
+	var mundos: Array[Quaternion] = []
+	for i in sk.get_bone_count():
+		var q: Quaternion = sk.get_bone_rest(i).basis.get_rotation_quaternion()
+		var par := sk.get_bone_parent(i)
+		if par >= 0:
+			q = mundos[par] * q
+			padre[sk.get_bone_name(i)] = sk.get_bone_name(par)
+		else:
+			padre[sk.get_bone_name(i)] = ""
+		mundos.append(q)
+	for i in sk.get_bone_count():
+		rot[sk.get_bone_name(i)] = mundos[i]
+	return {"rot": rot, "padre": padre}
+
+
+## Copia un clip al AnimationPlayer destino adaptándolo al esqueleto REAL:
+##  * Rutas: mismo NOMBRE de hueso (Mixamo) relativo al `root_node` del
+##    reproductor; las pistas de huesos que esa forma no tenga se descartan
+##    (nunca una pista rota).
+##  * Rotaciones: cambio de base por las poses de REPOSO reales de los dos rigs
+##    (`destino = A · origen · B`, con el reposo del destino ALINEADO por
+##    dirección — la misma técnica verificada en los combos acuáticos). Copiar
+##    los cuaterniones crudos sólo vale si ambos esqueletos comparten reposo: el
+##    del humano difiere del FBX hasta ~24° (hombros) pero el del acuático y el
+##    de fuerza hasta 180° (brazos, dedos), y ahí cada pista rota el hueso en
+##    ejes ajenos: el cadáver quedaba retorcido.
+##  * Posición (cadera): sólo el DESPLAZAMIENTO respecto al reposo, convertido al
+##    espacio del destino: rotado al marco de su padre y escalado por la razón de
+##    alturas de cadera (los FBX Mixamo vienen en metros y cada modelo está en
+##    sus unidades).
+##  * `ruta_fbx`: FBX del que proviene el clip (para leer SUS reposos). Si falta
+##    o el FBX no trae esqueleto, se usa el modo antiguo (copia cruda + factor).
+##  * `mapa`: correspondencia hueso origen->hueso destino cuando los rigs NO
+##    comparten nombres (p. ej. Mixamo -> maniquí Godot del águila). Vacío =
+##    mismo nombre (todas las demás formas).
+## Devuelve true si casó algún hueso.
+func _retarget_clip(origen: Animation, player: AnimationPlayer, skel: Skeleton3D,
+		nombre: StringName, bucle: bool, ruta_fbx := "", mapa: Dictionary = {}) -> bool:
+	if origen == null or player == null or skel == null:
+		return false
+	var raiz: Node = player.get_node_or_null(player.root_node)
+	if raiz == null or not (raiz is Node3D):
+		raiz = player
+	var base := String((raiz as Node3D).get_path_to(skel))
+	var copia := origen.duplicate(true) as Animation
+	if copia == null:
+		return false
+	var src := _reposos_de_fbx(ruta_fbx) if ruta_fbx != "" else {}
+	var retarget := bool(src.get("hay", false))
+	# Mapa origen->destino ({} = mismo nombre, rigs compatibles). `a_origen` es el
+	# reverso (destino->origen) para alinear el reposo del destino con el del
+	# hueso origen que le corresponde (Mixamo -> maniquí).
+	var a_origen: Dictionary = {}
+	for clave in mapa:
+		a_origen[mapa[clave]] = String(clave)
+	var hueso_cadera_dest := String(mapa.get("mixamorig_Hips", "mixamorig_Hips"))
+	var dst: Dictionary = {}
+	var dst_al: Dictionary = {}
+	var k := 1.0
+	if retarget:
+		dst = _reposos_mundo(skel)
+		var rot_d: Dictionary = dst["rot"]
+		var rot_o: Dictionary = src["rot"]
+		for bn in rot_d:
+			var q_d: Quaternion = rot_d[bn]
+			var q_o: Quaternion = rot_o.get(String(a_origen.get(bn, bn)), q_d)
+			var u := (q_d * Vector3.UP).normalized()
+			var v := (q_o * Vector3.UP).normalized()
+			dst_al[bn] = Quaternion(u, v) * q_d
+		var hd := skel.find_bone(hueso_cadera_dest)
+		if hd >= 0:
+			var h_dest: Vector3 = skel.get_bone_rest(hd).origin
+			var h_orig: Vector3 = src.get("hips", Vector3.ZERO)
+			if h_dest.length() > 0.0 and h_orig.length() > 0.0:
+				k = h_dest.length() / h_orig.length()
+	else:
+		k = _factor_unidades_fbx(ruta_fbx, skel)
+	var casan := 0
+	for i in range(copia.get_track_count() - 1, -1, -1):
+		var trozos := String(copia.track_get_path(i)).split(":")
+		var hueso := trozos[trozos.size() - 1]
+		var hueso_dst := String(mapa.get(hueso, hueso))
+		if hueso != "" and skel.find_bone(hueso_dst) >= 0:
+			copia.track_set_path(i, NodePath(base + ":" + hueso_dst))
+			if copia.track_get_type(i) == Animation.TYPE_POSITION_3D:
+				var rest_d: Vector3 = skel.get_bone_rest(skel.find_bone(hueso_dst)).origin
+				var rest_o: Vector3 = src.get("hips", Vector3.ZERO)
+				var a_pos := Quaternion.IDENTITY
+				if retarget and hueso == "mixamorig_Hips":
+					a_pos = _marco_padre_destino(src, dst, dst_al, hueso, mapa)
+				for key in copia.track_get_key_count(i):
+					var v := copia.track_get_key_value(i, key) as Vector3
+					if retarget and hueso == "mixamorig_Hips":
+						copia.track_set_key_value(i, key, rest_d + a_pos * ((v - rest_o) * k))
+					else:
+						copia.track_set_key_value(i, key, v * k)
+			elif copia.track_get_type(i) == Animation.TYPE_ROTATION_3D \
+					and retarget and dst_al.has(hueso_dst) and (src["rot"] as Dictionary).has(hueso):
+				var a := _marco_padre_destino(src, dst, dst_al, hueso, mapa)
+				var b := (src["rot"][hueso] as Quaternion).inverse() * (dst_al[hueso_dst] as Quaternion)
+				for key in copia.track_get_key_count(i):
+					var q := copia.track_get_key_value(i, key) as Quaternion
+					copia.track_set_key_value(i, key, a * q * b)
+			casan += 1
+		else:
+			copia.remove_track(i)
+	if casan == 0:
+		return false
+	copia.loop_mode = Animation.LOOP_LINEAR if bucle else Animation.LOOP_NONE
+	# En Godot 4.7 el clip se añade a la LIBRERÍA del reproductor (el AnimationPlayer
+	# ya no expone add_animation): la global (`""`), que es donde viven los clips de
+	# la forma. Si no existiera, se crea.
+	var lib: AnimationLibrary = null
+	if player.has_animation_library(&""):
+		lib = player.get_animation_library(&"")
+	if lib == null:
+		lib = AnimationLibrary.new()
+		player.add_animation_library(&"", lib)
+	if lib.has_animation(nombre):
+		lib.remove_animation(nombre)
+	lib.add_animation(nombre, copia)
+	return true
+
+
+## Detiene el PROCESO de un subárbol (movimiento, cámara, entrada) SIN tocar los
+## AnimationPlayer/AudioStreamPlayer: son justo lo que la secuencia necesita.
+## Marco del padre del DESTINO para el cambio de base A del retarget.
+##  * hueso origen CON padre: A = reposo(padre origen -> nombre en destino)^-1 *
+##    reposo(padre origen). Mismo resultado de siempre si el mapa esta vacio.
+##  * hueso origen SIN padre (la cadera en Mixamo vive en espacio de MODELO):
+##    A = reposo(padre destino)^-1 (identidad en la practica; correcto si algun
+##    rig tuviera padre rotado arriba).
+func _marco_padre_destino(src: Dictionary, dst: Dictionary, dst_al: Dictionary,
+		hueso: String, mapa: Dictionary) -> Quaternion:
+	var nom_padre := String((src["padre"] as Dictionary).get(hueso, ""))
+	var rot_o: Dictionary = src["rot"]
+	if nom_padre != "":
+		var padre_dst := String(mapa.get(nom_padre, nom_padre))
+		if dst_al.has(padre_dst) and rot_o.has(nom_padre):
+			return (dst_al[padre_dst] as Quaternion).inverse() \
+					* (rot_o[nom_padre] as Quaternion)
+		return Quaternion.IDENTITY
+	var hueso_dst := String(mapa.get(hueso, hueso))
+	var padre_dst2 := String((dst["padre"] as Dictionary).get(hueso_dst, ""))
+	if padre_dst2 != "" and dst_al.has(padre_dst2):
+		return (dst_al[padre_dst2] as Quaternion).inverse()
+	return Quaternion.IDENTITY
+
+
+func _congelar_ramas(nodo: Node) -> void:
+	if nodo == null:
+		return
+	if not (nodo is AnimationPlayer) and not (nodo is AudioStreamPlayer) \
+			and not (nodo is AudioStreamPlayer3D):
+		nodo.set_process(false)
+		nodo.set_physics_process(false)
+		nodo.set_process_input(false)
+		nodo.set_process_unhandled_input(false)
+	for c in nodo.get_children():
+		_congelar_ramas(c)

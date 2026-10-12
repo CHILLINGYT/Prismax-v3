@@ -229,6 +229,9 @@ func _ejecutar() -> void:
 
 	# ---- 8. Tirador: mantiene distancia, dispara y no daña aliados ----
 	_reponer_jugador(stats)
+	# Reinicia el contador de daños: sin esto, el de la sección 7 (cuerpo a cuerpo)
+	# se arrastraba y esta comprobación pasaba aunque los proyectiles NO dañaran.
+	danios[0] = 0
 	gerente.set("cantidad_tirador", 2)
 	await get_tree().process_frame
 	gerente.call("generar_tipo", 2)
@@ -382,6 +385,36 @@ func _ejecutar() -> void:
 				"12. El enemigo nuevo muere y se desregistra por el ataque del jugador")
 	jugador.call("_on_transformacion_elegida", &"humano")
 	await get_tree().process_frame
+
+	# ---- 13. Vida +25 % y arma del tirador anclada a la mano derecha ----
+	var mel := ESCENA_MELEE.instantiate()
+	_comprobar(is_equal_approx(float(mel.get("vida_max")), 75.0),
+			"13. Vida del cuerpo a cuerpo = 75 (+25 % de 60)",
+			"vida_max=%.2f" % float(mel.get("vida_max")))
+	mel.free()
+	var tir := ESCENA_TIRADOR.instantiate()
+	_comprobar(is_equal_approx(float(tir.get("vida_max")), 56.25),
+			"13. Vida del tirador = 56.25 (+25 % de 45)",
+			"vida_max=%.2f" % float(tir.get("vida_max")))
+	var anclaje := tir.get_node_or_null("Visual/Skeleton3D/AnclajeArma") as BoneAttachment3D
+	_comprobar(anclaje != null and anclaje.bone_name == &"mixamorig_RightHand",
+			"13. El tirador lleva el arma anclada al hueso de la mano derecha",
+			"hueso=%s" % (anclaje.bone_name if anclaje != null else "sin anclaje"))
+	var boca := tir.find_child("BocaArma", true, false) as Node3D
+	_comprobar(boca != null, "13. El arma tiene boca de cañón (Marker3D BocaArma)")
+	get_tree().root.add_child(tir)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var boca_disparo: Vector3 = tir.call("_boca_del_arma")
+	var d_boca := boca_disparo.distance_to(boca.global_position) if boca != null else 999.0
+	_comprobar(d_boca < 0.05, "13. El disparo sale de la boca del cañón (no del centro)",
+			"d=%.3f" % d_boca)
+	var d_centro := Vector2(boca.global_position.x - tir.global_position.x,
+			boca.global_position.z - tir.global_position.z).length() if boca != null else 0.0
+	_comprobar(d_centro > 0.3, "13. La boca del cañón queda por delante del cuerpo",
+			"d=%.2f" % d_centro)
+	tir.queue_free()
+	await get_tree().physics_frame
 
 	print("[TEST] ===== RESULTADO: %d OK, %d FALLOS =====" % [_ok, _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)
