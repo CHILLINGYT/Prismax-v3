@@ -1549,6 +1549,9 @@ func _detener_acuatico() -> void:
 	a_clip_transicion = ""
 	# El chapoteo del nado se corta al salir de la forma: no queda sonando.
 	_parar_sonido_nado()
+	# Las pisadas terrestres también se cortan al salir de la forma.
+	if pasos != null:
+		pasos.detener()
 	# Cancela cualquier habilidad en curso y su carga (no debe quedar nada activo).
 	a_en_habilidad = false
 	a_t_habilidad = 0.0
@@ -2141,6 +2144,12 @@ func _procesar_acuatico(delta: float) -> void:
 	# ni la cámara, ni las colisiones, ni el movimiento general se ven afectados.
 	_orientar_acuatico(delta, dir)
 	_actualizar_anim_acuatico(delta)
+	# PISADAS de la forma acuática EN TIERRA (walk/run): el sistema común (PasosJugador)
+	# lee la fase real del clip y suena en cada contacto de pie. Sólo se llega aquí en
+	# locomoción terrestre (nadar, atacar, habilidad y trepada retornan antes), así que
+	# basta con exigir suelo firme y no estar en el aire ni con el menú abierto. Las
+	# pisadas de nado ya las cubre el bucle de AudioNado, no se solapan.
+	_pasos_actualizar("acuatico", anim_acuatico, is_on_floor() and not a_salto_aire and not _menu_abierto, delta)
 
 # --- SONIDOS de la forma acuática (nado + golpes) -----------------------------
 # Los tres son AudioStreamPlayer hijos del jugador (bus "Efectos"), igual que los
