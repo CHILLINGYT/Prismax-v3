@@ -32,6 +32,7 @@ const FORMAS := [
 	{"id": &"acuatico",  "nombre": "ACUÁTICO (PES)",    "icono": "res://personaje/hud_transformacion/iconos/pes.png"},
 	{"id": &"fuerza",    "nombre": "FUERZA (TANQUE)",   "icono": "res://personaje/hud_transformacion/iconos/tanque.png"},
 	{"id": &"combate",   "nombre": "COMBATE",           "icono": "res://personaje/hud_transformacion/iconos/combate.png"},
+	{"id": &"vuelo",     "nombre": "VUELO (ÁGUILA)",    "icono": "res://personaje/hud_transformacion/iconos/aguila.png"},
 ]
 
 ## Colores coherentes con el resto del menú de pausa.

@@ -16,7 +16,7 @@ extends CharacterBody3D
 # La forma HUMANA usa el modelo y las animaciones propias de Leo
 # (personaje/transformaciones/humano/), con movimiento/correr/salto y las acciones del proyecto.
 
-enum Forma { HUMANO, VELOCISTA, ACUATICO, FUERZA, COMBATE }
+enum Forma { HUMANO, VELOCISTA, ACUATICO, FUERZA, COMBATE, VUELO }
 
 # Estados del sistema de supervelocidad (idénticos a ziba/scripts/jugador.gd).
 enum Estado { NORMAL, DASH, CAIDA_DASH, CARGA, PREPARADO, EJECUCION }
@@ -463,7 +463,9 @@ const COLORES_TRANSFORMACION := {
 	&"velocista": Color(1.0, 0.035, 0.025, 1.0),
 	&"pes": Color(0.015, 0.12, 0.72, 1.0),
 	&"tanque": Color(1.0, 0.82, 0.015, 1.0),
-	&"aguila": Color(0.22, 0.82, 1.0, 1.0),
+	# Vuelo (Águila): celeste claro y luminoso (#87CEFA). Sólo cambia el tinte de
+	# SU efecto; los colores de las demás transformaciones no se tocan.
+	&"aguila": Color(0.53, 0.81, 0.98, 1.0),
 }
 
 const TIEMPO_MODO_ATAQUE := 10.0
@@ -571,6 +573,11 @@ var _menu_abierto: bool = false
 @onready var _sfx_f_tirada: AudioStreamPlayer = $AudioFuerzaTirada
 @onready var _sfx_f_golpe: AudioStreamPlayer = $AudioFuerzaGolpe
 @onready var _sfx_f_patada: AudioStreamPlayer = $AudioFuerzaPatada
+# Cuerpo físico principal (para poder desactivarlo durante el vuelo) y la
+# transformación VUELO (Águila): un personaje COMPLETO y autónomo, instanciado
+# como hijo. Sólo uno de los dos controla al jugador en cada momento.
+@onready var _colision: CollisionShape3D = get_node_or_null("Colision")
+@onready var vuelo: Node3D = $Vuelo
 
 # --- Estado forma humana ---
 var h_salto_aire: bool = false
@@ -827,6 +834,15 @@ func _ready() -> void:
 	fuerza.visible = false
 	ataque_visual.visible = false
 	humano.visible = true
+	# La transformación VUELO arranca apagada (no procesa, no se ve) y su
+	# colisión se desactiva SIEMPRE fuera de la forma, para que su cuerpo no
+	# bloquee ni empuje al jugador principal.
+	if vuelo != null:
+		vuelo.visible = false
+		vuelo.process_mode = Node.PROCESS_MODE_DISABLED
+		var cs_vuelo := vuelo.get_node_or_null("CollisionShape3D") as CollisionShape3D
+		if cs_vuelo != null:
+			cs_vuelo.disabled = true
 	_reproducir_humano(ANIM_H_IDLE, 0.0)
 
 # Fuerza usada por herramientas/diagnóstico (igual que el prototipo).
@@ -848,6 +864,8 @@ func id_forma() -> StringName:
 			return &"tanque"
 		Forma.COMBATE:
 			return &"combate"
+		Forma.VUELO:
+			return &"aguila"
 		_:
 			return &"humano"
 
@@ -898,6 +916,11 @@ func _physics_process(delta: float) -> void:
 	# Indicador del objetivo del FreeFlow: se recoloca (o se oculta) en cada
 	# fotograma, así sigue al enemigo y desaparece solo si deja de ser válido.
 	_actualizar_indicador_objetivo(delta)
+	# Forma VUELO (Águila): el personaje volador es un cuerpo APARTE (nodo
+	# "Vuelo") que se mueve por sí mismo. Este cuerpo principal queda como ancla
+	# quieta: no procesa movimiento ni gravedad para no competir con él.
+	if forma == Forma.VUELO:
+		return
 	# Con el menú radial de transformaciones abierto (F): se congela el control
 	# de movimiento (sin tocar la cámara ni la posición de forma brusca) hasta
 	# que el menú se cierra. El propio menú gestiona la tecla F.
@@ -1268,6 +1291,8 @@ func _on_transformacion_elegida(id: StringName) -> void:
 			_cambiar_forma_con_efecto(Forma.FUERZA)
 		&"combate":
 			_cambiar_forma_con_efecto(Forma.COMBATE)
+		&"aguila":
+			_cambiar_forma_con_efecto(Forma.VUELO)
 		_:
 			pass
 
@@ -1286,6 +1311,10 @@ func _transicionar(destino: int) -> void:
 		print("[Leo] No se puede transformar bajo el agua: vuelve a la superficie o a la orilla.")
 		return
 	_transformando = true
+	# Si venimos de la forma VUELO, se limpia TODO su estado y se recupera la
+	# posición del volador ANTES de entrar en la forma nueva.
+	if forma == Forma.VUELO:
+		_detener_vuelo()
 	var id_destino: StringName = _id_forma(destino)
 	if COLORES_TRANSFORMACION.has(id_destino):
 		efecto_transf.establecer_color(COLORES_TRANSFORMACION[id_destino])
@@ -1300,6 +1329,8 @@ func _transicionar(destino: int) -> void:
 			_entrar_fuerza()
 		Forma.COMBATE:
 			_entrar_combate()
+		Forma.VUELO:
+			_entrar_vuelo()
 		_:
 			_entrar_humano()
 	await efecto_transf.terminado
@@ -1315,6 +1346,8 @@ func _id_forma(id: int) -> StringName:
 			return &"tanque"
 		Forma.COMBATE:
 			return &"combate"
+		Forma.VUELO:
+			return &"aguila"
 		_:
 			return &"humano"
 
@@ -1561,6 +1594,106 @@ func _detener_velocista() -> void:
 	pivote.objetivo_fov = pivote.fov_base
 	pivote.definir_pitch(-0.25)
 	pivote.position.y = h_pivote_y_base
+
+# =============================================================== FORMA VUELO (Águila)
+# La transformación de Vuelo es un personaje COMPLETO y autónomo
+# (res://personaje/transformaciones/vuelo/): su propio CharacterBody3D, cámara,
+# vuelo, combate, guardia, plumas, garras y palmazo. NO se reimplementa: se
+# INSTANCIA como nodo hijo "Vuelo" y se activa/desactiva. Mientras está activo,
+# este cuerpo principal queda como ancla quieta (no procesa movimiento) y le cede
+# el control al volador; al salir, recupera el control en la posición del volador.
+# Sólo uno de los dos controla al jugador en cada momento.
+func _entrar_vuelo() -> void:
+	forma = Forma.VUELO
+	_detener_velocista()
+	_detener_acuatico()
+	_detener_fuerza()
+	_detener_combate()
+	# La representación terrestre se oculta y el cuerpo principal deja de chocar
+	# (el volador trae su propia colisión y no debe quedar atrapado en la cápsula).
+	humano.visible = false
+	visual.visible = false
+	acuatico.visible = false
+	fuerza.visible = false
+	ataque_visual.visible = false
+	if _colision != null:
+		_colision.disabled = true
+	if vuelo == null:
+		estadisticas.aplicar_forma(id_forma())
+		forma_cambiada.emit(id_forma())
+		return
+	# El volador arranca donde está el jugador y mirando hacia donde mira la
+	# cámara, para que no haya salto de posición ni de vista.
+	vuelo.global_position = global_position
+	var piv_vuelo := vuelo.get_node_or_null("CameraPivot") as Node3D
+	if piv_vuelo != null:
+		piv_vuelo.rotation.y = pivote.rotation.y
+	vuelo.visible = true
+	vuelo.process_mode = Node.PROCESS_MODE_INHERIT
+	var cs_vuelo := vuelo.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if cs_vuelo != null:
+		cs_vuelo.disabled = false
+	# La transformación ES volar: el personaje despega de inmediato.
+	var fc := vuelo.get_node_or_null("FlightController")
+	if fc != null:
+		fc.is_flying = false
+		fc.is_diving = false
+	# El vuelo NO se autoactiva: la tecla C (acción "toggle_flight") es la que
+	# despega según la lógica de estados existente del módulo. F conserva su
+	# función de abrir el menú de transformaciones.
+	_camara_vuelo(true)
+	estadisticas.aplicar_forma(id_forma())
+	forma_cambiada.emit(id_forma())
+
+# Limpia por completo el estado del volador al salir de la forma (guarda, presa en
+# las garras, apuntado, combo, vuelo) y devuelve el control a este cuerpo.
+func _detener_vuelo() -> void:
+	if vuelo == null:
+		return
+	# El cuerpo principal recupera la posición del volador (sin teletransporte).
+	global_position = vuelo.global_position
+	# Ninguna habilidad del volador sigue activa en segundo plano.
+	var talons := vuelo.get_node_or_null("TalonsAbility")
+	if talons != null and talons.has_method("soltar_todo"):
+		talons.soltar_todo()
+	var combatiente := vuelo.get_node_or_null("GroundCombat")
+	if combatiente != null and combatiente.has_method("cancelar_todo"):
+		combatiente.cancelar_todo()
+	var plumas := vuelo.get_node_or_null("FeatherAbility")
+	if plumas != null and plumas.has_method("cancelar_apuntado"):
+		plumas.cancelar_apuntado()
+	var fc := vuelo.get_node_or_null("FlightController")
+	if fc != null:
+		fc.is_flying = false
+		fc.is_diving = false
+	vuelo.visible = false
+	vuelo.process_mode = Node.PROCESS_MODE_DISABLED
+	var cs_vuelo := vuelo.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if cs_vuelo != null:
+		cs_vuelo.disabled = true
+	_camara_vuelo(false)
+	if _colision != null:
+		_colision.disabled = false
+
+# Cede o recupera la cámara activa entre el cuerpo terrestre y el volador. La
+# cámara terrestre deja de procesar durante el vuelo (no compite por el ratón).
+func _camara_vuelo(activar: bool) -> void:
+	var cam_vuelo := vuelo.get_node_or_null("CameraPivot/SpringArm3D/Camera3D") as Camera3D
+	if activar:
+		pivote.permitir_look = false
+		pivote.set_process(false)
+		pivote.set_process_unhandled_input(false)
+		if cam_vuelo != null:
+			cam_vuelo.make_current()
+	else:
+		if cam_vuelo != null:
+			cam_vuelo.current = false
+		pivote.permitir_look = true
+		pivote.set_process(true)
+		pivote.set_process_unhandled_input(true)
+		var cam_leo := pivote.get_node_or_null("Brazo/Camara") as Camera3D
+		if cam_leo != null:
+			cam_leo.make_current()
 
 # --- SONIDOS de las acciones del velocista (carga, trazado, dash, golpe) -------
 # Cada sonido se dispara desde la función REAL que arranca o termina su acción,

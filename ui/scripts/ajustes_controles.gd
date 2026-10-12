@@ -33,6 +33,7 @@ const VELOCISTA := &"velocista"
 const ACUATICO := &"acuatico"
 const FUERZA := &"fuerza"
 const COMBATE := &"combate"
+const VUELO := &"vuelo"
 
 ## Acciones de INTERFAZ: no se reasignan desde CONTROLES (tienen su propio flujo:
 ## pausa, navegacion y aceptar). Se usan para avisar de posibles solapamientos.
@@ -56,7 +57,7 @@ const CATALOGO := [
 	{"accion": &"saltar", "formas": [], "etiqueta": "Saltar"},
 	{"accion": &"atacar", "formas": [VELOCISTA, ACUATICO, FUERZA, COMBATE], "etiqueta": "Atacar"},
 	# --- Compartidas por varias formas ---------------------------------------
-	{"accion": &"correr", "formas": [HUMANO, ACUATICO, FUERZA], "etiqueta": "Correr"},
+	{"accion": &"correr", "formas": [HUMANO, ACUATICO, FUERZA, VUELO], "etiqueta": "Correr"},
 	{"accion": &"agacharse", "formas": [HUMANO, ACUATICO, FUERZA], "etiqueta": "Agacharse"},
 	# --- Velocista ------------------------------------------------------------
 	{"accion": &"dash", "formas": [VELOCISTA], "etiqueta": "Dash"},
@@ -72,6 +73,15 @@ const CATALOGO := [
 	{"accion": &"fuerza_embestida", "formas": [FUERZA], "etiqueta": "Embestida"},
 	{"accion": &"fuerza_slam", "formas": [FUERZA], "etiqueta": "Pisotón"},
 	{"accion": &"fuerza_roca", "formas": [FUERZA], "etiqueta": "Levantar roca"},
+	# --- Vuelo (Águila) -------------------------------------------------------
+	{"accion": &"fly_down", "formas": [VUELO], "etiqueta": "Picar / descender"},
+	{"accion": &"toggle_flight", "formas": [VUELO], "etiqueta": "Despegar / aterrizar"},
+	{"accion": &"aim", "formas": [VUELO], "etiqueta": "Apuntar (OTS)"},
+	{"accion": &"feather_fire", "formas": [VUELO], "etiqueta": "Plumas de proyectil"},
+	{"accion": &"melee_light", "formas": [VUELO], "etiqueta": "Golpe (combo)"},
+	{"accion": &"guard", "formas": [VUELO], "etiqueta": "Guardia de alas"},
+	{"accion": &"grab", "formas": [VUELO], "etiqueta": "Garras (agarre aéreo)"},
+	{"accion": &"palmazo", "formas": [VUELO], "etiqueta": "Palmazo de viento"},
 	# --- Globales (en cualquier forma) ---------------------------------------
 	{"accion": &"menu_transformaciones", "formas": [], "etiqueta": "Menú de transformaciones"},
 ]
@@ -85,6 +95,7 @@ const ETIQUETAS_POR_FORMA := {
 		HUMANO: "Correr",
 		ACUATICO: "Nadar rápido",
 		FUERZA: "Correr",
+		VUELO: "Boost",
 	},
 	"agacharse": {
 		HUMANO: "Agacharse",
@@ -95,6 +106,7 @@ const ETIQUETAS_POR_FORMA := {
 		ACUATICO: "Saltar / ascender",
 		FUERZA: "Saltar / supersalto",
 		COMBATE: "Saltar (doble salto)",
+		VUELO: "Subir / ascender",
 	},
 	"atacar": {
 		VELOCISTA: "Atacar (combo)",
@@ -129,6 +141,14 @@ const NOTAS := {
 	"fuerza_embestida": "Desde el suelo",
 	"fuerza_slam": "Sólo en el aire",
 	"fuerza_roca": "Desde el suelo",
+	"fly_down": "Picar (mantener)",
+	"toggle_flight": "Iniciar / aterrizar vuelo",
+	"aim": "Mantener",
+	"feather_fire": "Clic izq. (apuntando)",
+	"melee_light": "Clic izq. (sin apuntar)",
+	"guard": "Mantener",
+	"grab": "E o G, sólo volando",
+	"palmazo": "Pulsación única",
 	"menu_transformaciones": "Abre y cierra",
 }
 
@@ -138,6 +158,7 @@ const NOTAS_POR_FORMA := {
 		ACUATICO: "Mantener para ascender",
 		FUERZA: "Mantener y soltar = supersalto",
 		COMBATE: "Doble salto en el aire",
+		VUELO: "Mantener en vuelo = subir",
 	},
 	"atacar": {
 		VELOCISTA: "Encadena combo",
@@ -164,6 +185,10 @@ var _ultimo_error: String = ""
 var _pendiente_reaplicar: bool = false
 
 func _ready() -> void:
+	# Acciones NUEVAS de la forma VUELO (Águila): se registran ANTES de capturar
+	# los valores de fábrica, para que queden reasignables como las demás. El
+	# movimiento, el salto y el boost del vuelo reutilizan los controles del juego.
+	_registrar_acciones_vuelo()
 	_capturar_originales()
 	_cargar()
 	_aplicar_todo()
@@ -610,3 +635,47 @@ func _cargar() -> void:
 		var ev := _deserializar(cf.get_value(SECCION, accion, null))
 		if ev != null:
 			_eventos[clave] = ev
+
+# ---------------------------------------------------------------- acciones de VUELO
+## Acciones cuyo nombre NO existe todavía en el proyecto y que usa la forma VUELO
+## (Águila). Se registran aquí (autoridad del Input Map) con sus bindings de
+## fábrica; si el proyecto ya tuviera una, NO se toca. El movimiento/salto/boost
+## del vuelo se sirven de las acciones comunes (mover_*, saltar, correr).
+##
+## NOTA: feather_fire y melee_light comparten el clic izquierdo a propósito (el
+## héroe decide por contexto: apuntando = pluma, si no = golpe; con presa en las
+## garras = lanzamiento). La detección de conflictos los marca como "contextual",
+## igual que SHIFT entre formas distintas.
+const ACCIONES_VUELO := {
+	&"fly_down": {"teclas": [KEY_X], "raton": []},
+	&"toggle_flight": {"teclas": [KEY_C], "raton": []},
+	&"aim": {"teclas": [], "raton": [MOUSE_BUTTON_RIGHT]},
+	&"feather_fire": {"teclas": [], "raton": [MOUSE_BUTTON_LEFT]},
+	&"melee_light": {"teclas": [], "raton": [MOUSE_BUTTON_LEFT]},
+	&"guard": {"teclas": [KEY_Q], "raton": []},
+	&"grab": {"teclas": [KEY_E, KEY_G], "raton": []},
+	&"palmazo": {"teclas": [KEY_V], "raton": []},
+	# Mirada con el stick derecho (mando). Se registran vacías para que el
+	# personaje volador pueda consultarlas sin errores; el ratón sigue siendo
+	# el control de cámara del proyecto.
+	&"look_left": {"teclas": [], "raton": []},
+	&"look_right": {"teclas": [], "raton": []},
+	&"look_up": {"teclas": [], "raton": []},
+	&"look_down": {"teclas": [], "raton": []},
+	&"respawn": {"teclas": [], "raton": []},
+}
+
+func _registrar_acciones_vuelo() -> void:
+	for accion: StringName in ACCIONES_VUELO.keys():
+		if InputMap.has_action(accion):
+			continue
+		InputMap.add_action(accion, 0.2)
+		var datos: Dictionary = ACCIONES_VUELO[accion]
+		for t: Key in datos["teclas"]:
+			var ek := InputEventKey.new()
+			ek.physical_keycode = t
+			InputMap.action_add_event(accion, ek)
+		for b: MouseButton in datos["raton"]:
+			var em := InputEventMouseButton.new()
+			em.button_index = b
+			InputMap.action_add_event(accion, em)
