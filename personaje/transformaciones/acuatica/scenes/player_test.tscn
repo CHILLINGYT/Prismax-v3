@@ -1,0 +1,152 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/character/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/water/lake.tscn" id="2_lake"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/scenes/training_dummy.tscn" id="3_dummy"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.13, 0.3, 0.68, 1)
+sky_horizon_color = Color(0.69, 0.79, 0.88, 1)
+sky_curve = 0.09
+ground_bottom_color = Color(0.1, 0.13, 0.16, 1)
+ground_horizon_color = Color(0.55, 0.62, 0.68, 1)
+
+[sub_resource type="Sky" id="Sky_sky"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 2
+sky = SubResource("Sky_sky")
+ambient_light_source = 3
+reflected_light_source = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.29, 0.36, 0.26, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_platform"]
+albedo_color = Color(0.45, 0.45, 0.48, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector3(80, 2, 49)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(80, 2, 49)
+
+[sub_resource type="BoxMesh" id="BoxMesh_field"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector3(27.5, 2, 31)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_field"]
+size = Vector3(27.5, 2, 31)
+
+[sub_resource type="BoxMesh" id="BoxMesh_nfield"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector3(25, 2, 11)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_nfield"]
+size = Vector3(25, 2, 11)
+
+[sub_resource type="BoxMesh" id="BoxMesh_platform"]
+material = SubResource("StandardMaterial3D_platform")
+size = Vector3(4, 1, 4)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_platform"]
+size = Vector3(4, 1, 4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ramp"]
+material = SubResource("StandardMaterial3D_platform")
+size = Vector3(4, 0.5, 9)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ramp"]
+size = Vector3(4, 0.5, 9)
+
+[node name="PlayerTest" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.766044, 0.454519, -0.454519, 0, 0.707107, 0.707107, 0.642788, -0.541675, 0.541675, 0, 12, 0)
+light_energy = 1.1
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -15.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_ground")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape3D_ground")
+
+[node name="FieldEast" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.25, -1, 24.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FieldEast"]
+mesh = SubResource("BoxMesh_field")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FieldEast"]
+shape = SubResource("BoxShape3D_field")
+
+[node name="FieldWest" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.25, -1, 24.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FieldWest"]
+mesh = SubResource("BoxMesh_field")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FieldWest"]
+shape = SubResource("BoxShape3D_field")
+
+[node name="FieldNorth" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 34.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FieldNorth"]
+mesh = SubResource("BoxMesh_nfield")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FieldNorth"]
+shape = SubResource("BoxShape3D_nfield")
+
+[node name="PlatformSmall" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.5, -6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PlatformSmall"]
+mesh = SubResource("BoxMesh_platform")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PlatformSmall"]
+shape = SubResource("BoxShape3D_platform")
+
+[node name="PlatformHigh" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 2, -10)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PlatformHigh"]
+mesh = SubResource("BoxMesh_platform")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PlatformHigh"]
+shape = SubResource("BoxShape3D_platform")
+
+[node name="Ramp" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, -8, 1.35, -10)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ramp"]
+mesh = SubResource("BoxMesh_ramp")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ramp"]
+shape = SubResource("BoxShape3D_ramp")
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
+
+[node name="Lake" parent="." instance=ExtResource("2_lake")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 19)
+
+[node name="Dummy1" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 0, -4)
+
+[node name="Dummy2" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4, 0, -7.5)
+
+[node name="Dummy3" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2, 0, -6)

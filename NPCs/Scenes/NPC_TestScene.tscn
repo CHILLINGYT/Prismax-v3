@@ -1,0 +1,102 @@
+[gd_scene format=3 uid="uid://otgariovih6p"]
+
+[ext_resource type="Texture2D" uid="uid://dqa0bemvtlq82" path="res://assets/generated/ground_pavement.png" id="1_pavement"]
+[ext_resource type="NavigationMesh" path="res://NPCs/Navigation/NPC_TestGround.tres" id="2_navmesh"]
+[ext_resource type="PackedScene" path="res://NPCs/Scenes/NPC_Citizen.tscn" id="3_citizen"]
+[ext_resource type="Script" uid="uid://c1xi28m4jo7ho" path="res://NPCs/Scripts/npc_spawner.gd" id="4_spawner"]
+[ext_resource type="PackedScene" path="res://NPCs/Scenes/Player_Test.tscn" id="5_player"]
+[ext_resource type="PackedScene" uid="uid://b8uave0nogsta" path="res://Assets NPCS/UrbanMan_PolyMate_alstrainfinite/GLB/UrbanMan_CityFolks_PolyMate.glb" id="6_urban"]
+[ext_resource type="PackedScene" uid="uid://baa1gs4hq6432" path="res://Assets NPCS/CityFolks_PolyMate_alstrainfinite/GLB/Deportista/Deportista_CityFolks_PolyMate.glb" id="7_depor"]
+[ext_resource type="PackedScene" uid="uid://ck4wswowxyxgo" path="res://Assets NPCS/CityFolks_PolyMate_alstrainfinite/GLB/Muscle Man/MuscleMan_CityFolks_PolyMate.glb" id="8_muscle"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.38, 0.55, 0.85, 1)
+sky_horizon_color = Color(0.75, 0.82, 0.9, 1)
+ground_bottom_color = Color(0.34, 0.34, 0.37, 1)
+ground_horizon_color = Color(0.75, 0.82, 0.9, 1)
+
+[sub_resource type="Sky" id="Sky_scene"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_scene"]
+background_mode = 2
+sky = SubResource("Sky_scene")
+ambient_light_source = 3
+ambient_light_energy = 0.55
+tonemap_mode = 3
+tonemap_white = 1.1
+ssao_enabled = true
+ssao_radius = 1.4
+ssao_intensity = 1.6
+ssao_power = 1.8
+glow_enabled = true
+glow_intensity = 0.5
+glow_bloom = 0.05
+glow_hdr_threshold = 1.1
+fog_enabled = true
+fog_light_color = Color(0.75, 0.82, 0.9, 1)
+fog_light_energy = 0.9
+fog_density = 0.0035
+fog_aerial_perspective = 0.35
+fog_sky_affect = 0.1
+adjustment_enabled = true
+adjustment_brightness = 1.02
+adjustment_contrast = 1.06
+adjustment_saturation = 1.08
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_texture = ExtResource("1_pavement")
+uv1_scale = Vector3(10, 10, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+material = SubResource("Material_ground")
+size = Vector2(80, 80)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(80, 0.6, 80)
+
+[node name="NPC_TestScene" type="Node3D" unique_id=103837270]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1449583521]
+environment = SubResource("Environment_scene")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=964938694]
+transform = Transform3D(0.76604444, 0.4776843, -0.43010882, 0, 0.66913056, 0.74314487, 0.6427876, -0.569282, 0.51258373, 0, 0, 0)
+light_color = Color(1, 0.97, 0.92, 1)
+light_energy = 1.35
+light_angular_distance = 1.2
+shadow_enabled = true
+directional_shadow_max_distance = 45.0
+
+[node name="Fill" type="DirectionalLight3D" parent="." unique_id=1183966971]
+transform = Transform3D(-0.76604444, -0.24079248, 0.5959823, 0, 0.92718387, 0.37460658, -0.64278764, 0.28696528, -0.710264, 0, 0, 0)
+light_color = Color(0.72, 0.8, 1, 1)
+light_energy = 0.35
+
+[node name="Ground" type="StaticBody3D" parent="." unique_id=546658341]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground" unique_id=30286876]
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="Shape" type="CollisionShape3D" parent="Ground" unique_id=1830077681]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 0)
+shape = SubResource("BoxShape3D_ground")
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="." unique_id=61572515]
+navigation_mesh = ExtResource("2_navmesh")
+
+[node name="Citizens" type="Node3D" parent="." unique_id=1671348939]
+script = ExtResource("4_spawner")
+npc_scene = ExtResource("3_citizen")
+citizen_models = Array[PackedScene]([ExtResource("6_urban"), ExtResource("7_depor"), ExtResource("8_muscle")])
+npc_count = 25
+spawn_area = Rect2(-22, -22, 44, 44)
+spawn_min_distance = 6.0
+spawn_max_distance = 26.0
+wander_area = Rect2(-32, -32, 64, 64)
+player_clearance = 7.0
+poly_share = 1.0
+
+[node name="Player_Test" parent="." unique_id=1122245115 instance=ExtResource("5_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 12)

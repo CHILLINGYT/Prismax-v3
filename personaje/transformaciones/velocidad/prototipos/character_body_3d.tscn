@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://box58i43xlh73"]
+
+[ext_resource type="Script" uid="uid://c17ppwi120pqj" path="res://personaje/transformaciones/velocidad/prototipos/personaje.gd" id="1_62ey0"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_x5ok8"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_8xyqj"]
+
+[node name="CharacterBody3D" type="CharacterBody3D" unique_id=1227051126]
+script = ExtResource("1_62ey0")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=2108270584]
+mesh = SubResource("CapsuleMesh_x5ok8")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1589635101]
+shape = SubResource("CapsuleShape3D_8xyqj")
+
+[node name="pivote" type="Node3D" parent="." unique_id=596328960]
+transform = Transform3D(1, 0, 0, 0, 0.94551927, 0.3255661, 0, -0.3255661, 0.94551927, 0, 1.3344779, 3.4243252)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="pivote" unique_id=995545164]
+
+[node name="Camera3D" type="Camera3D" parent="pivote/SpringArm3D" unique_id=1322663531]

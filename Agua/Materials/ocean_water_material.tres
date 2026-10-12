@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+[ext_resource type="Shader" path="res://Agua/Shaders/ocean_water.gdshader" id="1_oceano"]
+[ext_resource type="Texture2D" path="res://Agua/Textures/water_ripples.tres" id="2_ondulacion"]
+
+[resource]
+shader = ExtResource("1_oceano")
+shader_parameter/ripple_tex = ExtResource("2_ondulacion")
+shader_parameter/color_shallow = Color(0.32, 0.72, 0.74, 1)
+shader_parameter/color_mid = Color(0.1, 0.42, 0.6, 1)
+shader_parameter/color_deep = Color(0.02, 0.16, 0.34, 1)
+shader_parameter/depth_mid = 5.0
+shader_parameter/depth_full = 22.0
+shader_parameter/foam_color = Color(0.95, 0.97, 0.98, 1)
+shader_parameter/foam_depth = 1.7
+shader_parameter/foam_advance = 0.9

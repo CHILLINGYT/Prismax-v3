@@ -1,0 +1,28 @@
+[gd_resource type="Sky" load_steps=7 format=3]
+
+[ext_resource type="Shader" path="res://Cielo/shader/main.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://Cielo/textures/clouds/clouds_01.tres" id="2_cloud1"]
+[ext_resource type="Texture2D" path="res://Cielo/textures/clouds/clouds_02.tres" id="3_cloud2"]
+[ext_resource type="Texture2D" path="res://Cielo/textures/stars/stars_01.tres" id="4_stars"]
+[ext_resource type="Texture2D" path="res://Cielo/textures/stars/sky_noise_02.tres" id="5_skynoise"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_cielo"]
+shader = ExtResource("1_shader")
+shader_parameter/sky_day = Color(0.13, 0.37, 0.72, 1)
+shader_parameter/horizon_day = Color(0.62, 0.75, 0.85, 1)
+shader_parameter/horizon_sunset = Color(0.92, 0.45, 0.13, 1)
+shader_parameter/sky_sunset = Color(0.16, 0.2, 0.42, 1)
+shader_parameter/horizon_night = Color(0.08, 0.11, 0.18, 1)
+shader_parameter/sky_night = Color(0.03, 0.06, 0.12, 1)
+shader_parameter/use_directional_light = true
+shader_parameter/cloud_tex_01 = ExtResource("2_cloud1")
+shader_parameter/cloud_tex_02 = ExtResource("3_cloud2")
+shader_parameter/cloud_color = Color(0.9, 0.92, 0.95, 1)
+shader_parameter/cloud_tiling = Vector2(2, 2)
+shader_parameter/wind_speed = Vector2(0.25, 0.12)
+shader_parameter/cloud_density = 0.55
+shader_parameter/night_noise_01 = ExtResource("4_stars")
+shader_parameter/night_noise_02 = ExtResource("5_skynoise")
+
+[resource]
+sky_material = SubResource("ShaderMaterial_cielo")

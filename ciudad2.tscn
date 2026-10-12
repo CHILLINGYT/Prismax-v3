@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://c3q5h2akbvlqg"]
+
+[ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://generador_ciudad.gd" id="1_gen"]
+
+[node name="Node3D" type="Node3D" unique_id=514365906]
+script = ExtResource("1_gen")
+
+[node name="GridMap" type="GridMap" parent="." unique_id=563024895]

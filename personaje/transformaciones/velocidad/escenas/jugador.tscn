@@ -1,0 +1,66 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/velocidad/modelo/modelo_velocidad.fbx" id="1_modelo"]
+[ext_resource type="Script" path="res://personaje/transformaciones/velocidad/scripts/jugador.gd" id="2_jugador"]
+[ext_resource type="Script" path="res://personaje/base/camara/camara_jugador.gd" id="3_camara"]
+[ext_resource type="Script" path="res://personaje/transformaciones/velocidad/scripts/trazador.gd" id="4_trazador"]
+[ext_resource type="Script" path="res://personaje/transformaciones/velocidad/scripts/efectos_velocidad.gd" id="5_efectos"]
+[ext_resource type="Script" path="res://personaje/transformaciones/velocidad/scripts/combate.gd" id="6_combate"]
+[ext_resource type="Script" path="res://personaje/transformaciones/velocidad/scripts/capa_velocidad.gd" id="7_capa"]
+[ext_resource type="Shader" path="res://personaje/transformaciones/velocidad/shaders/distorsion_velocidad.gdshader" id="8_shader"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
+radius = 0.3
+height = 1.1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_distorsion"]
+shader = ExtResource("8_shader")
+shader_parameter/intensidad = 0.0
+shader_parameter/tiempo = 0.0
+
+[node name="Jugador" type="CharacterBody3D"]
+script = ExtResource("2_jugador")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Pose" type="Node3D" parent="Visual"]
+
+[node name="Volteo" type="Node3D" parent="Visual/Pose"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Modelo" parent="Visual/Pose/Volteo" instance=ExtResource("1_modelo")]
+
+[node name="Colision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+shape = SubResource("CapsuleShape3D_jugador")
+
+[node name="PivoteCamara" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+script = ExtResource("3_camara")
+
+[node name="Brazo" type="SpringArm3D" parent="PivoteCamara"]
+spring_length = 2.6
+
+[node name="Camara" type="Camera3D" parent="PivoteCamara/Brazo"]
+fov = 70.0
+
+[node name="Trazador" type="Node3D" parent="."]
+script = ExtResource("4_trazador")
+
+[node name="Efectos" type="Node3D" parent="."]
+script = ExtResource("5_efectos")
+
+[node name="Combate" type="Node" parent="."]
+script = ExtResource("6_combate")
+
+[node name="CapaVelocidad" type="CanvasLayer" parent="."]
+script = ExtResource("7_capa")
+
+[node name="Distorsion" type="ColorRect" parent="CapaVelocidad"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("ShaderMaterial_distorsion")

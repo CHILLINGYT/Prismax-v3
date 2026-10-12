@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://n82ipckgkcl1"]
+
+[ext_resource type="PackedScene" uid="uid://byb3jrcqrxu0v" path="res://personaje/transformaciones/humano/animations/T-Pose.fbx" id="1_dii0p"]
+[ext_resource type="PackedScene" uid="uid://dagfja22tdfld" path="res://personaje/transformaciones/humano/animations/Walking.fbx" id="2_xeego"]
+
+[node name="leooo" type="CharacterBody3D" unique_id=323831734]
+
+[node name="T-Pose" parent="." unique_id=76678425 instance=ExtResource("1_dii0p")]
+transform = Transform3D(200, 0, 0, 0, 200, 0, 0, 0, 200, 0, 0.37227285, 0)
+
+[node name="Walking" parent="." unique_id=1721010073 instance=ExtResource("2_xeego")]

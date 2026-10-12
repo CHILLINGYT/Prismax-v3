@@ -1,0 +1,31 @@
+[gd_scene format=3 uid="uid://4a5dorcjltgx"]
+
+[ext_resource type="Script" uid="uid://djfjnh20qh2n8" path="res://personaje/transformaciones/humano/scripts/leo.gd" id="1_qtx3e"]
+[ext_resource type="PackedScene" uid="uid://dtm4csncmfx8y" path="res://personaje/transformaciones/humano/models/Standing W_Briefcase Idle.fbx" id="2_mixamo"]
+[ext_resource type="AnimationLibrary" uid="uid://irn1qan22vls" path="res://personaje/transformaciones/humano/animations/leo_animations.tres" id="3_anims"]
+[ext_resource type="Script" uid="uid://bxp13uhohmcxb" path="res://personaje/transformaciones/humano/camara/camara_tercera_persona.gd" id="4_camara"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_5h11f"]
+
+[node name="leo" type="CharacterBody3D" unique_id=2047464117]
+script = ExtResource("1_qtx3e")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1601104397]
+shape = SubResource("CapsuleShape3D_5h11f")
+
+[node name="Modelo" parent="." unique_id=1223235278 instance=ExtResource("2_mixamo")]
+transform = Transform3D(-200, 0, 0, 0, 200, 0, 0, 0, -200, 0, -1, 0)
+
+[node name="Animador" type="AnimationPlayer" parent="." unique_id=2046178903]
+libraries/ = ExtResource("3_anims")
+
+[node name="pivote" type="Node3D" parent="." unique_id=1174994202]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.557276, 0)
+script = ExtResource("4_camara")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="pivote" unique_id=579227245]
+spring_length = 4.181
+margin = 0.05
+
+[node name="Camera3D" type="Camera3D" parent="pivote/SpringArm3D" unique_id=228373366]
+fov = 69.62261
