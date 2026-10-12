@@ -66,10 +66,12 @@ func in_combat() -> bool:
 ## Plays a one-shot clip (Sprint hit, jump). If that clip is already the current
 ## one it is rewound instead of ignored, so two identical hits in a row play
 ## twice from frame 0.
-func play_action(clip: String, blend: float = -1.0) -> void:
+func play_action(clip: String, blend: float = -1.0, speed: float = 1.0) -> void:
 	if clip.is_empty() or not has_animation(clip):
 		return
-	speed_scale = 1.0
+	# The action's own playback speed (per attack). The owner's phase timers divide
+	# the clip by the same value, so a sped-up hit still lands on the visual contact.
+	speed_scale = maxf(0.05, speed)
 	var b: float = action_blend if blend < 0.0 else blend
 	if current_animation == clip:
 		seek(0.0, true)

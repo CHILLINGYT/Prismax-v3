@@ -193,16 +193,18 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 ## centralizada: cantidad, reparto por plazas y por la costa, y topes de
 ## ocupación de bancos y reposeras.
 @export var peatones_activos: bool = true
-## Ciudadanos totales (los que reparte este generador).
-@export_range(0, 200) var peatones_total: int = 52
+## Ciudadanos totales (los que reparte este generador). Reparto por SECTORES: rejilla 4x4
+## sobre el núcleo urbano, la franja costera (paseo + arena) y un sector por plaza/parque,
+## de modo que la gente queda repartida por todo el mapa y no amontonada en el centro.
+@export_range(0, 200) var peatones_total: int = 70
 ## Fracción de ciudadanos cuyo destino son plazas y parques.
-@export_range(0.0, 1.0) var peatones_plaza: float = 0.28
+@export_range(0.0, 1.0) var peatones_plaza: float = 0.30
 ## Peatones del frente costero (paseo, arena y reposeras).
-@export_range(0, 60) var peatones_playa: int = 12
+@export_range(0, 60) var peatones_playa: int = 16
 ## Asientos de banco ocupados como máximo (el resto quedan libres).
-@export_range(0, 100) var peatones_sentados: int = 14
+@export_range(0, 100) var peatones_sentados: int = 18
 ## Reposeras ocupadas como máximo (siempre quedan reposeras vacías).
-@export_range(0, 100) var peatones_tumbados: int = 9
+@export_range(0, 100) var peatones_tumbados: int = 11
 ## Auditoría de seguridad en ejecución: comprueba cada segundo que ningún
 ## peatón esté sobre el asfalto fuera de un paso de peatones (queda en consola).
 @export var peatones_auditoria: bool = false
@@ -211,6 +213,10 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 @export var colisiones_suelo: bool = true
 @export var colisiones_edificios: bool = true
 @export var colisiones_props: bool = false
+## Colisión de los TRONCOS de los árboles y palmeras y de los CANTEROS de obra (capa 1,
+## la misma del terreno y los edificios): el jugador no los atraviesa. Sólo el tronco y
+## el cantero son sólidos; las copas (tarjetas cruzadas) no bloquean el paso por debajo.
+@export var colisiones_vegetacion: bool = true
 
 @export_group("8. Ejecución")
 ## Genera la ciudad automáticamente al arrancar el juego (no en el editor).
@@ -303,6 +309,11 @@ var _obstaculos_plantas: Array[Vector3] = []  ## base de cada planta (peatones: 
 ## local; aquí se apuntan en el momento de colocar cada pieza.
 var _obstaculos_peatones: Array = []
 var director_peatones: Node = null        ## DirectorPeatones de la ciudad actual
+## Troncos, canteros y palmeras con colisión física para el jugador ({x, y, z, r, h}).
+## Se acumulan al plantar cada pieza y se vuelcan juntas en un StaticBody3D al cerrar
+## la ciudad (`_construir_colisiones_vegetacion`). Las COPA de las tarjetas cruzadas no
+## lleva colisión: se puede caminar por debajo del arbolado.
+var _colisiones_vegetacion: Array = []
 var _mat_techo := {}                       ## lado de la plancha -> material de membrana
 ## Vegetación: matrices y colores agrupados POR TEXTURA (tarjetas cruzadas de
 ## `Vegetacion`), para volcar una MultiMeshInstance3D por especie.
@@ -317,6 +328,10 @@ var _vegetacion: Array[String] = []
 ## calle de cada portal, y esquina noreste exterior de cada edificio modular.
 var prueba_portales: Array[Vector3] = []
 var prueba_portales_dir: Array[Vector3] = []
+## Cuánto sobresale por delante del plano del portón la cara exterior del marco (m, en el
+## sentido de `prueba_portales_dir`): con esto el DirectorPeatones sabe a qué distancia
+## exacta queda la puerta real y dónde debe pararse el ciudadano que va a entrar.
+var prueba_portales_frente: Array[float] = []
 var prueba_esquinas: Array[Vector3] = []
 var prueba_esquinas_dir: Array[Vector3] = []
 
@@ -355,6 +370,7 @@ func generar_ciudad() -> void:
 	_rng.seed = semilla if semilla != 0 else randi()
 	prueba_portales.clear()
 	prueba_portales_dir.clear()
+	prueba_portales_frente.clear()
 	prueba_esquinas.clear()
 	prueba_esquinas_dir.clear()
 
@@ -393,7 +409,11 @@ func generar_ciudad() -> void:
 	_volcar_macetas()
 	_volcar_playa()
 	_volcar_ventanas()
+	_construir_colisiones_vegetacion()
 	_generar_peatones()
+	# Marca de "ciudad cerrada": la usan las farolas (Farolas) para saber que ya pueden
+	# leer el mobiliario real de las aceras y plantar sus postes sin meterse en un árbol.
+	_est["ciudad_lista"] = 1
 
 	# 4) Cierre -------------------------------------------------------------
 	if Engine.is_editor_hint():
@@ -429,6 +449,7 @@ func generar_ciudad_por_etapas() -> bool:
 	_rng.seed = semilla if semilla != 0 else randi()
 	prueba_portales.clear()
 	prueba_portales_dir.clear()
+	prueba_portales_frente.clear()
 	prueba_esquinas.clear()
 	prueba_esquinas_dir.clear()
 
@@ -557,7 +578,9 @@ func generar_ciudad_por_etapas() -> bool:
 	_volcar_macetas()
 	_volcar_playa()
 	_volcar_ventanas()
+	_construir_colisiones_vegetacion()
 	_generar_peatones()
+	_est["ciudad_lista"] = 1
 
 	_informe(Time.get_ticks_msec() - t0)
 	progreso_generacion.emit(1.0, "listo")
@@ -600,6 +623,11 @@ func _generar_peatones() -> void:
 		"reposeras": _reposeras_datos,
 		"obstaculos": _obstaculos_plantas,
 		"mobiliario": _obstaculos_peatones,
+		# Puertas reales del mapa (centro del marco, normal hacia la calle y cuánto
+		# sobresale el marco): con esto los ciudadanos simulan entrar en las casas.
+		"portales": prueba_portales,
+		"portales_dir": prueba_portales_dir,
+		"portales_frente": prueba_portales_frente,
 	})
 	director_peatones = jefe
 
@@ -637,6 +665,7 @@ func limpiar_ciudad() -> void:
 	_reposeras_datos.clear()
 	_obstaculos_plantas.clear()
 	_obstaculos_peatones.clear()
+	_colisiones_vegetacion.clear()
 	director_peatones = null
 
 
@@ -2223,6 +2252,9 @@ func _poner_modular(rect: Rect2) -> void:
 						_colocar(hoja, _t(pos_hoja, giro), _cont["Modulares"])
 					prueba_portales.append(_t(p_marco, giro).origin)
 					prueba_portales_dir.append(b * Vector3(0.0, 0.0, 1.0))
+					# Cara exterior del marco medida con su caja real: es la referencia de
+					# "dónde está la puerta" para el ciudadano que va a entrar en la casa.
+					prueba_portales_frente.append(maxf(caja_marco.end.z, 0.0))
 					_est["portales"] = int(_est.get("portales", 0)) + 1
 				else:
 					_colocar(m_baja, _t(pos, giro), _cont["Modulares"])
@@ -2484,6 +2516,11 @@ func _colocar_arbol(pos: Vector3, alto_min: float, alto_max: float, con_maceta: 
 	var alto := _rng.randf_range(alto_min, alto_max)
 	var ruta: String = Vegetacion.ARBOLES[_rng.randi_range(0, Vegetacion.ARBOLES.size() - 1)]
 	_anadir_planta(ruta, Vegetacion.matriz(pos, ruta, alto, _rng.randf_range(0.0, TAU)), _color_hoja())
+	# Colisión del TRONCO para el jugador: el tronco dibujado ocupa ~12 % del ancho de la
+	# figura en la base (medido sobre parque_arbol_a.png), así que el radio va en proporción
+	# a la altura y el cilindro llega sólo hasta la cruz: la copa NO bloquea.
+	_colisiones_vegetacion.append({"x": pos.x, "y": pos.y, "z": pos.z,
+			"r": clampf(alto * 0.045, 0.20, 0.70), "h": clampf(alto * 0.40, 1.6, 3.2)})
 	if con_maceta:
 		_colocar_maceta(pos, alto)
 	_est["arboles"] = int(_est.get("arboles", 0)) + 1
@@ -2510,6 +2547,9 @@ func _colocar_maceta(pos: Vector3, alto_arbol: float) -> void:
 	_obstaculos_plantas.append(p)
 	# El cantero es ancho (≈1,4 m con la escala de la acera): los peatones lo rodean.
 	_obstaculos_peatones.append({"x": p.x, "z": p.z, "r": 0.75})
+	# Colisión del cantero para el jugador: cilindro bajo algo más estrecho que la caja
+	# visible (0,56-0,72 de escala sobre 1,97 x 1,77 m), para no bloquear de más.
+	_colisiones_vegetacion.append({"x": p.x, "y": pos.y, "z": p.z, "r": 0.60, "h": 0.45})
 	_est["macetas"] = int(_est.get("macetas", 0)) + 1
 
 
@@ -2681,6 +2721,43 @@ func _colocar_prop(pieza: String, pos: Vector3, en_acera: bool, escala: float) -
 # =============================================================================
 #  Volcado de lotes (MultiMesh) y cierre
 # =============================================================================
+
+## Colisiones de la vegetación para el JUGADOR: un StaticBody3D con un cilindro por tronco
+## (árboles y palmeras) y por cantero de obra. Van en la capa 1, la misma del terreno y de
+## los edificios, que es la que mira la máscara del jugador (17 = capas 1 y 5): así no se
+## atraviesa ni un tronco ni una maceta. Nunca se pone colisión a la copa: las plantas son
+## tarjetas cruzadas y por debajo del arbolado se camina.
+##
+## Los peatones no usan física (se mueven por la red peatonal), así que a ellos los cubren
+## los círculos en planta de `_obstaculos_peatones`, que son los mismos troncos y canteros.
+func _construir_colisiones_vegetacion() -> void:
+	if not colisiones_vegetacion or _colisiones_vegetacion.is_empty():
+		print("[GeneradorCiudad] Colisiones de vegetación: desactivadas o sin piezas")
+		return
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "ColisionesVegetacion"
+	cuerpo.collision_layer = 1
+	cuerpo.collision_mask = 0
+	for e: Dictionary in _colisiones_vegetacion:
+		var forma := CollisionShape3D.new()
+		var c := CylinderShape3D.new()
+		c.radius = float(e["r"])
+		c.height = float(e["h"])
+		forma.shape = c
+		forma.position = Vector3(float(e["x"]), float(e["y"]) + float(e["h"]) * 0.5, float(e["z"]))
+		cuerpo.add_child(forma)
+	var padre := _cont.get("Vegetacion", null) as Node3D
+	if padre == null:
+		padre = self
+	padre.add_child(cuerpo)
+	_marcar_owner(cuerpo)
+	var troncos := 0
+	for e2: Dictionary in _colisiones_vegetacion:
+		if float(e2["h"]) > 1.0:
+			troncos += 1
+	print("[GeneradorCiudad] Colisiones de vegetación: %d cilindros (%d troncos de árbol/palmera + %d canteros) en capa 1" % [
+			cuerpo.get_child_count(), troncos, cuerpo.get_child_count() - troncos])
+
 
 ## Convierte cada lote en un MultiMeshInstance3D bajo su contenedor.
 func _volcar_lotes() -> void:
@@ -2993,6 +3070,8 @@ func _anadir_palmera(pos: Vector3) -> void:
 	_pistas_palmera.append(_t(pos - Vector3(0.0, 0.12, 0.0), _rng.randf_range(0.0, TAU), alto))
 	_est["palmeras"] = int(_est.get("palmeras", 0)) + 1
 	_obstaculos_peatones.append({"x": pos.x, "z": pos.z, "r": 0.55})
+	# Colisión del TRONCO de la palmera para el jugador (cilindro fino, la copa no bloquea).
+	_colisiones_vegetacion.append({"x": pos.x, "y": pos.y, "z": pos.z, "r": 0.34, "h": 3.0})
 
 
 ## Añade una sombrilla (esquema de color al azar) a la lista de su color.
