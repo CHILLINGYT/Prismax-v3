@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://personaje/hud_transformacion/scripts/hud_circular.gd" id="1_hud"]
 [ext_resource type="Script" path="res://personaje/hud_transformacion/scripts/indicador_anillo.gd" id="2_anillo"]
 [ext_resource type="Shader" path="res://personaje/hud_transformacion/shaders/vineta_dano.gdshader" id="3_vineta"]
+[ext_resource type="PackedScene" path="res://personaje/hud_transformacion/escenas/Minimapa.tscn" id="4_minimapa"]
 
 [sub_resource type="StyleBoxFlat" id="SB_disco"]
 bg_color = Color(0.05, 0.06, 0.09, 0.72)
@@ -103,3 +104,11 @@ grow_vertical = 2
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
+
+[node name="Minimapa" parent="Raiz" instance=ExtResource("4_minimapa")]
+layout_mode = 0
+anchors_preset = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 216.0
+offset_bottom = 216.0
