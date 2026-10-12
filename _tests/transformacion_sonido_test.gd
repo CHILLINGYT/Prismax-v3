@@ -63,7 +63,10 @@ func _ready() -> void:
 	get_tree().quit()
 
 func _contar_audio(nodo: Node) -> int:
-	var total := 1 if nodo is AudioStreamPlayer else 0
+	# Cuenta SÓLO el reproductor de transformación: el jugador tiene además los
+	# reproductores de las acciones del velocista (carga/trazado/dash/golpe), que
+	# NO son de transformación y no deben contarse aquí.
+	var total := 1 if (nodo is AudioStreamPlayer and nodo.name == "AudioTransformacion") else 0
 	for hijo in nodo.get_children():
 		total += _contar_audio(hijo)
 	return total

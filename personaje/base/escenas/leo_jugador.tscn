@@ -40,6 +40,16 @@
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
 [ext_resource type="AudioStream" uid="uid://scndx4m2k3no" path="res://Audio/personaje/transformacion/transformacion.mp3" id="40_transf_audio"]
+[ext_resource type="AudioStream" uid="uid://bkwmfd3unvcws" path="res://Audio/personaje/transformacion/velocidad/carga.wav" id="41_aud_carga"]
+[ext_resource type="AudioStream" uid="uid://c3xht8kdoshve" path="res://Audio/personaje/transformacion/velocidad/trazado.wav" id="42_aud_trazado"]
+[ext_resource type="AudioStream" uid="uid://b3anpaybog0ln" path="res://Audio/personaje/transformacion/velocidad/dash.wav" id="43_aud_dash"]
+[ext_resource type="AudioStream" uid="uid://dlkdew200kvj5" path="res://Audio/personaje/transformacion/velocidad/golpe click.wav" id="44_aud_golpe"]
+[ext_resource type="AudioStream" uid="uid://d3t28p62oek11" path="res://Audio/personaje/transformacion/fuerza/salto.mp3" id="45_f_salto"]
+[ext_resource type="AudioStream" uid="uid://bxiv8qvsuyyst" path="res://Audio/personaje/transformacion/fuerza/impacto.mp3" id="46_f_impacto"]
+[ext_resource type="AudioStream" uid="uid://bmr0da6g0mce0" path="res://Audio/personaje/transformacion/fuerza/agarrapiedra.mp3" id="47_f_agarre"]
+[ext_resource type="AudioStream" uid="uid://ncesaymca1kr" path="res://Audio/personaje/transformacion/fuerza/piedratirada.mp3" id="48_f_tirada"]
+[ext_resource type="AudioStream" uid="uid://cux5e0gi08kdh" path="res://Audio/personaje/transformacion/fuerza/golpe.mp3" id="49_f_golpe"]
+[ext_resource type="AudioStream" uid="uid://caaqf3gdqifea" path="res://Audio/personaje/transformacion/fuerza/patada.mp3" id="50_f_patada"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -133,6 +143,46 @@ tiempo_bajada = 0.3
 [node name="AudioTransformacion" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
 stream = ExtResource("40_transf_audio")
+
+[node name="AudioCarga" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("41_aud_carga")
+
+[node name="AudioTrazado" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("42_aud_trazado")
+
+[node name="AudioDash" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("43_aud_dash")
+
+[node name="AudioGolpe" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("44_aud_golpe")
+
+[node name="AudioFuerzaSalto" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("45_f_salto")
+
+[node name="AudioFuerzaImpacto" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("46_f_impacto")
+
+[node name="AudioFuerzaAgarre" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("47_f_agarre")
+
+[node name="AudioFuerzaTirada" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("48_f_tirada")
+
+[node name="AudioFuerzaGolpe" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("49_f_golpe")
+
+[node name="AudioFuerzaPatada" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("50_f_patada")
 
 [node name="MenuTransformaciones" parent="." unique_id=364961598 instance=ExtResource("27_menu")]
 
