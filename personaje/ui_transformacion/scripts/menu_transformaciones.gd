@@ -35,10 +35,10 @@ signal menu_cerrado
 #   angulo     : posición en el anillo, en grados (-90 = arriba; sentido horario).
 const TRANSFORMACIONES := [
 	{"id": &"combate",   "nombre": "Combate",   "icono": "res://personaje/ui_transformacion/iconos/combate.png",   "desbloqueada": true,  "angulo": -90.0},
-	{"id": &"velocista", "nombre": "Velocista", "icono": "res://personaje/ui_transformacion/iconos/velocista.png", "desbloqueada": true,  "angulo": -18.0},
-	{"id": &"pes",       "nombre": "Pes",       "icono": "res://personaje/ui_transformacion/iconos/pes.png",       "desbloqueada": true,  "angulo": 54.0},
-	{"id": &"tanque",    "nombre": "Tanque",    "icono": "res://personaje/ui_transformacion/iconos/tanque.png",    "desbloqueada": true,  "angulo": 126.0},
-	{"id": &"aguila",    "nombre": "Águila",    "icono": "res://personaje/ui_transformacion/iconos/aguila.png",    "desbloqueada": false, "angulo": 198.0},
+	{"id": &"velocista", "nombre": "Velocidad", "icono": "res://personaje/ui_transformacion/iconos/velocista.png", "desbloqueada": true,  "angulo": -18.0},
+	{"id": &"pes",       "nombre": "Acuático",       "icono": "res://personaje/ui_transformacion/iconos/pes.png",       "desbloqueada": true,  "angulo": 54.0},
+	{"id": &"tanque",    "nombre": "Fuerza",    "icono": "res://personaje/ui_transformacion/iconos/tanque.png",    "desbloqueada": true,  "angulo": 126.0},
+	{"id": &"aguila",    "nombre": "Vuelo",    "icono": "res://personaje/ui_transformacion/iconos/aguila.png",    "desbloqueada": true,  "angulo": 198.0, "demo": true},
 ]
 
 # ------------------------------------------------------------------ Aspecto
@@ -158,6 +158,37 @@ func _construir_iconos() -> void:
 			tex.texture = load(ruta)
 		control.add_child(tex)
 		tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+		# Marca DEMO (SÓLO para esta transformación): el retrato se muestra en
+		# escala de grises mediante un ShaderMaterial propio (no se toca el PNG
+		# original ni se afecta a otras tarjetas) y se superpone la etiqueta
+		# "DEMO" en rojo intenso. La transformación sigue siendo seleccionable.
+		if bool(datos.get("demo", false)):
+			var mat := ShaderMaterial.new()
+			mat.shader = load("res://personaje/ui_transformacion/shaders/escala_grises.gdshader")
+			tex.material = mat
+
+			var demo := Label.new()
+			demo.name = "Demo"
+			demo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			demo.text = "DEMO"
+			demo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			demo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			var fuente := SystemFont.new()
+			fuente.font_names = PackedStringArray(["Arial", "Verdana", "Helvetica", "sans-serif"])
+			fuente.font_weight = 700  # negrita
+			demo.add_theme_font_override("font", fuente)
+			demo.add_theme_font_size_override("font_size", 30)
+			demo.add_theme_color_override("font_color", Color(0.93, 0.06, 0.06, 1.0))
+			demo.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+			demo.add_theme_constant_override("outline_size", 6)
+			demo.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+			demo.add_theme_constant_override("shadow_offset_x", 2)
+			demo.add_theme_constant_override("shadow_offset_y", 3)
+			control.add_child(demo)
+			demo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			# Ligeramente abajo y dentro de la tarjeta (no se recorta).
+			demo.offset_top = TAM * 0.55
 
 		# Nombre bajo el icono.
 		var nombre := Label.new()
