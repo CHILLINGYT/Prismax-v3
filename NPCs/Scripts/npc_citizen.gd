@@ -231,15 +231,16 @@ var _largo_ruta := 0.0
 var _desvio := 0.0                   # apartarse lateralmente para no chocar (m)
 var _desvio_obj := 0.0
 var _espera_peaton := 0.0            # bloqueo momentáneo por otro peatón (s)
-# --- Postura (banco / reposera) ---------------------------------------------
-var _postura := ""                   # "sentarse" | "recostarse"
-var _postura_fase := ""              # acercarse | entrar | reposar | salir
+# --- Postura (banco / reposera / puerta) ------------------------------------
+var _postura := ""                   # "sentarse" | "recostarse" | "entrar"
+var _postura_fase := ""              # acercarse | entrar | reposar | salir | mirar | penetrar
 var _postura_t := 0.0
-var _postura_espera := 0.0           # cuánto dura el descanso
-var _postura_punto := Vector3.ZERO   # el punto exacto del asiento
+var _postura_espera := 0.0           # cuánto dura el descanso (o la espera en la puerta)
+var _postura_punto := Vector3.ZERO   # el punto exacto del asiento (o de la puerta)
 var _postura_yaw := 0.0
 var _postura_tilt := 0.0             # inclinación del cuerpo sobre la reposera
-var _postura_ref := -1               # plaza/reposera reservada en el director
+var _postura_dir := Vector3.ZERO     # hacia dónde está la puerta (entrada en una casa)
+var _postura_ref := -1               # plaza/reposera/puerta reservada en el director
 var _salida_pendiente := false       # el director pidió levantarse (retirada)
 var _posturas_ok := false            # la librería trae los clips de postura
 var _dur_entrar := 1.3
@@ -249,6 +250,11 @@ var _dur_sit_exit := 1.05
 var _dur_lie_down := 1.55
 var _dur_lie_up := 1.55
 var _hablado := false
+# --- Entrada en una casa (desaparición natural) ------------------------------
+var _dur_penetrar := 0.95            # lo que dura el último paso hacia dentro
+var _dur_fade := 0.55                # lo que dura el fundido final
+var _fade_listo := false
+var _fade_mats: Array[StandardMaterial3D] = []
 
 # --- Anti-atasco, evitación local y sincronía de la animación (2ª pasada) -----
 # El avance se juzga por lo que el ciudadano se MUEVE de verdad (`_vel_real`), no por lo
@@ -777,13 +783,21 @@ func _decidir_red() -> void:
 
 
 ## Va al punto de una actividad: ruta por la red hasta el vértice más cercano al asiento y,
-## luego, el último tramo a pie llano (delante de la reposera o dentro de la plaza/parque).
+## luego, el último tramo a pie llano (delante de la reposera, dentro de la plaza/parque o
+## frente a la puerta de una casa).
 func _ir_a_postura(orden: Dictionary) -> bool:
 	if not _posturas_ok:
 		return false
+	var tipo := String(orden["tipo"])
 	var destino: Vector3 = orden["punto"]
-	var tipos: Array = ["arena"] if String(orden["tipo"]) == "reposera" else ["acera", "plaza", "parque"]
-	var idx := red.nodo_mas_cercano(destino, tipos)
+	var idx := -1
+	if tipo == "entrada":
+		# La puerta ya trae su vértice de la red (validado al instalar): la ruta termina
+		# exactamente en la acera que tiene delante y el resto es un paso corto a pie.
+		idx = int(orden.get("nodo", -1))
+	else:
+		var tipos: Array = ["arena"] if tipo == "reposera" else ["acera", "plaza", "parque"]
+		idx = red.nodo_mas_cercano(destino, tipos)
 	if idx < 0:
 		return false
 	var desde := red.nodo_mas_cercano(global_position, [])
@@ -797,11 +811,12 @@ func _ir_a_postura(orden: Dictionary) -> bool:
 	_largo_ruta = red.longitud(r)
 	_nodo_actual = desde
 	state = State.POSTURA
-	_postura = "sentarse" if String(orden["tipo"]) == "banco" else "recostarse"
+	_postura = "entrar" if tipo == "entrada" else ("sentarse" if tipo == "banco" else "recostarse")
 	_postura_fase = "camino"
 	_postura_t = 0.0
 	_postura_punto = destino
 	_postura_punto_ini = orden.get("punto_ini", destino)
+	_postura_dir = orden.get("dir", Vector3.ZERO)
 	# La orden trae hacia dónde debe MIRAR el mundo; el modelo puede llevar su propio
 	# desvío de cara (_face_yaw), así que se corrige aquí.
 	_postura_yaw = float(orden["yaw"]) - _face_yaw
@@ -839,6 +854,10 @@ func levantar_ya() -> void:
 			_salida_pendiente = true    # termina de sentarse/tumbarse y se levanta
 		"reposar":
 			_salir_postura()
+		"mirar":
+			_terminar_postura()         # iba a entrar en una casa: se cancela la entrada
+		"penetrar":
+			pass                        # ya está entrando: no se interrumpe (dura un segundo)
 
 
 func en_postura() -> bool:
@@ -959,6 +978,67 @@ func _terminar_postura() -> void:
 	_enter_idle()
 
 
+# ------------------------------------------------------------------ entrada en una casa
+
+## Último paso de la entrada: el ciudadano echa a andar hacia el vano y se prepara el
+## fundido. El clip es el de Caminar (se le ven las piernas avanzando hacia la puerta).
+func _empezar_penetrar() -> void:
+	_postura_fase = "penetrar"
+	_postura_t = 0.0
+	_dur_penetrar = 0.95
+	_dur_fade = 0.55
+	_fade_listo = _preparar_fade()
+	if _playback:
+		_playback.travel("walk")
+
+
+## Prepara el fundido de la desaparición: cada malla del modelo pasa a transparencia con
+## una COPIA de su material (el material del paquete es compartido entre ciudadanos: nunca
+## se toca). Devuelve false si no hubo nada que fundir (entonces desaparece sin fundido).
+func _preparar_fade() -> bool:
+	_fade_mats.clear()
+	var modelo := get_node_or_null("Model")
+	if modelo == null:
+		return false
+	for n in modelo.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var activo := mi.get_active_material(s)
+			if activo == null or not (activo is StandardMaterial3D):
+				continue
+			var copia := (activo as StandardMaterial3D).duplicate() as StandardMaterial3D
+			# Pre-paso de profundidad: el propio cuerpo se tapa bien a sí mismo mientras se
+			# desvanece (sin él, las partes translúcidas se ven unas a través de otras).
+			copia.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+			mi.set_surface_override_material(s, copia)
+			_fade_mats.append(copia)
+	return not _fade_mats.is_empty()
+
+
+## Aplica el fundido según el tiempo de la fase (1 al empezar el paso, 0 al final).
+func _fade_paso() -> void:
+	if not _fade_listo:
+		return
+	var t := clampf((_postura_t - (_dur_penetrar - _dur_fade)) / maxf(_dur_fade, 0.01), 0.0, 1.0)
+	var alfa := 1.0 - t
+	for m: StandardMaterial3D in _fade_mats:
+		m.albedo_color.a = alfa
+
+
+## Entrada terminada: el ciudadano ya está "dentro de la casa". Se avisa al director (suelta
+## la puerta y apunta el reemplazo, así el sistema sigue disponiendo de población) y el
+## ciudadano sale de la escena.
+func _desaparecer() -> void:
+	if director != null and director.has_method("ciudadano_adentro"):
+		director.ciudadano_adentro(self)
+	_postura = ""
+	_postura_fase = ""
+	visible = false
+	queue_free()
+
+
 ## Velocidad del estado POSTURA: caminar por la red hasta el asiento, acercarse, sentarse o
 ## tumbarse (con su clip real), esperar el tiempo del descanso y levantarse.
 func _postura_desired_velocity(delta: float) -> Vector3:
@@ -976,10 +1056,16 @@ func _postura_desired_velocity(delta: float) -> Vector3:
 			var offset := objetivo - global_position
 			offset.y = 0.0
 			if offset.length() <= 0.25:
-				_postura_fase = "entrar"
-				_postura_t = 0.0
-				if _playback:
-					_playback.travel("sit_enter" if _postura == "sentarse" else "lie_down")
+				if _postura == "entrar":
+					# Ya está frente a la puerta: se queda mirándola de frente un instante.
+					_postura_fase = "mirar"
+					_postura_t = 0.0
+					_goto_idle_slot(_idle_slot)
+				else:
+					_postura_fase = "entrar"
+					_postura_t = 0.0
+					if _playback:
+						_playback.travel("sit_enter" if _postura == "sentarse" else "lie_down")
 				return Vector3.ZERO
 			var direction := offset.normalized()
 			var speed := _move_speed()
@@ -988,6 +1074,23 @@ func _postura_desired_velocity(delta: float) -> Vector3:
 			var facing := Vector3(sin(rotation.y + _face_yaw), 0.0, cos(rotation.y + _face_yaw))
 			speed *= clampf(facing.dot(direction), 0.0, 1.0)
 			return direction * speed
+		"mirar":
+			# Frente a la puerta de una casa: el cuerpo gira despacio hasta quedar mirándola
+			# de frente y ahí se queda el tiempo de la espera ("ya voy a entrar").
+			rotation.y = lerp_angle(rotation.y, _postura_yaw, 1.0 - exp(-5.0 * delta))
+			if _postura_t >= _postura_espera:
+				_empezar_penetrar()
+			return Vector3.ZERO
+		"penetrar":
+			# Último paso: entra por el vano mientras se desvanece. La desaparición es
+			# natural (camina hacia dentro y se funde), nunca un parpadeo en la vereda.
+			var avance := _move_speed() * 0.5 * delta
+			global_position += _postura_dir * avance
+			global_position.y = _altura_red(global_position)
+			_fade_paso()
+			if _postura_t >= _dur_penetrar + 0.05:
+				_desaparecer()
+			return Vector3.ZERO
 		"entrar":
 			# Se gira al asiento y se acompaña con el clip; en la reposera además se
 			# pasa del punto de pie al punto tumbado, para no dar ningún salto.
