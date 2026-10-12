@@ -1,4 +1,4 @@
-[gd_scene load_steps=44 format=3 uid="uid://caueivavcv3mb"]
+[gd_scene format=3 uid="uid://caueivavcv3mb"]
 
 [ext_resource type="Script" uid="uid://cwkp6e1corn4m" path="res://personaje/base/scripts/controlador_leo.gd" id="1_ctrl"]
 [ext_resource type="Script" uid="uid://cfj32j2gsqan1" path="res://personaje/base/camara/camara_jugador.gd" id="2_cam"]
@@ -10,36 +10,36 @@
 [ext_resource type="PackedScene" uid="uid://dtm4csncmfx8y" path="res://personaje/transformaciones/humano/models/Standing W_Briefcase Idle.fbx" id="8_leofbx"]
 [ext_resource type="AnimationLibrary" uid="uid://irn1qan22vls" path="res://personaje/transformaciones/humano/animations/leo_animations.tres" id="9_leoanims"]
 [ext_resource type="PackedScene" uid="uid://upwbuhn5j0h2" path="res://personaje/transformaciones/velocidad/modelo/modelo_velocidad.fbx" id="10_vfbx"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_adelante.tres" id="11_caminar_adelante"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_atras.tres" id="12_caminar_atras"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/cargar_poder.tres" id="13_carga"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_1.tres" id="14_combo1"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_2.tres" id="15_combo2"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_3.tres" id="16_combo3"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_4.tres" id="17_combo4"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/dash.tres" id="18_dash"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo.tres" id="19_inactivo"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_velocidad.tres" id="20_inactivo_vel"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_modo_ataque.tres" id="21_modo_ataque"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/salto_aire.tres" id="22_jumping"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/saltar.tres" id="23_saltar"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/superduper_velocidad.tres" id="24_super"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/calentamiento_ataque.tres" id="25_calentamiento"]
+[ext_resource type="AnimationLibrary" uid="uid://l45pr160cbvv" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_adelante.tres" id="11_caminar_adelante"]
+[ext_resource type="AnimationLibrary" uid="uid://b0ade07njkniu" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_atras.tres" id="12_caminar_atras"]
+[ext_resource type="AnimationLibrary" uid="uid://cuou88s6plinv" path="res://personaje/transformaciones/velocidad/animaciones/cargar_poder.tres" id="13_carga"]
+[ext_resource type="AnimationLibrary" uid="uid://cei3n17koc4ax" path="res://personaje/transformaciones/velocidad/animaciones/combo_1.tres" id="14_combo1"]
+[ext_resource type="AnimationLibrary" uid="uid://c7polm1v7a7h4" path="res://personaje/transformaciones/velocidad/animaciones/combo_2.tres" id="15_combo2"]
+[ext_resource type="AnimationLibrary" uid="uid://2e8ojusfl3n8" path="res://personaje/transformaciones/velocidad/animaciones/combo_3.tres" id="16_combo3"]
+[ext_resource type="AnimationLibrary" uid="uid://d2tya2qcs112j" path="res://personaje/transformaciones/velocidad/animaciones/combo_4.tres" id="17_combo4"]
+[ext_resource type="AnimationLibrary" uid="uid://dnrss380b1o73" path="res://personaje/transformaciones/velocidad/animaciones/dash.tres" id="18_dash"]
+[ext_resource type="AnimationLibrary" uid="uid://baga64l4xyrex" path="res://personaje/transformaciones/velocidad/animaciones/inactivo.tres" id="19_inactivo"]
+[ext_resource type="AnimationLibrary" uid="uid://cud4f7ih27haq" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_velocidad.tres" id="20_inactivo_vel"]
+[ext_resource type="AnimationLibrary" uid="uid://c3m5wlbyst7mt" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_modo_ataque.tres" id="21_modo_ataque"]
+[ext_resource type="AnimationLibrary" uid="uid://cp68ygh1vvybr" path="res://personaje/transformaciones/velocidad/animaciones/salto_aire.tres" id="22_jumping"]
+[ext_resource type="AnimationLibrary" uid="uid://bogxv7aestuu4" path="res://personaje/transformaciones/velocidad/animaciones/saltar.tres" id="23_saltar"]
+[ext_resource type="AnimationLibrary" uid="uid://dudo03pvdytdq" path="res://personaje/transformaciones/velocidad/animaciones/superduper_velocidad.tres" id="24_super"]
+[ext_resource type="AnimationLibrary" uid="uid://bdptgit06pb2e" path="res://personaje/transformaciones/velocidad/animaciones/calentamiento_ataque.tres" id="25_calentamiento"]
 [ext_resource type="Script" uid="uid://cgdy25a3isao3" path="res://personaje/base/efectos/efecto_transformacion.gd" id="26_transf"]
 [ext_resource type="PackedScene" path="res://personaje/ui_transformacion/escenas/MenuTransformaciones.tscn" id="27_menu"]
 [ext_resource type="Script" uid="uid://cb47m3mkx71jn" path="res://personaje/hud_transformacion/scripts/estadisticas_jugador.gd" id="28_stats"]
 [ext_resource type="PackedScene" path="res://personaje/hud_transformacion/escenas/HUDCircular.tscn" id="29_hud"]
 [ext_resource type="Script" uid="uid://d4mv6m74yncd5" path="res://personaje/transformaciones/acuatica/character/character_model.gd" id="30_model_slot"]
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/models/futuristic_armor_character.tscn" id="31_aquatic"]
-[ext_resource type="AnimationLibrary" path="res://personaje/base/animations/combos_acuaticos.tres" id="40_combo_agua"]
-[ext_resource type="AnimationLibrary" uid="uid://chvk7ak2d0aqa" path="res://personaje/transformaciones/acuatica/animations/player_animations.tres" id="32_aquatic_anims"]
+[ext_resource type="AnimationLibrary" uid="uid://bketmyjv8pfs6" path="res://personaje/transformaciones/acuatica/animations/player_animations.tres" id="32_aquatic_anims"]
 [ext_resource type="Script" uid="uid://cljq6sirlwe4t" path="res://personaje/base/scripts/receptor_acuatico.gd" id="33_receptor_acuatico"]
 [ext_resource type="PackedScene" uid="uid://gorwfjfql5ie" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="34_fuerza_model"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/fuerza/animations (1)/libraries/FuerzaUniversal.tres" id="35_fuerza_anims"]
-[ext_resource type="Script" path="res://personaje/base/efectos/burbujas_acuaticas.gd" id="36_burbujas"]
-[ext_resource type="Script" path="res://personaje/base/efectos/vista_submarina.gd" id="37_vista_sub"]
-[ext_resource type="PackedScene" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
-[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
+[ext_resource type="AnimationLibrary" uid="uid://b4lp64or1upe4" path="res://personaje/transformaciones/fuerza/animations (1)/libraries/FuerzaUniversal.tres" id="35_fuerza_anims"]
+[ext_resource type="Script" uid="uid://8exb0nntosvj" path="res://personaje/base/efectos/burbujas_acuaticas.gd" id="36_burbujas"]
+[ext_resource type="Script" uid="uid://cioild6bpltdn" path="res://personaje/base/efectos/vista_submarina.gd" id="37_vista_sub"]
+[ext_resource type="PackedScene" uid="uid://d04ufek57sqe8" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
+[ext_resource type="AnimationLibrary" uid="uid://d3rj3sqsndim" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
+[ext_resource type="AnimationLibrary" path="res://personaje/base/animations/combos_acuaticos.tres" id="40_combo_agua"]
 [ext_resource type="AudioStream" uid="uid://scndx4m2k3no" path="res://Audio/personaje/transformacion/transformacion.mp3" id="40_transf_audio"]
 [ext_resource type="AudioStream" uid="uid://bkwmfd3unvcws" path="res://Audio/personaje/transformacion/velocidad/carga.wav" id="41_aud_carga"]
 [ext_resource type="AudioStream" uid="uid://c3xht8kdoshve" path="res://Audio/personaje/transformacion/velocidad/trazado.wav" id="42_aud_trazado"]
@@ -51,7 +51,7 @@
 [ext_resource type="AudioStream" uid="uid://ncesaymca1kr" path="res://Audio/personaje/transformacion/fuerza/piedratirada.mp3" id="48_f_tirada"]
 [ext_resource type="AudioStream" uid="uid://cux5e0gi08kdh" path="res://Audio/personaje/transformacion/fuerza/golpe.mp3" id="49_f_golpe"]
 [ext_resource type="AudioStream" uid="uid://caaqf3gdqifea" path="res://Audio/personaje/transformacion/fuerza/patada.mp3" id="50_f_patada"]
-[ext_resource type="PackedScene" path="res://personaje/transformaciones/vuelo/player/vuelo_player.tscn" id="51_vuelo"]
+[ext_resource type="Script" path="res://personaje/base/scripts/pasos_jugador.gd" id="51_pasos"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -142,49 +142,52 @@ script = ExtResource("26_transf")
 color = Color(0.6, 0.1, 1, 1)
 tiempo_bajada = 0.3
 
-[node name="AudioTransformacion" type="AudioStreamPlayer" parent="."]
-bus = &"Efectos"
+[node name="AudioTransformacion" type="AudioStreamPlayer" parent="." unique_id=427923293]
 stream = ExtResource("40_transf_audio")
-
-[node name="AudioCarga" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioCarga" type="AudioStreamPlayer" parent="." unique_id=517296577]
 stream = ExtResource("41_aud_carga")
-
-[node name="AudioTrazado" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioTrazado" type="AudioStreamPlayer" parent="." unique_id=119543834]
 stream = ExtResource("42_aud_trazado")
-
-[node name="AudioDash" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioDash" type="AudioStreamPlayer" parent="." unique_id=643694672]
 stream = ExtResource("43_aud_dash")
-
-[node name="AudioGolpe" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioGolpe" type="AudioStreamPlayer" parent="." unique_id=1880258394]
 stream = ExtResource("44_aud_golpe")
-
-[node name="AudioFuerzaSalto" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioFuerzaSalto" type="AudioStreamPlayer" parent="." unique_id=1544834607]
 stream = ExtResource("45_f_salto")
-
-[node name="AudioFuerzaImpacto" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioFuerzaImpacto" type="AudioStreamPlayer" parent="." unique_id=44961949]
 stream = ExtResource("46_f_impacto")
-
-[node name="AudioFuerzaAgarre" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioFuerzaAgarre" type="AudioStreamPlayer" parent="." unique_id=1452600944]
 stream = ExtResource("47_f_agarre")
-
-[node name="AudioFuerzaTirada" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioFuerzaTirada" type="AudioStreamPlayer" parent="." unique_id=861532358]
 stream = ExtResource("48_f_tirada")
-
-[node name="AudioFuerzaGolpe" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioFuerzaGolpe" type="AudioStreamPlayer" parent="." unique_id=588775521]
 stream = ExtResource("49_f_golpe")
-
-[node name="AudioFuerzaPatada" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
+
+[node name="AudioFuerzaPatada" type="AudioStreamPlayer" parent="." unique_id=596344821]
 stream = ExtResource("50_f_patada")
+bus = &"Efectos"
+
+[node name="Pasos" type="Node" parent="."]
+script = ExtResource("51_pasos")
 
 [node name="AudioNado" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
@@ -210,9 +213,30 @@ stream = ExtResource("55_golpe_combate")
 
 [node name="Estadisticas" type="Node" parent="." unique_id=984732758]
 script = ExtResource("28_stats")
-perfiles = {"humano": {"vida_max": 50.0, "resistencia_max": 50.0}, "velocista": {"vida_max": 80.0, "resistencia_max": 120.0}, "pes": {"vida_max": 100.0, "resistencia_max": 140.0}, "tanque": {"vida_max": 140.0, "resistencia_max": 60.0}, "combate": {"vida_max": 110.0, "resistencia_max": 90.0}}
+perfiles = {
+"combate": {
+"resistencia_max": 90.0,
+"vida_max": 110.0
+},
+"humano": {
+"resistencia_max": 50.0,
+"vida_max": 50.0
+},
+"pes": {
+"resistencia_max": 140.0,
+"vida_max": 100.0
+},
+"tanque": {
+"resistencia_max": 60.0,
+"vida_max": 140.0
+},
+"velocista": {
+"resistencia_max": 120.0,
+"vida_max": 80.0
+}
+}
 
-[node name="HUD" parent="." groups=["hud_juego"] unique_id=2008386120 instance=ExtResource("29_hud")]
+[node name="HUD" parent="." unique_id=2008386120 groups=["hud_juego"] instance=ExtResource("29_hud")]
 
 [node name="Acuatico" type="Node3D" parent="." unique_id=321920416]
 script = ExtResource("33_receptor_acuatico")
@@ -228,33 +252,32 @@ libraries/combo_agua = ExtResource("40_combo_agua")
 
 [node name="Fuerza" type="Node3D" parent="." unique_id=539067988]
 
-[node name="Model" type="Node3D" parent="Fuerza"]
+[node name="Model" type="Node3D" parent="Fuerza" unique_id=424610193]
 
-[node name="CharacterModel" type="Node3D" parent="Fuerza/Model"]
+[node name="CharacterModel" type="Node3D" parent="Fuerza/Model" unique_id=1385655307]
 transform = Transform3D(-1.98, 0, 0, 0, 1.98, 0, 0, 0, -1.98, 0, 0, 0)
 
-[node name="FuerzaModel" parent="Fuerza/Model/CharacterModel" instance=ExtResource("34_fuerza_model")]
+[node name="FuerzaModel" parent="Fuerza/Model/CharacterModel" unique_id=1296585484 instance=ExtResource("34_fuerza_model")]
 
-[node name="AnimadorFuerza" type="AnimationPlayer" parent="Fuerza"]
-root_node = NodePath("..")
+[node name="AnimadorFuerza" type="AnimationPlayer" parent="Fuerza" unique_id=106448026]
 libraries/ = ExtResource("35_fuerza_anims")
 
-[node name="Ataque" type="Node3D" parent="."]
+[node name="Ataque" type="Node3D" parent="." unique_id=1643420812]
 visible = false
 
-[node name="Modelo" parent="Ataque" instance=ExtResource("38_ataque_model")]
+[node name="Modelo" parent="Ataque" unique_id=2050659837 instance=ExtResource("38_ataque_model")]
 transform = Transform3D(-184.5, 0, 0, 0, 184.5, 0, 0, 0, -184.5, 0, 0, 0)
 
-[node name="AnimadorAtaque" type="AnimationPlayer" parent="Ataque"]
+[node name="AnimadorAtaque" type="AnimationPlayer" parent="Ataque" unique_id=142917]
 root_node = NodePath("../Modelo")
 libraries/ = ExtResource("39_ataque_anims")
 
-[node name="BurbujasAcuaticas" type="Node3D" parent="."]
+[node name="BurbujasAcuaticas" type="Node3D" parent="." unique_id=125122100]
 script = ExtResource("36_burbujas")
 cantidad = 34
 vida = 0.75
 
-[node name="VistaSubmarina" type="Node3D" parent="."]
+[node name="VistaSubmarina" type="Node3D" parent="." unique_id=848636400]
 script = ExtResource("37_vista_sub")
 
 [node name="Vuelo" parent="." instance=ExtResource("51_vuelo")]
