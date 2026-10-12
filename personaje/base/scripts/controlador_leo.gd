@@ -634,11 +634,10 @@ var _menu_abierto: bool = false
 @onready var _sfx_f_tirada: AudioStreamPlayer = $AudioFuerzaTirada
 @onready var _sfx_f_golpe: AudioStreamPlayer = $AudioFuerzaGolpe
 @onready var _sfx_f_patada: AudioStreamPlayer = $AudioFuerzaPatada
-# Cuerpo físico principal (para poder desactivarlo durante el vuelo) y la
-# transformación VUELO (Águila): un personaje COMPLETO y autónomo, instanciado
-# como hijo. Sólo uno de los dos controla al jugador en cada momento.
-@onready var _colision: CollisionShape3D = get_node_or_null("Colision")
-@onready var vuelo: Node3D = $Vuelo
+# Pisadas sincronizadas con la animación real, para las cuatro transformaciones.
+# El nodo vive en la escena del jugador y crea él mismo sus reproductores en el
+# bus "Efectos" (ver personaje/base/scripts/pasos_jugador.gd).
+@onready var pasos: PasosJugador = get_node_or_null("Pasos") as PasosJugador
 
 # --- Estado forma humana ---
 var h_salto_aire: bool = false
@@ -1042,6 +1041,7 @@ func _physics_process(delta: float) -> void:
 	elif forma == Forma.FUERZA:
 		_procesar_fuerza(delta)
 		_actualizar_anim_fuerza(delta)
+		_pasos_actualizar("fuerza", anim_fuerza, is_on_floor() and not _menu_abierto, delta)
 	elif forma == Forma.COMBATE:
 		_procesar_combate(delta)
 	else:
@@ -1060,6 +1060,7 @@ func _physics_process(delta: float) -> void:
 				_procesar_ejecucion(delta)
 		_actualizar_animaciones(delta)
 		_actualizar_pose(delta)
+		_pasos_actualizar("velocista", _anim, is_on_floor() and not _menu_abierto, delta)
 
 	# LÍMITE DE AGUA: sólo la forma acuática puede nadar. Las formas terrestres
 	# (humano, velocista y fuerza) se frenan en la orilla.
@@ -1874,6 +1875,20 @@ func _sonar_fuerza_golpe(es_patada: bool) -> void:
 	p.stop()
 	p.play(AUD_F_PATADA if es_patada else AUD_F_GOLPE)
 
+# --- PISADAS y GOLPE de la forma Combate --------------------------------------
+# Puente al sistema de pisadas (res://personaje/base/scripts/pasos_jugador.gd),
+# que lee la fase del clip real de locomoción y dispara el sonido del pie que toca
+# el suelo. Se llama UNA vez por fotograma desde la forma activa.
+func _pasos_actualizar(forma_nombre: String, ap: AnimationPlayer, permitido: bool, delta: float) -> void:
+	if pasos != null:
+		pasos.actualizar(forma_nombre, ap, permitido, delta)
+
+# Golpe de la forma Combate: UNA vez por golpe y en el instante REAL del impacto
+# (justo donde el módulo da el daño), no al leer el botón ni cada fotograma.
+func _sonar_golpe_combate() -> void:
+	if pasos != null:
+		pasos.golpe_combate()
+
 # ============================================================== FORMA HUMANA (Leo)
 func _direccion_entrada() -> Vector3:
 	var base := pivote.global_transform.basis
@@ -1935,6 +1950,7 @@ func _procesar_humano(delta: float) -> void:
 	_orientar_humano(delta, dir)
 	_actualizar_altura_camara(delta)
 	_actualizar_anim_humano(delta)
+	_pasos_actualizar("humano", anim_humano, is_on_floor() and not h_salto_aire and not _menu_abierto, delta)
 
 func _orientar_humano(delta: float, dir: Vector3) -> void:
 	if dir.length() < 0.05:
@@ -4094,6 +4110,7 @@ func _procesar_combate(delta: float) -> void:
 	if c_estado == C_E.LIBRE:
 		_orientar_combate(delta, dir)
 	_actualizar_anim_combate()
+	_pasos_actualizar("combate", anim_ataque, is_on_floor() and not _menu_abierto, delta)
 
 func _orientar_combate(delta: float, dir: Vector3) -> void:
 	if dir.length() < 0.05:
@@ -4340,6 +4357,7 @@ func _c_fase_golpe(delta: float) -> void:
 
 func _c_aplicar_golpe(objetivo: Node3D) -> void:
 	c_golpe_hecho = true
+	_sonar_golpe_combate()
 	var dir := _dir_plana(objetivo)
 	if objetivo.has_method("take_hit"):
 		objetivo.take_hit(c_golpe.damage, dir, c_golpe.knockback, c_golpe.stun)
@@ -4355,6 +4373,7 @@ func _c_aplicar_golpe(objetivo: Node3D) -> void:
 ## contrato de daño que ya usa la partida (grupo "damageable" + take_damage).
 func _c_golpe_esfera() -> void:
 	c_golpe_hecho = true
+	_sonar_golpe_combate()
 	var adelante := -ataque_visual.global_transform.basis.z
 	adelante.y = 0.0
 	adelante = adelante.normalized() if adelante.length_squared() > 0.0001 else Vector3.FORWARD
