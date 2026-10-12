@@ -10,6 +10,10 @@ extends Node
 ##   resistencia está agotada, el 100 % del daño va a la vida.
 ## - La resistencia NO depende del número de golpes: cada golpe consume una
 ##   cantidad de resistencia proporcional a su daño.
+## - MUERTE: sólo cuando la vida Y la resistencia llegan a cero. Con la
+##   resistencia en positivo el personaje no muere (última reserva defensiva):
+##   puede quedar a 0 de vida y recuperarse si deja de recibir daño. La señal
+##   `murio` se emite UNA vez, en el golpe que agota las dos.
 ##
 ## RECURSOS POR PERSONAJE (no se comparten):
 ##   · Cada forma (humano, velocista, pes, tanque, combate) guarda su propia vida
@@ -135,7 +139,13 @@ func recibir_danio(cantidad: float) -> void:
 	est["t_desde_dano"] = 0.0
 	_fijar_regenerando(false)
 
-	if vida <= 0.0:
+	# CONDICIÓN DE MUERTE (regla del juego): el personaje muere únicamente cuando
+	# la VIDA y la RESISTENCIA están agotadas las dos. Mientras quede reserva
+	# defensiva (resistencia > 0), el golpe mortal lo deja en pie a 0 de vida: es
+	# su ÚLTIMA RESERVA y puede recuperarse si deja de recibir daño (la
+	# regeneración sigue funcionando: no está muerto). El golpe que termina de
+	# vaciar la resistencia lo mata.
+	if vida <= 0.0 and resistencia <= 0.0:
 		est["muerto"] = true
 		_sincronizar_activa()
 		murio.emit()
