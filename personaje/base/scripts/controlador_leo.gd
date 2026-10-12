@@ -101,6 +101,31 @@ const A_GOLPE_RADIO := 0.7
 const A_GOLPE_DANIO := 10.0
 const A_GOLPE_EMPUJE := 4.0
 const A_GOLPE_IMPACTO_U := 0.35
+## MAREA QUEBRADEFENSAS (mecánica del combo acuático): cada 3 IMPACTOS VÁLIDOS
+## consecutivos del combo se levanta una salpicadura grande sobre el último enemigo
+## golpeado y lo deja EMPAPADO. El agua le debilita la defensa: mientras dure el
+## estado (renovable, NUNCA acumulable) los golpes acuáticos le hacen un 5 % más de
+## daño. Un golpe al aire corta la racha: sin impactos reales no hay salpicadura
+## especial ni estado, y las demás formas no se benefician de él.
+const A_MAREA_IMPACTOS := 3
+const A_EMPAPADO_DURACION := 5.0
+const A_EMPAPADO_MULT := 1.05
+## Salpicadura de agua de un golpe acuático que CONECTA (reutiliza los efectos del
+## módulo acuático, WaterEffects). Un golpe al aire no genera NINGÚN efecto de
+## impacto: ni salpicadura, ni onda, ni arrastre de puño (el agua sólo salta donde
+## el golpe alcanza de verdad a un objetivo).
+const A_VFX_GOLPE := 0.9
+## Tamaño y fuerza de la salpicadura especial de la Marea Quebradefensas.
+const A_VFX_MAREA_RADIO := 1.0
+const A_VFX_MAREA_FUERZA := 1.35
+## TURBO acuático (tecla Q mientras se nada): velocidad (m/s) del impulso,
+## duración (s) de la propulsión, enfriamiento (s) antes de poder repetirlo y
+## aceleración (m/s²) con la que el nado mantiene el impulso mientras dura.
+## Son configurables aquí para afinar la sensación durante las pruebas.
+const A_TURBO_VELOCIDAD := 14.0
+const A_TURBO_DURACION := 1.25
+const A_TURBO_ENFRIAMIENTO := 4.0
+const A_TURBO_ACEL := 18.0
 ## Duración (s) de los clips de entrada y salida del agua (miden 1,90 s en la
 ## librería). Sólo son transiciones visuales: la lógica de nado manda desde el
 ## primer fotograma.
@@ -411,6 +436,27 @@ const BLEND_EMOTE := 0.12
 # Fundido al entrar/salir de la transformación.
 const BLEND_TRANSFORMACION := 0.15
 
+# --- SONIDOS de las acciones del velocista (carga, trazado, dash, golpe) ---
+# Offsets MEDIDOS (s) para saltar el silencio DIGITAL de cabecera de los WAV y no
+# meter retardo al empezar: golpe ≈0,136 s, trazado ≈0,133 s. Carga y dash no
+# tienen silencio de cabeza (arrancan en 0). El archivo original NO se toca.
+const AUD_INICIO_TRAZADO := 0.133
+const AUD_INICIO_GOLPE := 0.136
+# Fin del contenido útil del trazado (sin el silencio de cola), para el bucle.
+const AUD_FIN_TRAZADO := 5.477
+
+# --- SONIDOS de las habilidades de FUERZA ---
+# Offsets MEDIDOS (s) para saltar el silencio DIGITAL de cabecera de los mp3 y no
+# meter retardo al empezar. Medidos reproduciendo cada archivo por el bus
+# "Efectos" con captura: salto 0.10, impacto 0.06, agarrapiedra 0.22, piedratirada
+# 0.24, golpe 0.06, patada 0.05. El archivo original NO se toca.
+const AUD_F_SALTO := 0.10
+const AUD_F_IMPACTO := 0.06
+const AUD_F_AGARRE := 0.21
+const AUD_F_TIRADA := 0.23
+const AUD_F_GOLPE := 0.06
+const AUD_F_PATADA := 0.05
+
 # Colores del efecto visual de transformación existente.
 const COLORES_TRANSFORMACION := {
 	&"combate": Color(0.6, 0.1, 1.0, 1.0),
@@ -508,6 +554,23 @@ var _menu_abierto: bool = false
 # modelo y su AnimationPlayer), hermana de las demás representaciones.
 @onready var ataque_visual: Node3D = $Ataque
 @onready var anim_ataque: AnimationPlayer = $Ataque/AnimadorAtaque
+# Reproductores de las acciones del Velocista (carga, trazado, dash y golpe).
+# Son AudioStreamPlayer hijos del jugador, en el bus "Efectos" (igual que el de
+# transformación), así que respetan el volumen general y el de efectos.
+@onready var _sfx_carga: AudioStreamPlayer = $AudioCarga
+@onready var _sfx_trazado: AudioStreamPlayer = $AudioTrazado
+@onready var _sfx_dash: AudioStreamPlayer = $AudioDash
+@onready var _sfx_golpe: AudioStreamPlayer = $AudioGolpe
+# Reproductores de las HABILIDADES de FUERZA (salto, impacto en el suelo, agarre y
+# tirada de roca, puñetazo y patada). Son AudioStreamPlayer hijos del jugador, en
+# el bus "Efectos". Son INDEPENDIENTES entre sí y de los del velocista y de la
+# transformación: uno no detiene a otro.
+@onready var _sfx_f_salto: AudioStreamPlayer = $AudioFuerzaSalto
+@onready var _sfx_f_impacto: AudioStreamPlayer = $AudioFuerzaImpacto
+@onready var _sfx_f_agarre: AudioStreamPlayer = $AudioFuerzaAgarre
+@onready var _sfx_f_tirada: AudioStreamPlayer = $AudioFuerzaTirada
+@onready var _sfx_f_golpe: AudioStreamPlayer = $AudioFuerzaGolpe
+@onready var _sfx_f_patada: AudioStreamPlayer = $AudioFuerzaPatada
 
 # --- Estado forma humana ---
 var h_salto_aire: bool = false
@@ -525,6 +588,22 @@ var a_t_ataque: float = 0.0
 # se golpea UNA sola vez, cuando el brazo llega a su extensión dentro del clip.
 var a_ataque_dur: float = 0.0
 var a_golpe_dado: bool = false
+# FreeFlow acuático: combo acotado al nado / forma acuática; datos y buffer iguales al módulo de combate.
+var a_combo_activo: bool = false
+var a_combo_cadena: int = 0
+var a_combo_golpe: AttackData = null
+var a_combo_fase: float = 0.0
+var a_combo_hecho: bool = false
+var a_combo_objetivo: Node3D = null
+## Impactos VÁLIDOS consecutivos del combo acuático en curso: alimenta la
+## salpicadura especial de la Marea Quebradefensas (una cada A_MAREA_IMPACTOS).
+## Un golpe al aire lo pone a 0 y al cerrar la cadena también vuelve a 0.
+var a_combo_impactos: int = 0
+var _a_combo: ComboSystem = null
+# Impulso turbo sólo durante natación. Tiempo de propulsión y enfriamiento independientes.
+var a_turbo_t: float = 0.0
+var a_turbo_cooldown: float = 0.0
+var a_turbo_dir: Vector3 = Vector3.ZERO
 # NATACIÓN: true mientras el cuerpo está en agua honda y nada en vez de andar.
 var a_nadando: bool = false
 # Tiempo (s) que le queda al clip de transición de entrar o salir del agua.
@@ -661,6 +740,8 @@ var _t_emote: float = 0.0
 var _en_modo_ataque: bool = false
 var _t_modo_ataque: float = 0.0
 var _salto_forzado: bool = false
+# Fundido de salida del sonido del trazado (para un final limpio, sin chasquido).
+var _fade_trazado: Tween
 
 # --- Estado forma Combate (módulo ataque) ---
 var c_salto_aire: bool = false
@@ -693,11 +774,18 @@ func _exit_tree() -> void:
 	_indicador_objetivo = null
 
 func _ready() -> void:
+	# El personaje jugable se identifica con el grupo "player": lo esperan el
+	# módulo de NPC de la partida (peatones que reaccionan a Leo, director que no
+	# siembra gente encima del punto de inicio), el gestor del encuentro y el
+	# gerente de enemigos. Es la MISMA convención que usan los jugadores de los
+	# módulos, así que aquí no se crea ningún sistema nuevo.
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
 	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
 	floor_snap_length = 0.2
 	_configurar_animaciones()
+	_configurar_sonidos_velocista()
 	combate.golpe_realizado.connect(_on_golpe_realizado)
 	# Atacar también corta la regeneración de resistencia (sistema de daño/HUD):
 	# se reutiliza la señal de combate existente, sin crear un segundo sistema.
@@ -730,6 +818,8 @@ func _ready() -> void:
 	# Enfriamientos de las 4 habilidades acuáticas (arrancan listas).
 	for i in ABIL_AGUA.size():
 		a_cooldowns[i + 1] = 0.0
+	a_turbo_t = 0.0
+	a_turbo_cooldown = 0.0
 	# La partida arranca SIEMPRE en la forma humana (Leo).
 	forma = Forma.HUMANO
 	visual.visible = false
@@ -1317,6 +1407,16 @@ func _detener_acuatico() -> void:
 	a_t_ataque = 0.0
 	a_ataque_dur = 0.0
 	a_golpe_dado = false
+	a_combo_activo = false
+	a_combo_cadena = 0
+	a_combo_golpe = null
+	a_combo_fase = 0.0
+	a_combo_hecho = false
+	a_combo_objetivo = null
+	a_combo_impactos = 0
+	_a_combo = null
+	a_turbo_t = 0.0
+	a_turbo_dir = Vector3.ZERO
 	# Natación: al salir de la forma no queda anotado que estaba nadando.
 	a_nadando = false
 	a_t_transicion = 0.0
@@ -1446,6 +1546,8 @@ func _detener_combate() -> void:
 func _detener_velocista() -> void:
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
+	_parar_carga()
+	_parar_trazado()
 	efectos.terminar_dash()
 	efectos.terminar_carga()
 	efectos.terminar_ejecucion()
@@ -1459,6 +1561,102 @@ func _detener_velocista() -> void:
 	pivote.objetivo_fov = pivote.fov_base
 	pivote.definir_pitch(-0.25)
 	pivote.position.y = h_pivote_y_base
+
+# --- SONIDOS de las acciones del velocista (carga, trazado, dash, golpe) -------
+# Cada sonido se dispara desde la función REAL que arranca o termina su acción,
+# no desde la lectura de un botón: así no suena si la acción no llega a ocurrir y
+# no se repite cada fotograma. Todos salen por los AudioStreamPlayer del jugador
+# (bus "Efectos").
+
+## Prepara el sonido del TRAZADO para cubrir un recorrido más largo que el propio
+## archivo: trabaja sobre una COPIA en memoria del WAV (no toca el recurso original
+## ni su importación) y le fija un bucle recortado al tramo útil medido, para que no
+## haya pausa de silencio al repetir.
+func _configurar_sonidos_velocista() -> void:
+	if _sfx_trazado == null:
+		return
+	var st := _sfx_trazado.stream
+	if st is AudioStreamWAV:
+		var w := (st as AudioStreamWAV).duplicate() as AudioStreamWAV
+		var sr := float(w.mix_rate)
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_begin = int(AUD_INICIO_TRAZADO * sr)
+		w.loop_end = int(AUD_FIN_TRAZADO * sr)
+		_sfx_trazado.stream = w
+
+func _sonar_carga() -> void:
+	if _sfx_carga != null and _sfx_carga.stream != null:
+		_sfx_carga.play()
+
+func _parar_carga() -> void:
+	if _sfx_carga != null and _sfx_carga.playing:
+		_sfx_carga.stop()
+
+func _sonar_trazado() -> void:
+	if _sfx_trazado == null or _sfx_trazado.stream == null:
+		return
+	if _fade_trazado != null and _fade_trazado.is_valid():
+		_fade_trazado.kill()
+	_sfx_trazado.volume_db = 0.0
+	_sfx_trazado.play(AUD_INICIO_TRAZADO)
+
+## Detiene el TRAZADO con un fundido muy breve para que el final (o una
+## interrupción) no chasquee. No sincroniza nada: sólo limpia el corte; el arranque
+## y el fin los marcan las funciones reales del recorrido.
+func _parar_trazado() -> void:
+	if _sfx_trazado == null or not _sfx_trazado.playing:
+		return
+	if _fade_trazado != null and _fade_trazado.is_valid():
+		_fade_trazado.kill()
+	_fade_trazado = create_tween()
+	_fade_trazado.tween_property(_sfx_trazado, "volume_db", -40.0, 0.12)
+	_fade_trazado.tween_callback(_detener_trazado_ya)
+
+func _detener_trazado_ya() -> void:
+	if _sfx_trazado != null and is_instance_valid(_sfx_trazado):
+		_sfx_trazado.stop()
+		_sfx_trazado.volume_db = 0.0
+
+func _sonar_dash() -> void:
+	if _sfx_dash != null and _sfx_dash.stream != null:
+		_sfx_dash.stop()
+		_sfx_dash.play()
+
+func _sonar_golpe() -> void:
+	if _sfx_golpe != null and _sfx_golpe.stream != null:
+		_sfx_golpe.stop()
+		_sfx_golpe.play(AUD_INICIO_GOLPE)
+
+# --- SONIDOS de las habilidades de FUERZA -------------------------------------
+# Cada sonido se dispara desde la función REAL del evento (no al leer el botón) y
+# en su propio reproductor: uno no corta a otro. `stop()`+`play()` garantiza UNA
+# emisión por acción aunque la función se llame más de una vez.
+func _sonar_fuerza_salto() -> void:
+	if _sfx_f_salto != null and _sfx_f_salto.stream != null:
+		_sfx_f_salto.stop()
+		_sfx_f_salto.play(AUD_F_SALTO)
+
+func _sonar_fuerza_impacto() -> void:
+	if _sfx_f_impacto != null and _sfx_f_impacto.stream != null:
+		_sfx_f_impacto.stop()
+		_sfx_f_impacto.play(AUD_F_IMPACTO)
+
+func _sonar_fuerza_agarre() -> void:
+	if _sfx_f_agarre != null and _sfx_f_agarre.stream != null:
+		_sfx_f_agarre.stop()
+		_sfx_f_agarre.play(AUD_F_AGARRE)
+
+func _sonar_fuerza_tirada() -> void:
+	if _sfx_f_tirada != null and _sfx_f_tirada.stream != null:
+		_sfx_f_tirada.stop()
+		_sfx_f_tirada.play(AUD_F_TIRADA)
+
+func _sonar_fuerza_golpe(es_patada: bool) -> void:
+	var p: AudioStreamPlayer = _sfx_f_patada if es_patada else _sfx_f_golpe
+	if p == null or p.stream == null:
+		return
+	p.stop()
+	p.play(AUD_F_PATADA if es_patada else AUD_F_GOLPE)
 
 # ============================================================== FORMA HUMANA (Leo)
 func _direccion_entrada() -> Vector3:
@@ -1648,6 +1846,30 @@ func _procesar_acuatico(delta: float) -> void:
 	a_agachado = Input.is_action_pressed("agacharse") and not a_salto_aire
 
 	var dir := _direccion_entrada()
+
+	# 4b) COMBATE en tierra: el MISMO FreeFlow que nadando. El clic izquierdo
+	# encadena los golpes del módulo de ataque (jab/dos/cros/gancho) con sus
+	# ventanas, su buffer y su mismo daño; mientras corre un golpe el cuerpo queda
+	# plantado (igual que el módulo) y al terminar la cadena vuelve el control
+	# normal. El golpe simple acuático queda como respaldo si faltara el clip.
+	var pide_golpe := Input.is_action_just_pressed("atacar") and _puede_golpear_acuatico()
+	if pide_golpe:
+		_combo_acuatico().push_input("attack", dir, 10)
+	if a_combo_activo or pide_golpe:
+		_actualizar_combo_acuatico(delta, dir)
+	if a_combo_activo:
+		# Plantado durante el golpe: sin desplazamiento horizontal; la vertical es
+		# la de siempre (gravedad o suelo) para no quedar flotando.
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= H_GRAVEDAD * delta
+		elif velocity.y < 0.0:
+			velocity.y = -0.1
+		move_and_slide()
+		_actualizar_anim_acuatico(delta)
+		return
+
 	var corriendo := Input.is_action_pressed("correr") and not a_agachado
 	var vel_objetivo := h_vel_caminar
 	if a_agachado:
@@ -1672,13 +1894,6 @@ func _procesar_acuatico(delta: float) -> void:
 		velocity.y = H_SALTO
 		a_salto_aire = true
 		_reproducir_acuatico(ANIM_A_JUMP, H_MEZCLA, true)
-
-	# Ataque propio del personaje acuático: reproduce SU animación y aplica su golpe
-	# corto por delante (grupo "damageable"), sin crear un sistema de combate nuevo.
-	# No se solapa con las habilidades 1-4.
-	if is_on_floor() and Input.is_action_just_pressed("atacar") and not a_ataque_activo \
-			and not a_agachado and not a_en_habilidad:
-		_iniciar_ataque_acuatico()
 
 	move_and_slide()
 	# Se orienta TODO el cuerpo hacia la dirección de desplazamiento, igual que la
@@ -1712,6 +1927,11 @@ func _actualizar_estado_agua(delta: float) -> void:
 			# Al entrar al agua se cancelan los estados de tierra que ya no valen.
 			a_salto_aire = false
 			a_agachado = false
+		else:
+			# Al SALIR del agua (orilla, cubierta del barco o muelle) el turbo se
+			# cancela: un impulso jamás queda "colgado" fuera del medio.
+			a_turbo_t = 0.0
+			a_turbo_dir = Vector3.ZERO
 		if a_clip_transicion != "":
 			_reproducir_acuatico(a_clip_transicion, BLEND_AGUA, true)
 	if a_t_transicion > 0.0:
@@ -1757,6 +1977,315 @@ func _aplicar_vertical_acuatico(delta: float) -> void:
 	velocity.y = move_toward(velocity.y, empuje, A_ACEL_NADO * 2.0 * delta)
 
 
+func _intentar_turbo_acuatico() -> void:
+	if forma != Forma.ACUATICO or not a_nadando or a_turbo_cooldown > 0.0 or a_turbo_t > 0.0:
+		return
+	# El turbo espera a que terminen habilidad, golpe y trepada: nunca arranca en
+	# mitad de un combo (el golpe manda) ni mientras ya hay un impulso o su
+	# enfriamiento en curso. Un ataque SÍ puede empezar durante el turbo: las dos
+	# funciones coexisten y la propulsión sigue su cuenta.
+	if a_en_habilidad or a_ataque_activo or a_combo_activo or a_subiendo_escalera:
+		return
+	a_turbo_t = A_TURBO_DURACION
+	a_turbo_cooldown = A_TURBO_ENFRIAMIENTO
+	a_turbo_dir = _direccion_entrada()
+	if a_turbo_dir.length_squared() < 0.001:
+		a_turbo_dir = _direccion_camara_horizontal()
+	a_turbo_dir.y = 0.0
+	a_turbo_dir = a_turbo_dir.normalized()
+	velocity.x = a_turbo_dir.x * A_TURBO_VELOCIDAD
+	velocity.z = a_turbo_dir.z * A_TURBO_VELOCIDAD
+
+
+func _combo_acuatico() -> Variant:
+	var gestor: Variant = _gestor_encuentro()
+	if gestor != null and gestor.combo != null:
+		return gestor.combo
+	if _a_combo == null:
+		var cfg: Variant = _cfg_encuentro()
+		_a_combo = ComboSystem.new(float(cfg.combo_keep_time), float(cfg.input_buffer_time))
+	return _a_combo
+
+
+func _actualizar_combo_acuatico(delta: float, _dir: Vector3) -> void:
+	var combo: Variant = _combo_acuatico()
+	if a_combo_activo:
+		_procesar_combo_acuatico(delta)
+	else:
+		if _gestor_encuentro() == null:
+			combo.update(delta)
+		var act: Dictionary = combo.pop_valid(_puede_iniciar_golpe_acuatico)
+		if not act.is_empty():
+			if a_combo_golpe == null:
+				a_combo_cadena = 0
+				# Cadena nueva: la cuenta de impactos válidos arranca de cero.
+				a_combo_impactos = 0
+			_iniciar_golpe_acuatico()
+
+
+## ¿El pez puede golpear AHORA MISMO? Vale NADANDO y en TIERRA de pie (el golpe
+## cuerpo a cuerpo del módulo acuático ya existía en tierra, no sólo en el agua):
+## nunca durante una habilidad, una trepada o agachado (los clips del combo son
+## de pie; el clic agachado no se encola).
+func _puede_golpear_acuatico() -> bool:
+	return not a_en_habilidad and not a_subiendo_escalera and not a_agachado \
+			and (a_nadando or is_on_floor())
+
+
+func _puede_iniciar_golpe_acuatico(action: String) -> bool:
+	return action == "attack" and _puede_golpear_acuatico()
+
+
+func _iniciar_golpe_acuatico() -> void:
+	var cadena: Array = _cadena_combate(_cfg_encuentro())
+	if cadena.is_empty():
+		return
+	a_combo_cadena = posmod(a_combo_cadena, cadena.size())
+	a_combo_golpe = cadena[a_combo_cadena] as AttackData
+	# Comprobación REAL del recurso: si el clip del combo no estuviera en la
+	# librería acuática, el golpe NO se queda sin animación: entra el golpe simple
+	# del módulo acuático (misma cadena de daño, clip `attack`), en vez de
+	# reproducir un nombre inexistente.
+	if not anim_acuatico_has("combo_agua/" + a_combo_golpe.animation):
+		a_combo_golpe = null
+		_iniciar_ataque_acuatico()
+		return
+	# ORIENTACIÓN (la regla del personaje de Combate, ver su player.gd): el golpe
+	# sale hacia donde MIRA EL CUERPO. Aquí NO se reorienta nada: el personaje
+	# conserva la orientación que ya traía (la de su movimiento) y sólo gira
+	# SUAVEMENTE hacia el objetivo elegido, a ritmo limitado, durante la
+	# preparación del golpe (igual que `_state_windup`/`_state_active` del módulo).
+	# Antes se forzaba aquí un giro seco hacia el frente de la cámara: mirando a un
+	# lado, el ataque salía hacia el frente de la cámara.
+	# El objetivo ANTERIOR sólo cuenta si sigue siendo un objeto vivo: uno ya
+	# liberado no puede pasarse a la selección (la llamada es tipada y revienta
+	# con "previously freed") ni debe condicionar el apuntado nuevo.
+	var previo_a: Node3D = a_combo_objetivo if is_instance_valid(a_combo_objetivo) else null
+	a_combo_objetivo = CombatTargeting.select_target(acuatico, _direccion_entrada(), _direccion_camara_horizontal(), _enemigos_combate(), _cfg_encuentro(), previo_a, _amenazas_combate())
+	a_combo_activo = true
+	a_combo_fase = a_combo_golpe.windup
+	a_combo_hecho = false
+	# Los golpes viven en la librería `combo_agua`, no en la global.
+	_reproducir_acuatico("combo_agua/" + a_combo_golpe.animation, BLEND_ATAQUE, true)
+
+
+func _procesar_combo_acuatico(delta: float) -> void:
+	if _gestor_encuentro() == null:
+		_combo_acuatico().update(delta)
+	if a_combo_golpe == null:
+		a_combo_activo = false
+		return
+	if not a_combo_hecho and a_combo_fase > 0.0:
+		# PREPARACIÓN del golpe: giro SUAVE hacia el objetivo elegido, a ritmo
+		# limitado (rad/s), exactamente como el personaje de Combate en su
+		# `_state_windup`/`_state_active`. Sin objetivo no corrige nada: el cuerpo
+		# conserva la orientación que traía y el golpe sale hacia ella.
+		_a_girar_hacia_objetivo(delta)
+		a_combo_fase -= delta
+		if a_combo_fase > 0.0:
+			return
+	if not a_combo_hecho:
+		a_combo_hecho = true
+		var adelante: Vector3 = -acuatico.global_transform.basis.z
+		adelante.y = 0.0
+		adelante = adelante.normalized() if adelante.length_squared() > 0.0001 else Vector3.FORWARD
+		var centro: Vector3 = global_position + adelante * a_combo_golpe.attack_range
+		var golpeados: int = 0
+		var ultimo: Node3D = null
+		for n in get_tree().get_nodes_in_group("damageable"):
+			var target: Node3D = n as Node3D
+			if target == null or target == self: continue
+			var d: Vector3 = target.global_position - global_position
+			d.y = 0.0
+			# Alcance + radio REAL del objetivo (mismo criterio que el módulo
+			# FreeFlow y que el golpe simple acuático: ambos suman el hit radius):
+			# una cápsula se alcanza desde su borde, no sólo desde su centro.
+			var alcance: float = a_combo_golpe.attack_range
+			if target.has_method("get_hit_radius"):
+				alcance += float(target.call("get_hit_radius"))
+			if d.length() > alcance or adelante.dot(d.normalized()) < 0.25: continue
+			# Un objetivo ya derrotado (o que ya no está vivo) no es válido: ni
+			# daño ni efecto. Los muertos salen del grupo al morir, pero la
+			# condición de muerte puede adelantarse un fotograma.
+			if target.has_method("is_alive") and not bool(target.call("is_alive")):
+				continue
+			# DAÑO: el base del módulo, por A_EMPAPADO_MULT si el objetivo está
+			# EMPAPADO (Marea Quebradefensas). El modificador es ÚNICO y sólo lo
+			# consultan los ataques acuáticos: el daño base nunca se toca.
+			var danio: float = a_combo_golpe.damage
+			if EmpapadoAcuatico.activo_en(target):
+				danio *= A_EMPAPADO_MULT
+			# El efecto de impacto NO se dispara por activar el hitbox: sólo se
+			# genera si el contrato de daño confirma que el golpe se aplicó. Los
+			# contratos del proyecto son `void`; el que puede confirmarlo (el
+			# `take_hit` del enemigo) devuelve bool y se respeta. Si no devuelve
+			# nada, el impacto se da por aplicado, igual que hace el módulo de
+			# combate al aplicar el MISMO contrato (sin duplicar el daño).
+			var aplicado := true
+			if target.has_method("take_hit"):
+				var r: Variant = target.call("take_hit", danio, d.normalized(), a_combo_golpe.knockback, a_combo_golpe.stun)
+				if r is bool:
+					aplicado = bool(r)
+			elif target.has_method("apply_damage"):
+				var r: Variant = target.call("apply_damage", danio, centro, &"melee")
+				if r is bool:
+					aplicado = bool(r)
+			elif target.has_method("take_damage"):
+				var r: Variant = target.call("take_damage", danio, centro, d.normalized() * a_combo_golpe.knockback)
+				if r is bool:
+					aplicado = bool(r)
+			else:
+				# Sin contrato de daño no hay impacto válido: ni cuenta ni salpica.
+				continue
+			if not aplicado:
+				# Inmune (o no dañable) en este momento: no se presenta como un
+				# impacto exitoso ni deja efecto.
+				continue
+			golpeados += 1
+			ultimo = target
+			# Salpicadura del golpe EN EL PUNTO REAL DEL IMPACTO (el centro de
+			# golpe del propio objetivo) y hacia la dirección del puñetazo (nunca
+			# una dirección fija del mundo): sólo aquí, con el daño confirmado.
+			_vfx_golpe_acuatico(_punto_impacto(target), _pies_de(target), adelante)
+		_combo_acuatico().register_hit()
+		if golpeados == 0:
+			# GOLPE AL AIRE: NINGÚN efecto de impacto (ni salpicadura, ni onda, ni
+			# arrastre del puño): el agua sólo salta donde el golpe alcanza de
+			# verdad a un objetivo válido. La racha de la Marea Quebradefensas se
+			# corta.
+			a_combo_impactos = 0
+		else:
+			a_combo_impactos += 1
+			if a_combo_impactos % A_MAREA_IMPACTOS == 0:
+				# MAREA QUEBRADEFENSAS: se completa al tercer impacto VÁLIDO.
+				_marea_quebradefensas(ultimo, adelante)
+		a_combo_fase = a_combo_golpe.active + a_combo_golpe.recovery
+		return
+	# RECUPERACIÓN CANCELABLE: en cuanto haya un ataque válido en el buffer se
+	# encadena el siguiente golpe ya, sin esperar a que el temporizador llegue a
+	# cero. Es la regla exacta del recovery del módulo FreeFlow (`_state_recovery`
+	# consume el buffer en el primer fotograma en que es válido), y es lo que hace
+	# que la cadena fluya al ritmo real de los clics.
+	var queued: Dictionary = _combo_acuatico().pop_valid(_puede_iniciar_golpe_acuatico)
+	if not queued.is_empty():
+		a_combo_cadena = (a_combo_cadena + 1) % maxi(1, _cadena_combate(_cfg_encuentro()).size())
+		_iniciar_golpe_acuatico()
+		return
+	a_combo_fase -= delta
+	if a_combo_fase <= 0.0:
+		# Fin del golpe sin nada buffereado: la siguiente pulsación empieza una
+		# cadena nueva desde el primer golpe, igual que el cierre del módulo.
+		a_combo_activo = false
+		a_combo_cadena = 0
+		a_combo_golpe = null
+		a_combo_impactos = 0
+
+
+# -----------------------------------------------------------------------------
+#  Apoyo del combo acuático (orientación de combate + efectos de agua)
+# -----------------------------------------------------------------------------
+## Giro suave hacia el objetivo durante la preparación del golpe: la MISMA regla
+## del personaje de Combate (`_state_windup`/`_state_active` de su player.gd): si
+## hay objetivo elegido gira hacia él a `player_turn_speed` rad/s con tope por
+## fotograma (nunca un salto seco); si no lo hay, no corrige nada y el cuerpo
+## conserva su orientación. En la recuperación no se gira (igual que el módulo).
+func _a_girar_hacia_objetivo(delta: float) -> void:
+	if not _a_objetivo_valido():
+		return
+	var cfg: Variant = _cfg_encuentro()
+	var ritmo := C_GIRO if cfg == null else float(cfg.player_turn_speed)
+	_a_girar_hacia(_a_dir_plana(a_combo_objetivo), delta, ritmo)
+
+
+func _a_girar_hacia(dir: Vector3, delta: float, ritmo: float) -> void:
+	dir.y = 0.0
+	if dir.length() < 0.001:
+		return
+	var meta := atan2(-dir.x, -dir.z)
+	var dif := wrapf(meta - acuatico.rotation.y, -PI, PI)
+	var paso := maxf(0.0001, ritmo) * delta
+	acuatico.rotation.y = wrapf(acuatico.rotation.y + clampf(dif, -paso, paso), -PI, PI)
+
+
+func _a_objetivo_valido() -> bool:
+	if a_combo_objetivo == null or not is_instance_valid(a_combo_objetivo):
+		return false
+	if a_combo_objetivo.has_method("is_alive") and not a_combo_objetivo.is_alive():
+		return false
+	return true
+
+
+func _a_dir_plana(n: Node3D) -> Vector3:
+	var to := n.global_position - global_position
+	to.y = 0.0
+	return to.normalized() if to.length() > 0.001 else Vector3.ZERO
+
+
+## Punto REAL del impacto sobre un objetivo: su centro de golpe si lo declara (el
+## mismo contrato que usan las habilidades de agua), si no su posición +1 m.
+func _punto_impacto(objetivo: Node3D) -> Vector3:
+	if objetivo.has_method("get_hit_center"):
+		return objetivo.call("get_hit_center")
+	return objetivo.global_position + Vector3.UP * 1.0
+
+
+## El suelo que pisa un objetivo (para las ondas de la salpicadura).
+func _pies_de(objetivo: Node3D) -> Vector3:
+	return Vector3(objetivo.global_position.x, objetivo.global_position.y + 0.04,
+			objetivo.global_position.z)
+
+
+## Nodo del MUNDO donde se cuelgan los efectos: el padre del jugador si es 3D y,
+## si no, la escena. Mismo criterio que el indicador de objetivo del FreeFlow.
+func _host_efectos() -> Node3D:
+	var padre: Node = get_parent()
+	if padre is Node3D and padre.is_inside_tree():
+		return padre as Node3D
+	return get_tree().current_scene as Node3D
+
+
+## Salpicadura de agua de un golpe acuático QUE HA CONECTADO: reutiliza los efectos
+## de agua del módulo acuático (WaterEffects). Agua que salta en el punto REAL del
+## impacto, arrastre de gotas en la dirección del puñetazo y una onda en el suelo
+## que pisa el objetivo. Un golpe al aire NO llama aquí: sin daño confirmado no hay
+## ningún efecto de impacto.
+func _vfx_golpe_acuatico(punto: Vector3, suelo: Vector3, dir: Vector3) -> void:
+	var host := _host_efectos()
+	if host == null:
+		return
+	var d := dir
+	d.y = 0.0
+	d = d.normalized() if d.length_squared() > 0.0001 else Vector3.FORWARD
+	WaterEffects.bubbles(host, punto, 12, 0.3, 0.8)
+	WaterEffects.current(host, punto, d, 0.28, A_VFX_GOLPE)
+	WaterEffects.surface_ripple(host, suelo, 0.5)
+
+
+## MAREA QUEBRADEFENSAS: salpicadura especial al completar los A_MAREA_IMPACTOS
+## impactos válidos. Se genera sobre el enemigo que recibió el TERCER golpe (nunca
+## sobre los que no fueron alcanzados) y lo deja EMPAPADO: defensa debilitada, con
+## un 5 % más de daño acuático durante A_EMPAPADO_DURACION segundos, renovable y
+## sin acumularse (lo gestiona EmpapadoAcuatico). La animación del personaje no se
+## toca: todo es efecto y estado, nada de esqueleto ni desplazamientos.
+func _marea_quebradefensas(objetivo: Node3D, dir: Vector3) -> void:
+	if objetivo == null or not is_instance_valid(objetivo):
+		return
+	var punto := _punto_impacto(objetivo)
+	var host := _host_efectos()
+	if host != null:
+		var d := dir
+		d.y = 0.0
+		d = d.normalized() if d.length_squared() > 0.0001 else Vector3.FORWARD
+		# La descarga grande: explosión de gotas hacia fuera + onda + destello.
+		WaterEffects.burst(host, punto, A_VFX_MAREA_RADIO, A_VFX_MAREA_FUERZA)
+		# La presión del golpe, siguiendo la dirección real del puñetazo.
+		WaterEffects.current(host, punto, d, 0.5, A_VFX_MAREA_FUERZA * 0.8)
+		# Y el agua que ha caído, marcando el suelo a los pies del enemigo.
+		WaterEffects.surface_ripple(host, _pies_de(objetivo), A_VFX_MAREA_RADIO * 0.8)
+	# El estado (con su señal visual de enemigo mojado) vive colgado del enemigo.
+	EmpapadoAcuatico.aplicar_a(objetivo, A_EMPAPADO_DURACION)
+
+
 ## NATACIÓN: el agua no es una barrera, es un medio en el que la forma acuática se
 ## mueve en 3D. Horizontal respecto a la cámara con inercia de pez; vertical con
 ## flotabilidad (arriba), y buceo con CTRL. Al soltar, el cuerpo vuelve solo a la
@@ -1764,14 +2293,49 @@ func _aplicar_vertical_acuatico(delta: float) -> void:
 ## playa caminando sin atravesar el suelo.
 func _procesar_nado(delta: float) -> void:
 	a_salto_aire = false
+	a_turbo_cooldown = maxf(a_turbo_cooldown - delta, 0.0)
+	if Input.is_action_just_pressed("agua_turbo"):
+		_intentar_turbo_acuatico()
+	if a_turbo_t > 0.0:
+		a_turbo_t = maxf(a_turbo_t - delta, 0.0)
+	else:
+		a_turbo_dir = Vector3.ZERO
 	a_agachado = false
 	var dir := _direccion_entrada()
+	var combo: Variant = _combo_acuatico()
+	if Input.is_action_just_pressed("atacar") and _puede_golpear_acuatico():
+		combo.push_input("attack", dir, 10)
+	# El ataque FreeFlow sólo toma prioridad durante el estado activo del combo.
+	if a_combo_activo:
+		_actualizar_combo_acuatico(delta, dir)
+		if a_turbo_t <= 0.0:
+			velocity.x = 0.0
+			velocity.z = 0.0
+		_aplicar_vertical_acuatico(delta)
+		move_and_slide()
+		# DURANTE EL COMBO no se orienta con la entrada (la regla del módulo de
+		# Combate): el único giro es el suave hacia el objetivo elegido, que ya
+		# hizo `_actualizar_combo_acuatico`. Antes el cuerpo seguía girando con la
+		# dirección de nado y el golpe salía torcido respecto de la animación.
+		_actualizar_anim_acuatico(delta)
+		return
+	if Input.is_action_just_pressed("atacar") and _puede_golpear_acuatico():
+		_actualizar_combo_acuatico(delta, dir)
+		if a_combo_activo:
+			_aplicar_vertical_acuatico(delta)
+			move_and_slide()
+			# Sin giro por entrada durante el golpe (misma regla que en tierra).
+			_actualizar_anim_acuatico(delta)
+			return
 	# Mantener "correr" nadando = NADO RÁPIDO. Sólo cambia el horizontal: la vertical
 	# la siguen mandando flotar (saltar) y bucear (agacharse), así que no se
 	# despega del agua.
 	var rapido := Input.is_action_pressed("correr")
 	var vel_nado := A_VEL_NADO_RAPIDO if rapido else A_VEL_NADO
 	var acel_nado := A_ACEL_NADO_RAPIDO if rapido else A_ACEL_NADO
+	if a_turbo_t > 0.0:
+		vel_nado = A_TURBO_VELOCIDAD
+		acel_nado = A_TURBO_ACEL
 	# Al SOLTAR SHIFT el cuerpo no vuelve de golpe al nado normal: desacelera con
 	# una tasa propia hasta la velocidad de crucero (sensación de pez que se deja
 	# llevar). Al acelerar sí se usa la tasa del tramo que se está pidiendo.
@@ -1786,11 +2350,6 @@ func _procesar_nado(delta: float) -> void:
 	velocity.z = horiz.z
 
 	_aplicar_vertical_acuatico(delta)
-
-	# Ataque cuerpo a cuerpo con el botón de SIEMPRE, también nadando o sumergido. No
-	# se solapa con las habilidades 1-4: si hay una en curso, el clic no hace nada.
-	if not a_ataque_activo and not a_en_habilidad and Input.is_action_just_pressed("atacar"):
-		_iniciar_ataque_acuatico()
 
 	move_and_slide()
 	_orientar_acuatico(delta, dir)
@@ -1837,6 +2396,9 @@ func _iniciar_trepada(esc: EscaleraBarco, bajando: bool) -> void:
 	a_agachado = false
 	a_salto_aire = false
 	a_t_ataque = 0.0
+	# Agarrar la escalera cancela el turbo (el cuerpo pasa a recorrido guiado).
+	a_turbo_t = 0.0
+	a_turbo_dir = Vector3.ZERO
 	velocity = Vector3.ZERO
 	_cancelar_carga_agua()
 	global_position = esc.punto_trepada(_escalera_u)
@@ -2003,6 +2565,7 @@ func _terminar_trepada(soltar: bool) -> void:
 
 
 func _iniciar_ataque_acuatico() -> void:
+	# Ataque cuerpo a cuerpo existente se conserva para la forma acuática en tierra.
 	# Trepando por la escalera no se ataca (el cuerpo va por un recorrido guiado).
 	if a_subiendo_escalera:
 		return
@@ -2056,12 +2619,17 @@ func _aplicar_impacto_golpe_acuatico() -> void:
 			continue
 		if absf(objetivo.global_position.y - global_position.y) > A_GOLPE_ALCANCE + 1.0:
 			continue
+		# Mismo modificador ÚNICO de la Marea Quebradefensas que usa el combo: el
+		# golpe simple acuático también es un ataque acuático. Nunca se acumula.
+		var danio := A_GOLPE_DANIO
+		if EmpapadoAcuatico.activo_en(objetivo):
+			danio *= A_EMPAPADO_MULT
 		if objetivo.has_method("apply_damage"):
-			objetivo.call("apply_damage", A_GOLPE_DANIO, centro, &"melee")
+			objetivo.call("apply_damage", danio, centro, &"melee")
 		elif objetivo.has_method("take_damage"):
 			var dir := plano
 			dir = dir.normalized() if dir.length_squared() > 0.0001 else empuje_dir
-			objetivo.call("take_damage", A_GOLPE_DANIO, centro,
+			objetivo.call("take_damage", danio, centro,
 					(dir + Vector3.UP * 0.3).normalized() * A_GOLPE_EMPUJE)
 
 func _orientar_acuatico(delta: float, dir: Vector3) -> void:
@@ -2072,6 +2640,10 @@ func _orientar_acuatico(delta: float, dir: Vector3) -> void:
 
 func _actualizar_anim_acuatico(delta: float) -> void:
 	if anim_acuatico == null:
+		return
+	if a_combo_activo:
+		anim_acuatico.speed_scale = 1.0
+		_reproducir_acuatico("combo_agua/" + a_combo_golpe.animation)
 		return
 	if a_ataque_activo:
 		a_t_ataque -= delta
@@ -2161,7 +2733,7 @@ func _intentar_habilidad_agua(idx: int) -> void:
 		return
 	if idx < 1 or idx > ABIL_AGUA.size():
 		return
-	if a_en_habilidad or a_pendiente > 0 or a_ataque_activo:
+	if a_en_habilidad or a_pendiente > 0 or a_ataque_activo or a_combo_activo:
 		return
 	if float(a_cooldowns.get(idx, 0.0)) > 0.0:
 		return
@@ -2439,6 +3011,7 @@ func _procesar_fuerza(delta: float) -> void:
 			velocity.y = F_SALTO
 			f_salto_aire = true
 			_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+			_sonar_fuerza_salto()
 
 	# El indicador de carga se queda un instante a tope tras el supersalto.
 	if _f_flash_indicador > 0.0 and not f_super_cargando:
@@ -2596,6 +3169,7 @@ func _procesar_slam_fuerza(_delta: float) -> void:
 		f_slam = false
 		f_salto_aire = false
 		_reproducir_fuerza(ANIM_F_SLAMIMPACT, BLEND_ATAQUE, true)
+		_sonar_fuerza_impacto()
 		_f_bloqueo_anim = 0.6
 		var onda := FuerzaShockwave.new()
 		onda.radius = F_SLAM_RADIO
@@ -2637,6 +3211,7 @@ func _intentar_roca_fuerza() -> void:
 	host.add_child(roca)
 	roca.global_position = _posicion_roca_nace()
 	roca.sujetar()
+	_sonar_fuerza_agarre()
 	f_roca = roca
 	f_cargando_roca = true
 	f_roca_lista = false
@@ -2669,6 +3244,7 @@ func _lanzar_roca_fuerza() -> void:
 	var dir := _direccion_lanzamiento_roca(
 		f_roca.global_position, objetivo, F_ROCA_VEL, gravedad_efectiva)
 	f_roca.lanzar(dir, F_ROCA_VEL)
+	_sonar_fuerza_tirada()
 	# La piedra lanzada SIGUE existiendo (vuela, impacta y se desvanece sola):
 	# se conserva la referencia hasta que salga del árbol de escena; mientras
 	# exista, Q no puede arrancar otra del suelo.
@@ -2862,6 +3438,7 @@ func _ejecutar_super() -> void:
 		velocity.y = F_SALTO
 		f_salto_aire = true
 		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+		_sonar_fuerza_salto()
 		return
 	var fr := clampf(inverse_lerp(F_SUPER_CARGA_MIN, F_SUPER_CARGA_MAX, cargado), 0.0, 1.0)
 	velocity.y = lerpf(F_SUPER_VEL_MIN, F_SUPER_VEL_MAX, fr)
@@ -2879,6 +3456,7 @@ func _ejecutar_super() -> void:
 		velocity.z = rumbo.z * F_SUPER_IMPULSO
 	_reproducir_fuerza(ANIM_F_SUPERJUMP, BLEND_SALTO, true)
 	_f_bloqueo_anim = maxf(_duracion_fuerza(ANIM_F_SUPERJUMP), 0.2)
+	_sonar_fuerza_salto()
 	# El indicador se queda un momento a tope: se ve la fuerza que llevaba.
 	_f_flash_indicador = 0.35
 	_actualizar_indicador_super(1.0, true)
@@ -3123,6 +3701,7 @@ func _procesar_ataque_fuerza() -> void:
 
 func _aplicar_impacto_golpe_fuerza() -> void:
 	var es_patada := _f_ataque_clip == ANIM_F_KICK
+	_sonar_fuerza_golpe(es_patada)
 	var dano := F_PATADA_DANIO if es_patada else F_PUNIO_DANIO
 	var altura := F_PATADA_ALTURA if es_patada else F_GOLPE_ALTURA
 	var punto := _punto_golpe_fuerza(altura)
@@ -3350,7 +3929,19 @@ func _puede_iniciar_golpe(action: String) -> bool:
 func _gestor_encuentro() -> Node:
 	if _gestor_combate == null or not is_instance_valid(_gestor_combate):
 		_gestor_combate = get_tree().get_first_node_in_group("combat_manager")
+		# El gestor ya avisa cuando un enemigo muere: con eso el objetivo se suelta
+		# al instante y nunca queda una referencia a un nodo liberado.
+		if _gestor_combate != null and _gestor_combate.has_signal("enemy_died") \
+				and not _gestor_combate.enemy_died.is_connected(_on_enemigo_combate_muerto):
+			_gestor_combate.enemy_died.connect(_on_enemigo_combate_muerto)
 	return _gestor_combate
+
+## Enemigo del encuentro que acaba de morir: si era el objetivo del FreeFlow se
+## suelta la referencia (y se apaga el indicador) sin esperar al siguiente fotograma.
+func _on_enemigo_combate_muerto(enemigo: Node3D) -> void:
+	if enemigo == c_objetivo:
+		c_objetivo = null
+		_actualizar_indicador_objetivo()
 
 ## Config vigente: la del gestor si existe; si no, la del propio módulo de
 ## ataque (los MISMOS valores del sistema FreeFlow: no se inventa ninguno).
@@ -3398,7 +3989,9 @@ func _iniciar_golpe_combate() -> void:
 	var previo: Node3D = c_objetivo if is_instance_valid(c_objetivo) else null
 	# La orientación de esta forma vive en el nodo visual (el cuerpo no gira):
 	# se le pasa a la selección para que "hacia dónde miro" cuente como en el módulo.
-	c_objetivo = CombatTargeting.select_target(ataque_visual, _direccion_entrada(), _direccion_camara_horizontal(), _enemigos_combate(), cfg, c_objetivo, _amenazas_combate())
+	# `previo` ya viene saneado (null si el objetivo anterior fue liberado): un
+	# enemigo muerto y retirado no puede pasarse a la selección tipada.
+	c_objetivo = CombatTargeting.select_target(ataque_visual, _direccion_entrada(), _direccion_camara_horizontal(), _enemigos_combate(), cfg, previo, _amenazas_combate())
 	# Cambiar de objetivo es INMEDIATO y NO reinicia la cadena: el golpe en curso
 	# conserva su clip y la secuencia sigue por donde iba (el siguiente golpe sale
 	# ya hacia el enemigo nuevo). Ver `target_switch_threshold` del config.
@@ -3614,7 +4207,7 @@ func _actualizar_indicador_objetivo(delta: float = 0.0) -> void:
 	# Un enemigo puede morir y liberarse mientras era el objetivo: se limpia AQUÍ,
 	# antes de que nadie más lea la referencia, para que no quede una colgada (con
 	# ella el siguiente ataque fallaba al convertirla a Node3D).
-	if c_objetivo != null and not is_instance_valid(c_objetivo):
+	if not is_instance_valid(c_objetivo):
 		c_objetivo = null
 	if forma != Forma.COMBATE or not _objetivo_valido():
 		if _indicador_objetivo != null and is_instance_valid(_indicador_objetivo):
@@ -3756,6 +4349,7 @@ func _procesar_normal(delta: float) -> void:
 		_iniciar_carga()
 
 func _on_golpe_realizado(indice: int) -> void:
+	_sonar_golpe()
 	_en_modo_ataque = true
 	_t_modo_ataque = TIEMPO_MODO_ATAQUE
 	_emote_activo = false
@@ -3970,6 +4564,7 @@ func _iniciar_dash(dir: Vector3) -> void:
 	_t_dash = 0.0
 	_bloqueo_anim = 0.0
 	efectos.iniciar_dash(dir)
+	_sonar_dash()
 
 func _procesar_dash(delta: float) -> void:
 	_t_dash += delta
@@ -4015,6 +4610,7 @@ func _iniciar_carga() -> void:
 	var cam := pivote.get_node_or_null("Brazo/Camara") as Camera3D
 	trazador.iniciar(global_position, cam, 0.0)
 	efectos.iniciar_carga()
+	_sonar_carga()
 
 func _procesar_carga(delta: float) -> void:
 	_t_carga += delta
@@ -4032,6 +4628,7 @@ func _procesar_carga(delta: float) -> void:
 		_soltar_carga()
 
 func _soltar_carga() -> void:
+	_parar_carga()
 	pivote.permitir_look = true
 	pivote.vibracion = 0.0
 	pivote.objetivo_largo = pivote.largo_base
@@ -4074,6 +4671,7 @@ func _iniciar_recorrido() -> void:
 	pivote.objetivo_largo = pivote.largo_base * 0.9
 	pivote.objetivo_fov = pivote.fov_base + 20.0
 	pivote.vibracion = 0.6
+	_sonar_trazado()
 
 # ---------------- Ejecución de la trayectoria ----------------
 # El recorrido se apoya en el terreno REAL de la isla. Antes se hacía con un
@@ -4187,6 +4785,7 @@ func _terminar_ejecucion() -> void:
 	_super_golpeados.clear()
 	_bloqueo_anim = BLOQUEO_FIN_VELOCIDAD
 	_reproducir_anim(ANIM_INACTIVO, BLEND_FIN_VELOCIDAD)
+	_parar_trazado()
 
 # ---------------- Animaciones (velocista) ----------------
 func _configurar_animaciones() -> void:

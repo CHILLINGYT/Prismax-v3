@@ -9,8 +9,24 @@ extends Node3D
 ##    * a media manzana en las aceras de todos los viales (seis por línea),
 ##    * en las esquinas de cada cruce,
 ##    * y en los parques.
-##  Siempre a 0,45 m del bordillo, mirando hacia la calzada, así que no estorban
-##  el paso ni el recorrido del velocista (no llevan colisión: son decoración).
+##
+##  ORIENTACIÓN Y SITIO DE LAS FAROLAS DE ACERA (corregido):
+##   · El brazo apunta SIEMPRE hacia la calzada (hacia el eje del vial): el poste va
+##     en la acera y la cabeza cuelga sobre el bordillo, como en la calle de verdad.
+##     Antes el brazo salía girado 180° y se metía en la fachada, atravesando el muro.
+##   · El poste se planta a `borde` (0,45 m) del BORDILLO, nunca arrimado a la fachada
+##     (antes quedaba a 0,45 m del muro y se incrustaba en los portales y en las
+##     molduras de la fachada).
+##   · Antes de plantar una farola se mira el mobiliario REAL que el generador ya ha
+##     colocado en esa acera (árboles, canteros, bancos, palmeras): si el sitio está
+##     ocupado, la farola se corre a lo largo del vial y, si no cabe en ninguno de los
+##     sitios válidos, se descarta. Así ninguna queda dentro de un árbol ni de un cantero.
+##   · Las farolas de los PARQUES/PLAZAS no se tocan: se colocan como siempre, en las
+##     esquinas del césped, con su posición, su giro y su luz (ver `_parques`).
+##
+##  Las farolas de acera llevan colisión (cilindro del poste, capa 1): el jugador no
+##  las atraviesa. Los peatones no usan física (van por la red peatonal), así que se
+##  les avisa al director como obstáculos en planta y las RODEAN igual que un árbol.
 ##
 ##  El modelo es geométrico (poste, brazo y cabeza) con una placa de vidrio, y se
 ##  dibuja con MultiMeshInstance3D: un solo dibujado para todas las farolas.
@@ -34,6 +50,12 @@ const ALTURA_BRAZO := 0.62      ## altura del centrado del brazo
 const RADIO_LUZ := 17.0         ## alcance de la luz de cada farola
 const ENERGIA_MAX := 2.4        ## energía de la luz con la farola del todo encendida
 const EMISION_MAX := 2.6        ## brillo del vidrio encendido
+## Radio del cilindro de colisión del poste (m): el mismo bulto que la base visible.
+const RADIO_COLISION := 0.22
+## Altura del cilindro de colisión (m): el poste entero.
+const ALTO_COLISION := 4.2
+## Holgura mínima (m) entre el poste y un árbol, cantero, banco o palmera al elegir el sitio.
+const AIRE_MOBILIARIO := 0.8
 
 ## Fases del ciclo (0 arranque, 0.25 amanecer, 0.5 mediodía, 0.75 atardecer).
 ## Son sólo el RESPALDO por si no hubiera ciclo en la escena: lo normal es que los
@@ -71,6 +93,13 @@ var _luces: Array[OmniLight3D] = []
 var _construido := false
 var _t_espera := 0.0
 var _factor := -1.0
+var _n_acera := 0                ## farolas de acera colocadas (media manzana)
+var _n_esquina := 0              ## farolas de esquina colocadas
+var _n_parque := 0               ## farolas de parque/plaza (NO se tocan)
+var _movidas := 0                ## farolas de acera corridas de sitio por el mobiliario
+var _descartadas := 0            ## farolas descartadas por no caber sin chocar
+var _pendiente_avisar: Array = []   ## círculos de farola que aún no se han pasado al director
+var _t_aviso := 0.0
 
 
 func _ready() -> void:
@@ -83,6 +112,13 @@ func _process(delta: float) -> void:
 		_construir()
 		return
 	_actualizar_luz(delta)
+	# El director de peatones se crea en la última etapa del generador: si las farolas se
+	# construyeron antes, se le pasan los obstáculos en cuanto exista (nunca se pierden).
+	if not _pendiente_avisar.is_empty():
+		_t_aviso += delta
+		if _t_aviso >= 0.5:
+			_t_aviso = 0.0
+			_avisar_peatones_pendientes()
 
 
 # =============================================================================
@@ -94,31 +130,35 @@ func _construir() -> void:
 	var trazado: Dictionary = ciudad.get("_trazado")
 	if trazado.is_empty():
 		return
-	# Las manzanas, los parques y el mobiliario del generador se montan por
-	# etapas en los primeros fotogramas: se espera a que estén para no dejar
-	# farolas sin parque. El informe del generador marca los parques al crear la
-	# manzana-parque, así que con 3 (o con 4 s de espera) ya está.
+	# Se espera a que el generador haya cerrado la ciudad (mobiliario, vegetación, parques
+	# y porches ya colocados y apuntados como obstáculos): una farola de acera se planta a
+	# 0,45 m del bordillo y hay que saber qué árboles, canteros y bancos hay en esa acera
+	# para no meterla dentro de ninguno. Quien lo marca es el propio generador
+	# (`_est["ciudad_lista"]`); con 8 s de espera se construye igual, por si acaso.
 	var est: Dictionary = ciudad.get("_est")
-	var parques_listos: bool = int(est.get("parques", 0)) >= 3
-	if not parques_listos and _t_espera < 4.0:
+	if int(est.get("ciudad_lista", 0)) != 1 and _t_espera < 8.0:
 		return
 
 	_metal = _material_metal()
 	_vidrio = _material_vidrio()
 	var malla_metal := _malla_farola()
 	var malla_vidrio := _malla_vidrio()
+	# Mobiliario que el generador YA ha colocado en las aceras (árboles, canteros, bancos,
+	# palmeras y sombrillas) como círculos en planta: la farola no se pone encima de nada.
+	var obstaculos: Array = ciudad.get("_obstaculos_peatones")
 
 	var pistas: Array[Transform3D] = []
 	var calzada: float = trazado["calzada"]
-	var acera: float = trazado["acera"]
 	var hw: float = trazado["hw"]
 	var paso: float = trazado["paso"]
 	var ext: Vector2 = trazado["ext"]
 	var off: Vector2 = trazado["off"]
 	var n_x: int = int(round(ext.x / paso))
 	var n_z: int = int(round(ext.y / paso))
-	# Cota donde termina el bordillo de la acera exterior.
-	var lat := calzada * 0.5 + acera - borde
+	# Distancia del poste al eje del vial: pegado al bordillo (0,45 m hacia la acera).
+	# Antes se usaba `calzada/2 + acera - borde`, que dejaba el poste a 0,45 m de la
+	# FACHADA: ahí se incrustaba en los porches y en las molduras del muro.
+	var lat := calzada * 0.5 + borde
 
 	# --- Farolas a media manzana, alternando de acera en cada vial -----------
 	for i in n_x + 1:
@@ -127,7 +167,15 @@ func _construir() -> void:
 		var d: float = off.y + 6.0
 		while d < off.y + ext.y - 6.0:
 			if _lejos_de_cruce(d, off.y, paso, hw + 1.0):
-				pistas.append(_fila(p + lado * lat, d, -lado, 0.0, true))
+				var sitio := _sitio_libre(p + lado * lat, d, true, off.y, off.y + ext.y, paso,
+						obstaculos)
+				if sitio != Vector2.INF:
+					pistas.append(_fila(sitio.x, sitio.y, true, lado))
+					_n_acera += 1
+					if absf(sitio.y - d) > 0.01:
+						_movidas += 1
+				else:
+					_descartadas += 1
 			d += separacion
 	for j in n_z + 1:
 		var p2: float = off.y + float(j) * paso
@@ -135,7 +183,15 @@ func _construir() -> void:
 		var d2: float = off.x + 6.0
 		while d2 < off.x + ext.x - 6.0:
 			if _lejos_de_cruce(d2, off.x, paso, hw + 1.0):
-				pistas.append(_fila(d2, p2 + lado2 * lat, -lado2, 0.0, false))
+				var sitio2 := _sitio_libre(d2, p2 + lado2 * lat, false, off.x, off.x + ext.x,
+						paso, obstaculos)
+				if sitio2 != Vector2.INF:
+					pistas.append(_fila(sitio2.x, sitio2.y, false, lado2))
+					_n_acera += 1
+					if absf(sitio2.x - d2) > 0.01:
+						_movidas += 1
+				else:
+					_descartadas += 1
 			d2 += separacion
 
 	# --- Esquinas: una farola por cruce, en la acera que mira al cruce -------
@@ -146,30 +202,72 @@ func _construir() -> void:
 				var cz: float = off.y + float(j) * paso
 				var sx: float = 1.0 if ((i + j) % 2 == 0) else -1.0
 				var sz: float = 1.0 if ((i * 3 + j) % 2 == 0) else -1.0
-				pistas.append(_esquina(cx + sx * (calzada * 0.5 + borde + 0.4),
-						cz + sz * (calzada * 0.5 + borde + 0.4), sx, sz))
+				var ex := cx + sx * (calzada * 0.5 + borde + 0.4)
+				var ez := cz + sz * (calzada * 0.5 + borde + 0.4)
+				if _libre(ex, ez, obstaculos, 0.45):
+					pistas.append(_esquina(ex, ez, sx, sz))
+					_n_esquina += 1
+				else:
+					_descartadas += 1
 
-	# --- Parques ------------------------------------------------------------
+	# --- Parques y plazas: NO se tocan (posición, giro, modelo y luz de siempre) ---
 	if farolas_parque:
 		for t: Transform3D in _parques(ciudad):
 			pistas.append(t)
+			_n_parque += 1
 
 	if pistas.is_empty():
 		return
 	_construido = true
 	_volcar(pistas, malla_metal, malla_vidrio)
-	print("[farolas] %d farolas colocadas (%s)" % [pistas.size(),
-			"con luz" if con_luz else "sólo decoración"])
+	_colisiones(pistas)
+	_pendiente_avisar.clear()
+	for t2: Transform3D in pistas:
+		_pendiente_avisar.append({"x": t2.origin.x, "z": t2.origin.z, "r": RADIO_COLISION + 0.08})
+	_avisar_peatones_pendientes()
+	print("[farolas] %d farolas colocadas (%s) | acera %d (movidas %d, descartadas %d) · esquina %d · parque/plaza %d sin tocar" % [
+			pistas.size(), "con luz" if con_luz else "sólo decoración",
+			_n_acera, _movidas, _descartadas, _n_esquina, _n_parque])
 
 
-## Farola de acera a lo largo de un vial. `vertical` = el vial corre en Z.
-## La farola apoya en (x, z) y su brazo mira hacia la calzada.
-func _fila(x: float, z: float, hacia: float, _sin_uso: float, vertical: bool) -> Transform3D:
-	var giro: float
-	if vertical:
-		giro = PI if hacia > 0.0 else 0.0
-	else:
-		giro = PI * 0.5 if hacia > 0.0 else -PI * 0.5
+## Sitio libre para una farola de acera: se prueba el punto pedido y, si el mobiliario lo
+## ocupa, se corre a lo largo del vial (±3 m, ±6 m) sin acercarse a un cruce. Devuelve
+## Vector2.INF si no cabe en ninguno (la farola se descarta: mejor sin farola que dentro
+## de un árbol o de un cantero).
+func _sitio_libre(x: float, z: float, vertical: bool, d0: float, d1: float, paso: float,
+		obstaculos: Array) -> Vector2:
+	for desvio: float in [0.0, 3.0, -3.0, 6.0, -6.0]:
+		var px := x
+		var pz := z
+		if vertical:
+			pz = clampf(z + desvio, d0 + 2.0, d1 - 2.0)
+			if not _lejos_de_cruce(pz, d0, paso, 10.0):
+				continue
+		else:
+			px = clampf(x + desvio, d0 + 2.0, d1 - 2.0)
+			if not _lejos_de_cruce(px, d0, paso, 10.0):
+				continue
+		if _libre(px, pz, obstaculos, AIRE_MOBILIARIO):
+			return Vector2(px, pz)
+	return Vector2.INF
+
+
+## ¿El punto (x, z) está libre de mobiliario sólido con el aire pedido?
+func _libre(x: float, z: float, obstaculos: Array, aire: float) -> bool:
+	for o: Dictionary in obstaculos:
+		var dx := float(o.get("x", 0.0)) - x
+		var dz := float(o.get("z", 0.0)) - z
+		var r := float(o.get("r", 0.5)) + aire
+		if dx * dx + dz * dz < r * r:
+			return false
+	return true
+
+
+## Farola de acera en (x, z), con el brazo mirando a la CALZADA (hacia el eje del vial).
+## `vertical` = el vial corre en Z; `lado` = lado del eje del vial donde está la farola.
+func _fila(x: float, z: float, vertical: bool, lado: float) -> Transform3D:
+	var dir := Vector3(-lado, 0.0, 0.0) if vertical else Vector3(0.0, 0.0, -lado)
+	var giro := atan2(-dir.z, dir.x)
 	return Transform3D(Basis(Vector3.UP, giro), Vector3(x, Y_ACERA, z))
 
 
@@ -338,6 +436,41 @@ func _volcar(pistas: Array[Transform3D], malla_metal: ArrayMesh, malla_vidrio: A
 		luz.transform = Transform3D(Basis(), t * local)
 		add_child(luz)
 		_luces.append(luz)
+
+
+## Colisión del poste: un cilindro por farola (capa 1, la misma que el terreno y los
+## edificios). Es lo que impide que el JUGADOR atraviese un poste. Los peatones no usan
+## física (van por la red peatonal): ellos las rodean con los avisos del director.
+func _colisiones(pistas: Array[Transform3D]) -> void:
+	if pistas.is_empty():
+		return
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "FarolasColision"
+	cuerpo.collision_layer = 1
+	cuerpo.collision_mask = 0
+	for t: Transform3D in pistas:
+		var forma := CollisionShape3D.new()
+		var c := CylinderShape3D.new()
+		c.radius = RADIO_COLISION
+		c.height = ALTO_COLISION
+		forma.shape = c
+		forma.position = t.origin + Vector3(0.0, ALTO_COLISION * 0.5, 0.0)
+		cuerpo.add_child(forma)
+	add_child(cuerpo)
+
+
+## Pasa al director de peatones los círculos en planta de las farolas (obstáculos que hay
+## que rodear). Si el director todavía no existe, se guardan y se reintenta en `_process`.
+func _avisar_peatones_pendientes() -> void:
+	if _pendiente_avisar.is_empty():
+		return
+	if ciudad == null:
+		return
+	var dir: Node = ciudad.get("director_peatones")
+	if dir == null or not dir.has_method("agregar_obstaculos"):
+		return
+	dir.call("agregar_obstaculos", _pendiente_avisar)
+	_pendiente_avisar = []
 
 
 # =============================================================================

@@ -11,11 +11,20 @@ signal terminado
 @export var tiempo_subida := 0.25
 @export var tiempo_bajada := 0.45
 
+## Silencio inicial del MP3 original (medido: ≈0,52 s). El sonido útil arranca
+## aquí: reproducir desde este punto hace que el audio suene desde el primer
+## instante del destello (sincronizado, sin retraso) y deja oír su final completo,
+## que antes se perdía al recortarlo para ajustarlo a los 0,55 s del destello.
+const INICIO_UTIL := 0.52
+
 var _nucleo: MeshInstance3D
 var _halo: MeshInstance3D
 var _luz: OmniLight3D
 var _rayos: Array[Node3D] = []
 var _tween: Tween
+## Reproductor único propiedad del jugador, fuera del nodo visual para que el
+## audio pueda terminar aunque el destello se oculte o se libere.
+@onready var _audio: AudioStreamPlayer = get_node_or_null("../AudioTransformacion") as AudioStreamPlayer
 
 func _ready() -> void:
 	_construir()
@@ -104,6 +113,10 @@ func reproducir() -> void:
 	visible = true
 	var cero := Vector3.ONE * 0.001
 
+	# Audio y destello arrancan en la misma llamada. Se usan los tiempos
+	# originales configurados del efecto (0,25 s + 0,30 s = 0,55 s).
+	_reproducir_sonido()
+
 	_tween = create_tween().set_parallel(true)
 
 	# --- SUBIDA ---
@@ -129,7 +142,20 @@ func reproducir() -> void:
 
 	_tween.chain().tween_callback(_fin)
 
+## Reproduce el MP3 original al inicio del destello, empezando en INICIO_UTIL
+## para saltar el silencio inicial y quedar sincronizado con el destello. El
+## reproductor pertenece al jugador, no al nodo visual, y sigue activo tras
+## _fin(), así que el sonido termina por sí solo (no se recorta). El guard del
+## controlador impide duplicados durante una transición.
+func _reproducir_sonido() -> void:
+	if _audio == null or _audio.stream == null:
+		return
+	_audio.stop()
+	_audio.play(INICIO_UTIL)
+
 func _fin() -> void:
+	# El destello termina aquí; el AudioTransformacion pertenece al jugador y
+	# continúa de forma independiente hasta completar el MP3 original.
 	visible = false
 	_halo.transparency = 0.0
 	terminado.emit()

@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://caueivavcv3mb"]
+[gd_scene load_steps=43 format=3 uid="uid://caueivavcv3mb"]
 
 [ext_resource type="Script" uid="uid://cwkp6e1corn4m" path="res://personaje/base/scripts/controlador_leo.gd" id="1_ctrl"]
 [ext_resource type="Script" uid="uid://cfj32j2gsqan1" path="res://personaje/base/camara/camara_jugador.gd" id="2_cam"]
@@ -31,6 +31,7 @@
 [ext_resource type="PackedScene" path="res://personaje/hud_transformacion/escenas/HUDCircular.tscn" id="29_hud"]
 [ext_resource type="Script" uid="uid://d4mv6m74yncd5" path="res://personaje/transformaciones/acuatica/character/character_model.gd" id="30_model_slot"]
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/acuatica/models/futuristic_armor_character.tscn" id="31_aquatic"]
+[ext_resource type="AnimationLibrary" path="res://personaje/base/animations/combos_acuaticos.tres" id="40_combo_agua"]
 [ext_resource type="AnimationLibrary" uid="uid://chvk7ak2d0aqa" path="res://personaje/transformaciones/acuatica/animations/player_animations.tres" id="32_aquatic_anims"]
 [ext_resource type="Script" uid="uid://cljq6sirlwe4t" path="res://personaje/base/scripts/receptor_acuatico.gd" id="33_receptor_acuatico"]
 [ext_resource type="PackedScene" uid="uid://gorwfjfql5ie" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="34_fuerza_model"]
@@ -39,6 +40,17 @@
 [ext_resource type="Script" path="res://personaje/base/efectos/vista_submarina.gd" id="37_vista_sub"]
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
+[ext_resource type="AudioStream" uid="uid://scndx4m2k3no" path="res://Audio/personaje/transformacion/transformacion.mp3" id="40_transf_audio"]
+[ext_resource type="AudioStream" uid="uid://bkwmfd3unvcws" path="res://Audio/personaje/transformacion/velocidad/carga.wav" id="41_aud_carga"]
+[ext_resource type="AudioStream" uid="uid://c3xht8kdoshve" path="res://Audio/personaje/transformacion/velocidad/trazado.wav" id="42_aud_trazado"]
+[ext_resource type="AudioStream" uid="uid://b3anpaybog0ln" path="res://Audio/personaje/transformacion/velocidad/dash.wav" id="43_aud_dash"]
+[ext_resource type="AudioStream" uid="uid://dlkdew200kvj5" path="res://Audio/personaje/transformacion/velocidad/golpe click.wav" id="44_aud_golpe"]
+[ext_resource type="AudioStream" uid="uid://d3t28p62oek11" path="res://Audio/personaje/transformacion/fuerza/salto.mp3" id="45_f_salto"]
+[ext_resource type="AudioStream" uid="uid://bxiv8qvsuyyst" path="res://Audio/personaje/transformacion/fuerza/impacto.mp3" id="46_f_impacto"]
+[ext_resource type="AudioStream" uid="uid://bmr0da6g0mce0" path="res://Audio/personaje/transformacion/fuerza/agarrapiedra.mp3" id="47_f_agarre"]
+[ext_resource type="AudioStream" uid="uid://ncesaymca1kr" path="res://Audio/personaje/transformacion/fuerza/piedratirada.mp3" id="48_f_tirada"]
+[ext_resource type="AudioStream" uid="uid://cux5e0gi08kdh" path="res://Audio/personaje/transformacion/fuerza/golpe.mp3" id="49_f_golpe"]
+[ext_resource type="AudioStream" uid="uid://caaqf3gdqifea" path="res://Audio/personaje/transformacion/fuerza/patada.mp3" id="50_f_patada"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -129,6 +141,50 @@ script = ExtResource("26_transf")
 color = Color(0.6, 0.1, 1, 1)
 tiempo_bajada = 0.3
 
+[node name="AudioTransformacion" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("40_transf_audio")
+
+[node name="AudioCarga" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("41_aud_carga")
+
+[node name="AudioTrazado" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("42_aud_trazado")
+
+[node name="AudioDash" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("43_aud_dash")
+
+[node name="AudioGolpe" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("44_aud_golpe")
+
+[node name="AudioFuerzaSalto" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("45_f_salto")
+
+[node name="AudioFuerzaImpacto" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("46_f_impacto")
+
+[node name="AudioFuerzaAgarre" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("47_f_agarre")
+
+[node name="AudioFuerzaTirada" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("48_f_tirada")
+
+[node name="AudioFuerzaGolpe" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("49_f_golpe")
+
+[node name="AudioFuerzaPatada" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("50_f_patada")
+
 [node name="MenuTransformaciones" parent="." unique_id=364961598 instance=ExtResource("27_menu")]
 
 [node name="Estadisticas" type="Node" parent="." unique_id=984732758]
@@ -147,6 +203,7 @@ script = ExtResource("30_model_slot")
 
 [node name="AnimadorAcuatico" type="AnimationPlayer" parent="Acuatico" unique_id=1053498957]
 libraries/ = ExtResource("32_aquatic_anims")
+libraries/combo_agua = ExtResource("40_combo_agua")
 
 [node name="Fuerza" type="Node3D" parent="." unique_id=539067988]
 
@@ -173,6 +230,8 @@ libraries/ = ExtResource("39_ataque_anims")
 
 [node name="BurbujasAcuaticas" type="Node3D" parent="."]
 script = ExtResource("36_burbujas")
+cantidad = 34
+vida = 0.75
 
 [node name="VistaSubmarina" type="Node3D" parent="."]
 script = ExtResource("37_vista_sub")

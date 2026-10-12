@@ -67,6 +67,7 @@ const CATALOGO := [
 	{"accion": &"agua_habilidad_2", "formas": [ACUATICO], "etiqueta": "Habilidad de agua 2"},
 	{"accion": &"agua_habilidad_3", "formas": [ACUATICO], "etiqueta": "Habilidad de agua 3"},
 	{"accion": &"agua_habilidad_4", "formas": [ACUATICO], "etiqueta": "Habilidad de agua 4"},
+	{"accion": &"agua_turbo", "formas": [ACUATICO], "etiqueta": "Turbo acuático"},
 	# --- Fuerza ---------------------------------------------------------------
 	{"accion": &"fuerza_embestida", "formas": [FUERZA], "etiqueta": "Embestida"},
 	{"accion": &"fuerza_slam", "formas": [FUERZA], "etiqueta": "Pisotón"},
@@ -124,6 +125,7 @@ const NOTAS := {
 	"agua_habilidad_2": "Pulsación única",
 	"agua_habilidad_3": "Pulsación única",
 	"agua_habilidad_4": "Pulsación única",
+	"agua_turbo": "Mantener para impulsar",
 	"fuerza_embestida": "Desde el suelo",
 	"fuerza_slam": "Sólo en el aire",
 	"fuerza_roca": "Desde el suelo",
