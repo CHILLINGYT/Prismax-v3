@@ -1,4 +1,4 @@
-[gd_scene load_steps=48 format=3 uid="uid://caueivavcv3mb"]
+[gd_scene load_steps=44 format=3 uid="uid://caueivavcv3mb"]
 
 [ext_resource type="Script" uid="uid://cwkp6e1corn4m" path="res://personaje/base/scripts/controlador_leo.gd" id="1_ctrl"]
 [ext_resource type="Script" uid="uid://cfj32j2gsqan1" path="res://personaje/base/camara/camara_jugador.gd" id="2_cam"]
@@ -51,11 +51,7 @@
 [ext_resource type="AudioStream" uid="uid://ncesaymca1kr" path="res://Audio/personaje/transformacion/fuerza/piedratirada.mp3" id="48_f_tirada"]
 [ext_resource type="AudioStream" uid="uid://cux5e0gi08kdh" path="res://Audio/personaje/transformacion/fuerza/golpe.mp3" id="49_f_golpe"]
 [ext_resource type="AudioStream" uid="uid://caaqf3gdqifea" path="res://Audio/personaje/transformacion/fuerza/patada.mp3" id="50_f_patada"]
-[ext_resource type="AudioStream" uid="uid://dere4bp6gebbp" path="res://Audio/personaje/transformacion/Animaciones acuaticas/nadar efecto (mp3cut.net).wav" id="51_aud_nado"]
-[ext_resource type="AudioStream" path="res://Audio/personaje/transformacion/Animaciones acuaticas/golpe agua 1.wav" id="52_aud_golpe_fisico"]
-[ext_resource type="AudioStream" path="res://Audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav" id="53_aud_golpe_agua"]
-[ext_resource type="AudioStream" path="res://Audio/personaje/transformacion/Animaciones acuaticas/efecto habilidades.wav" id="54_aud_habilidad"]
-[ext_resource type="AudioStream" path="res://Audio/personaje/transformacion/combate/golpe.mp3" id="55_golpe_combate"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/vuelo/player/vuelo_player.tscn" id="51_vuelo"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -260,3 +256,8 @@ vida = 0.75
 
 [node name="VistaSubmarina" type="Node3D" parent="."]
 script = ExtResource("37_vista_sub")
+
+[node name="Vuelo" parent="." instance=ExtResource("51_vuelo")]
+visible = false
+process_mode = 4
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
