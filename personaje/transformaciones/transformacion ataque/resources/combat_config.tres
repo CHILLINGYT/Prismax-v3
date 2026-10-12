@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_cfg")
+attack_damage = 10.0
 target_radius = 9.0
 target_max_angle_deg = 140.0
 weight_move_direction = 4.0

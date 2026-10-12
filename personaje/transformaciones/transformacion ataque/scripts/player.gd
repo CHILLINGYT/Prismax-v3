@@ -23,20 +23,26 @@ const PlayerAnimator = preload("res://personaje/transformaciones/transformacion 
 
 enum State { FREE, APPROACH, WINDUP, ACTIVE, RECOVERY, COUNTER, EVADE, HIT, DEAD }
 
-## Sprint: the player's four-hit combo. Every number comes from the source clip,
-## where the impact instant is the measured peak forward reach of the striking
-## hand (jab: left, dos: right, cros: left crossing the body, gancho: right hook).
+## Sprint: the player's THREE-hit basic combo, in this order: the straight (jab,
+## one hand), the cross (cros, the other hand crossing the body) and the hook
+## (gancho) that closes the chain. Every number comes from the source clip, where
+## the impact instant is the measured peak forward reach of the striking hand, and
+## the clips are the module's own ("jab", "cros" and "gancho" in
+## player_anim_library.tres): the measured row of the fourth clip of the old set
+## ("dos": clip 0.600, impact 0.135, damage 1.2) is kept on file but is NOT part of
+## the basic chain.
 ##
 ## windup = impact, active = HIT_WINDOW, recovery = the rest of the clip, so the
 ## damage lands exactly on the visual hit and the action ends when the clip ends.
 ## These timers stay the ONE authority for damage; no animation event applies any,
 ## so a hit can never be counted twice. The clip only shows the action.
+## `speed` is the per-attack playback speed (agile, natural hits): the phase
+## timers are divided by it so the damage still lands on the visual contact.
 const HIT_WINDOW := 0.10
 const SPRINT: Array = [
-	{"id": "jab", "anim": "jab", "clip": 0.467, "impact": 0.233, "damage": 1.0, "knockback": 1.0},
-	{"id": "dos", "anim": "dos", "clip": 0.600, "impact": 0.135, "damage": 1.2, "knockback": 1.15},
-	{"id": "cros", "anim": "cros", "clip": 0.733, "impact": 0.147, "damage": 1.4, "knockback": 1.3},
-	{"id": "gancho", "anim": "gancho", "clip": 0.633, "impact": 0.327, "damage": 1.7, "knockback": 1.5},
+	{"id": "jab", "anim": "jab", "clip": 0.467, "impact": 0.233, "damage": 1.0, "knockback": 1.0, "speed": 1.25},
+	{"id": "cros", "anim": "cros", "clip": 0.733, "impact": 0.147, "damage": 1.4, "knockback": 1.3, "speed": 1.2},
+	{"id": "gancho", "anim": "gancho", "clip": 0.633, "impact": 0.327, "damage": 1.7, "knockback": 1.5, "speed": 1.15},
 ]
 
 @export_group("Movement")
@@ -90,6 +96,12 @@ var _camera_rig: Node3D
 var _target: Node3D
 var _attack_chain: Array = []
 var _chain_index: int = 0
+## Remaining seconds of the COMBO WINDOW (the config's combo_keep_time), counted
+## from the last CONFIRMED hit: while it is alive the next attack CONTINUES the
+## chain (jab -> cros -> gancho -> jab); once it expires the combo starts over at
+## the first hit. This is what lets three hits chain at a natural rhythm, not only
+## inside the 0.2 s input buffer.
+var _combo_window: float = 0.0
 var _attack: AttackData
 var _action_kind: String = "attack"
 var _phase_timer: float = 0.0
@@ -248,10 +260,14 @@ func _build_attack_chain(c: CombatConfig) -> Array:
 		a.attack_range = c.attack_range
 		a.ideal_distance = c.attack_ideal_distance
 		a.approach_speed = c.approach_speed
-		# The clip's own timeline drives the phases (see SPRINT above).
-		a.windup = float(row.impact)
+		# The clip's own timeline drives the phases (see SPRINT above). The clip
+		# plays at `speed`, so the real-time phases are the clip fractions divided
+		# by it and the impact still lands on the same frame of the animation.
+		var sp: float = maxf(0.05, float(row.get("speed", 1.0)))
+		a.speed = sp
+		a.windup = float(row.impact) / sp
 		a.active = HIT_WINDOW
-		a.recovery = maxf(0.05, float(row.clip) - float(row.impact) - HIT_WINDOW)
+		a.recovery = maxf(0.05, (float(row.clip) - float(row.impact)) / sp - HIT_WINDOW)
 		a.cancel_window = c.attack_cancel_window
 		a.knockback = c.attack_knockback * float(row.knockback)
 		a.stun = 0.0
@@ -289,6 +305,8 @@ func _physics_process(delta: float) -> void:
 		_gadget_timer -= delta
 	if _iframe_timer > 0.0:
 		_iframe_timer -= delta
+	if _combo_window > 0.0:
+		_combo_window = maxf(_combo_window - delta, 0.0)
 
 	# Buffer chainable combat actions; consumed when the state allows it.
 	if _manager != null:
@@ -384,6 +402,11 @@ func _begin_attack() -> void:
 	var previous: Node3D = _target if is_instance_valid(_target) else null
 	_target = CombatTargeting.select_target(self, _input_dir(), _camera_dir(), enemies, _config, previous, threats)
 
+	# A dead combo (no confirmed hit for combo_keep_time) starts over at the first
+	# hit; a live one keeps the chain going where it was.
+	if _combo_window <= 0.0:
+		_chain_index = 0
+
 	# FreeFlow rule: a CONFIRMED change of target restarts the Sprint at jab, so
 	# half a sequence is never carried over to another enemy. Only the next attack
 	# is affected: the hit already running keeps its own target and its own clip,
@@ -413,7 +436,7 @@ func _start_windup() -> void:
 	# phases above are aligned to the clip's measured impact instant.
 	if _animator != null:
 		_animator.notify_attack_started()
-		_animator.play_action(_attack.animation)
+		_animator.play_action(_attack.animation, -1.0, _attack.speed)
 
 
 func _state_windup(delta: float) -> void:
@@ -450,6 +473,9 @@ func _apply_hit(t: Node3D) -> void:
 	if _manager != null:
 		_manager.combo.register_hit()
 		combo_changed.emit(_manager.combo.count)
+	# The hit CONNECTED: the combo window is refreshed, so the next attack still
+	# continues the chain a natural beat later.
+	_combo_window = _config.combo_keep_time if _config != null else 2.0
 
 
 func _state_recovery(delta: float) -> void:

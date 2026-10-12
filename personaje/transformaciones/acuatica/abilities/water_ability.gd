@@ -34,6 +34,37 @@ extends Node3D
 ## Grupo del que se recogen los objetivos golpeables.
 const TARGET_GROUP := &"damageable"
 
+## IMPACTO CONFIRMADO (sonido): el chapoteo de agua del propio proyecto. El impacto
+## a un ENEMIGO suena SÓLO cuando el daño se aplica de verdad a un objetivo válido
+## (apply_damage), UNA vez por objetivo y ejecución: ni al aparecer la habilidad, ni
+## en cada tick de un área sobre el mismo enemigo. El choque contra el ESCENARIO
+## (pared, suelo, props) y el FINAL de la trayectoria sin tocar nada también suenan,
+## con sus propios volúmenes y tonos (AUD_CHOQUE_DB / AUD_FIN_DB): así una habilidad
+## que no golpea a nadie se oye terminar, pero NUNCA se disfraza de un impacto contra
+## un enemigo que no recibió daño. La oleada (water_surge) trae su propio reproductor
+## (más voces y más alcance) y desactiva este con `sonido_impacto_propio`.
+const AUD_IMPACTO_AGUA := preload("res://Audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav")
+## Voces en rueda: dos impactos seguidos (o dos a la vez) no se cortan entre sí, y
+## nunca se crean nodos por impacto.
+const VOCES_IMPACTO_AGUA := 4
+## Volumen de cada impacto: por debajo del golpe del puño, para no saturar.
+const AUD_IMPACTO_DB := -5.0
+## Choque contra el ESCENARIO (pared, suelo, cualquier objeto del mundo): el mismo
+## chapoteo, algo más suave (el agua golpea algo duro, no un cuerpo). Suena UNA vez
+## por ejecución: la habilidad se gasta al chocar, así que no se repite.
+const AUD_CHOQUE_DB := -7.0
+## FINAL de la trayectoria sin haber tocado nada (se le acabó el tiempo volando por
+## el aire): el MISMO archivo, más bajo y algo más grave, como cierre. Es el aviso de
+## que la habilidad terminó sin golpear a nadie.
+const AUD_FIN_DB := -11.0
+const AUD_FIN_PITCH := 0.82
+## Nombres de los GRUPOS DE VOCES compartidos que viven colgados del host (el mismo
+## padre que las habilidades). Un proyectil se libera en el fotograma del impacto: si
+## las voces fueran hijas suyas, el chapoteo se cortaría antes de sonar. Al ser un
+## grupo reutilizado por todas las habilidades, tampoco se acumulan nodos.
+const POOL_IMPACTO := "SonidosImpactoAgua"
+const POOL_IMPACTO_OLA := "SonidosOlaAgua"
+
 ## Nodo del caster, para no golpearse a si mismo.
 var caster: Node3D = null
 ## Direccion normalizada de lanzamiento.
@@ -65,6 +96,17 @@ const UNDERWATER_MIN_SPEED := 2.0
 var _elapsed := 0.0
 var _spent := false
 var _visual: Node3D = null
+## true en las habilidades que traen su propio reproductor de impacto (la oleada).
+## Se fija en _build_visual() de la subclase, ANTES de _preparar_sonido_impacto().
+var sonido_impacto_propio := false
+var _voces_impacto: Array[AudioStreamPlayer3D] = []
+var _voz_impacto := 0
+## Objetivos ya sonados (por id de instancia): un mismo enemigo no repite sonido.
+var _sonados_impacto := {}
+## El choque contra el escenario ya sonó en esta ejecución (sólo una vez).
+var _sonado_escena := false
+## El final por tiempo ya sonó en esta ejecución (sólo una vez).
+var _sonado_fin := false
 
 
 ## Prepara la habilidad. Se llama justo despues de instanciarla.
@@ -76,6 +118,102 @@ func setup(p_caster: Node3D, p_origin: Vector3, p_direction: Vector3) -> void:
 
 func _ready() -> void:
 	_build_visual()
+	_preparar_sonido_impacto()
+
+
+## Prepara el reproductor del IMPACTO (voces 3D en rueda) sin crear nodos por golpe.
+## Las subclases con reproductor propio (la oleada) lo desactivan con la marca.
+func _preparar_sonido_impacto() -> void:
+	if sonido_impacto_propio:
+		return
+	var pool := _pool_sonidos(POOL_IMPACTO)
+	if pool.get_child_count() == 0:
+		for i in VOCES_IMPACTO_AGUA:
+			var voz := AudioStreamPlayer3D.new()
+			voz.name = "SonidoImpacto%d" % (i + 1)
+			voz.stream = AUD_IMPACTO_AGUA
+			voz.volume_db = AUD_IMPACTO_DB
+			voz.max_distance = 40.0
+			pool.add_child(voz)
+	_voces_impacto.clear()
+	for hijo in pool.get_children():
+		if hijo is AudioStreamPlayer3D:
+			_voces_impacto.append(hijo as AudioStreamPlayer3D)
+
+
+## Devuelve el nodo COMPARTIDO [param nombre] colgado del host (el mismo padre que la
+## habilidad), creándolo la primera vez. Compartirlo es lo que permite que el sonido
+## del impacto siga sonando aunque la habilidad se libere en ese mismo fotograma.
+func _pool_sonidos(nombre: String) -> Node3D:
+	var host := get_parent()
+	if host == null:
+		host = self
+	var pool := host.get_node_or_null(nombre) as Node3D
+	if pool == null:
+		pool = Node3D.new()
+		pool.name = nombre
+		host.add_child(pool)
+	return pool
+
+
+## Toma una voz para sonar AHORA: preferentemente una que esté libre (así hasta
+## cuatro impactos a la vez no se cortan entre sí) y, si todas suenan, la rueda.
+func _tomar_voz(voces: Array[AudioStreamPlayer3D], indice: int) -> AudioStreamPlayer3D:
+	for v in voces:
+		if not v.playing:
+			return v
+	return voces[indice % voces.size()]
+
+
+## Suena una voz del grupo compartido EN [param point], con su volumen y su tono.
+## El volumen y el tono se fijan SIEMPRE, en cada uso: las voces son compartidas y
+## una que acaba de sonar como final (más grave) no puede quedarse con ese tono para
+## el siguiente impacto. Nunca se queda bloqueada: si todas están sonando, usa la de
+## la rueda, que se reinicia (con cuatro voces, dos sonidos seguidos no se cortan).
+func _sonar_voz(voces: Array[AudioStreamPlayer3D], point: Vector3, db: float, pitch: float) -> void:
+	if voces.is_empty():
+		return
+	var voz := _tomar_voz(voces, _voz_impacto)
+	if voz.playing:
+		_voz_impacto = (_voz_impacto + 1) % voces.size()
+	voz.global_position = point
+	voz.volume_db = db
+	voz.pitch_scale = pitch
+	voz.play()
+
+
+## IMPACTO CONFIRMADO de la habilidad: suena en el punto del objetivo alcanzado y
+## UNA sola vez por objetivo. Lo llama `hurt()` sólo con el daño ya aplicado, así que
+## un fallo (nadie) nunca suena y un área que golpea cada tick no repite el mismo
+## sonido sobre el mismo enemigo.
+func _sonar_impacto_agua(target: Node3D) -> void:
+	if sonido_impacto_propio or _voces_impacto.is_empty() or target == null:
+		return
+	var id := target.get_instance_id()
+	if _sonados_impacto.has(id):
+		return
+	_sonados_impacto[id] = true
+	_sonar_voz(_voces_impacto, _center_of(target), AUD_IMPACTO_DB, 1.0)
+
+
+## CHOQUE CONTRA EL ESCENARIO (pared, suelo, un objeto del mundo): también suena. Es
+## el mismo chapoteo con el volumen de choque y UNA sola vez por ejecución. Las
+## habilidades que traen su propio reproductor (la oleada) lo disparan ellas.
+func _sonar_impacto_escena(point: Vector3) -> void:
+	if sonido_impacto_propio or _voces_impacto.is_empty() or _sonado_escena:
+		return
+	_sonado_escena = true
+	_sonar_voz(_voces_impacto, point, AUD_CHOQUE_DB, 1.0)
+
+
+## FINAL de la trayectoria sin haber tocado nada: la habilidad se apagó volando por
+## el aire. Suena UNA vez, más bajo y más grave, como CIERRE; nunca como un impacto
+## contra un enemigo que jamás recibió daño.
+func _sonar_fin(point: Vector3) -> void:
+	if sonido_impacto_propio or _voces_impacto.is_empty() or _sonado_fin:
+		return
+	_sonado_fin = true
+	_sonar_voz(_voces_impacto, point, AUD_FIN_DB, AUD_FIN_PITCH)
 
 
 func _physics_process(delta: float) -> void:
@@ -226,6 +364,9 @@ func hurt(target: Node3D, from_position: Vector3, amount: float = -1.0, kind: St
 	var a := amount if amount >= 0.0 else damage
 	var k := kind if kind != &"" else damage_kind
 	target.call("apply_damage", a, from_position, k)
+	# Daño aplicado a un objetivo válido = IMPACTO CONFIRMADO: aquí (y sólo aquí)
+	# suena el chapoteo de la habilidad.
+	_sonar_impacto_agua(target)
 
 
 ## Atrapa a un objetivo si sabe estarlo (prision de agua).
@@ -236,7 +377,9 @@ func trap(target: Node3D, duration: float) -> bool:
 	return true
 
 
-## Que pasa al chocar. Por defecto: daño al objetivo y desaparece.
+## Que pasa al chocar. Por defecto: daño al objetivo y desaparece. Si el choque es
+## contra el ESCENARIO (pared, suelo, un objeto) la habilidad también suena: el
+## chapoteo del choque, con su propio volumen.
 func _impact(point: Vector3, target: Node3D) -> void:
 	if _spent:
 		return
@@ -247,15 +390,20 @@ func _impact(point: Vector3, target: Node3D) -> void:
 		_visual.visible = false
 	if target != null:
 		hurt(target, point)
+	else:
+		_sonar_impacto_escena(point)
 	_on_impact(point, target)
 	queue_free()
 
 
-## Se acabó el tiempo de vida.
+## Se acabó el tiempo de vida. Si no había tocado nada (ni enemigo ni escenario), la
+## habilidad se despide con el sonido de finalización.
 func _expire() -> void:
 	if _spent:
 		return
 	_spent = true
+	if _sonados_impacto.is_empty() and not _sonado_escena:
+		_sonar_fin(global_position)
 	_on_expire()
 	queue_free()
 

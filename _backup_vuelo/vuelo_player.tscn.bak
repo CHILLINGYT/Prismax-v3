@@ -1,0 +1,110 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/player_controller.gd" id="1_dovo2"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/player_flight_controller.gd" id="2_75vfm"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/third_person_camera.gd" id="2_gmlin"]
+[ext_resource type="PackedScene" path="res://personaje/transformaciones/vuelo/models/maniqui_godot_baked.tscn" id="2_lvxji"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/player_animation_controller.gd" id="4_lvxji"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/feather_ability.gd" id="7_0owmy"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/ual2_animation_loader.gd" id="8_5gtgg"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/flight_arms_overlay.gd" id="8_qek5x"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/head_aim.gd" id="9_5gtgg"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/ground_combat.gd" id="10_h17s1"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/talons_ability.gd" id="11_je7p5"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/apuntado_ots.gd" id="13_gx1jg"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/palmazo_viento.gd" id="13_ugbui"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/efectos_camaras.gd" id="14_ugbui"]
+[ext_resource type="ArrayMesh" path="res://personaje/transformaciones/vuelo/models/aguila_skinned_mesh.res" id="17_mesh"]
+[ext_resource type="Skin" path="res://personaje/transformaciones/vuelo/models/aguila_skin.res" id="18_skin"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_uq0sl"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_uc6nc"]
+radius = 0.4
+height = 1.8
+
+[node name="Player" type="CharacterBody3D" unique_id=120768601]
+script = ExtResource("1_dovo2")
+
+[node name="FlightController" type="Node" parent="." unique_id=1476378567]
+script = ExtResource("2_75vfm")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=342399786]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_uq0sl")
+
+[node name="VisualRoot" type="Node3D" parent="." unique_id=1470066935]
+
+[node name="PlaceholderBody" type="MeshInstance3D" parent="VisualRoot" unique_id=1249719520]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+visible = false
+mesh = SubResource("CapsuleMesh_uc6nc")
+
+[node name="AnimationLibrary_Godot_Standard" parent="VisualRoot" unique_id=2080977131 instance=ExtResource("2_lvxji")]
+transform = Transform3D(-1.0001456, 0, -8.747375e-08, 0, 1.0004871, 0, 8.74355e-08, 0, -1.000583, 0, 0, 0)
+
+[node name="FeatherSpawnLeft" type="Node3D" parent="VisualRoot" unique_id=193000249]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8, 1.4, 0)
+
+[node name="FeatherSpawnRight" type="Node3D" parent="VisualRoot" unique_id=1587694943]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8, 1.4, 0)
+
+[node name="GarraSpawn" type="Marker3D" parent="VisualRoot" unique_id=1065453100]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, -0.15)
+
+[node name="AguilaSkinned" type="MeshInstance3D" parent="VisualRoot/AnimationLibrary_Godot_Standard/Rig/GeneralSkeleton" index="1"]
+mesh = ExtResource("17_mesh")
+skeleton = NodePath("..")
+skin = ExtResource("18_skin")
+
+[node name="CameraPivot" type="Node3D" parent="." unique_id=536167573]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)
+script = ExtResource("2_gmlin")
+hacer_current_al_iniciar = false
+capturar_mouse_al_iniciar = false
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot" unique_id=871428384]
+spring_length = 4.5
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D" unique_id=1720329653]
+
+[node name="AnimationController" type="Node" parent="." unique_id=526442996]
+script = ExtResource("4_lvxji")
+
+[node name="FeatherAbility" type="Node" parent="." unique_id=1731253624]
+script = ExtResource("7_0owmy")
+
+[node name="ual2AnimationsLoader" type="Node" parent="." unique_id=159083484]
+script = ExtResource("8_5gtgg")
+
+[node name="FlightArmsOverlay" type="Node" parent="." unique_id=1975255950]
+script = ExtResource("8_qek5x")
+
+[node name="HeadAim" type="Node" parent="." unique_id=2102788679]
+script = ExtResource("9_5gtgg")
+
+[node name="GroundCombat" type="Node" parent="." unique_id=991467420]
+script = ExtResource("10_h17s1")
+
+[node name="TalonsAbility" type="Node" parent="." unique_id=29479960]
+script = ExtResource("11_je7p5")
+
+[node name="ApuntadoOTS" type="Node" parent="." unique_id=816470554]
+script = ExtResource("13_gx1jg")
+
+[node name="PalmazoViento" type="Node" parent="." unique_id=566076475]
+script = ExtResource("13_ugbui")
+cooldown = 1.0
+fuerza = 20.0
+velocidad_gesto = 4.0
+color_onda = Color(1.7134547e-05, 0.652524, 0.91547155, 0.54901963)
+
+[node name="EfectosCamaras" type="Node" parent="." unique_id=263751122]
+script = ExtResource("14_ugbui")
+
+[node name="Mannequin" parent="VisualRoot/AnimationLibrary_Godot_Standard/Rig/GeneralSkeleton" index="0"]
+visible = false
+
+[editable path="VisualRoot/AnimationLibrary_Godot_Standard"]

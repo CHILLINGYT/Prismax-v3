@@ -189,6 +189,26 @@ bus = &"Efectos"
 [node name="Pasos" type="Node" parent="."]
 script = ExtResource("51_pasos")
 
+[node name="AudioNado" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("51_aud_nado")
+
+[node name="AudioGolpeAguaFisico" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("52_aud_golpe_fisico")
+
+[node name="AudioGolpeAguaSalpicadura" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("53_aud_golpe_agua")
+
+[node name="AudioHabilidadesAgua" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("54_aud_habilidad")
+
+[node name="AudioGolpeCombate" type="AudioStreamPlayer" parent="."]
+bus = &"Efectos"
+stream = ExtResource("55_golpe_combate")
+
 [node name="MenuTransformaciones" parent="." unique_id=364961598 instance=ExtResource("27_menu")]
 
 [node name="Estadisticas" type="Node" parent="." unique_id=984732758]
@@ -259,3 +279,8 @@ vida = 0.75
 
 [node name="VistaSubmarina" type="Node3D" parent="." unique_id=848636400]
 script = ExtResource("37_vista_sub")
+
+[node name="Vuelo" parent="." instance=ExtResource("51_vuelo")]
+visible = false
+process_mode = 4
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
