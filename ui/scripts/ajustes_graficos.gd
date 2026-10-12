@@ -44,12 +44,16 @@ const SECCION := "graficos"
 ## audio: sólo cómo se DIBUJA lo que ya existe.
 enum Calidad { BAJA, MEDIA, ALTA }
 const CALIDAD_NOMBRES: Array[String] = ["BAJA", "MEDIA", "ALTA"]
+## Cielo ESTÁTICO que usa sólo el perfil BAJA (recurso aparte: el cielo
+## dinámico del juego no se modifica). Se carga de forma perezosa.
+const RUTA_CIELO_BAJA := "res://Cielo/cielo_panorama_baja.tres"
 
 ## Tabla por perfil. `ALTA` == configuración original del proyecto (escala 1.0,
 ## SSAO encendido, sombras del sol sin recortar, sin tocar la vegetación).
 const PERFILES: Array[Dictionary] = [
 	{	# --- BAJA ---
 		"escala_3d": 0.70,
+		"cielo_estatico": true,
 		"lod_umbral": 8.0,
 		"ssao": false,
 		"ssil": false,
@@ -64,6 +68,7 @@ const PERFILES: Array[Dictionary] = [
 	},
 	{	# --- MEDIA ---
 		"escala_3d": 0.80,
+		"cielo_estatico": false,
 		"lod_umbral": 3.0,
 		"ssao": false,
 		"ssil": false,
@@ -78,6 +83,7 @@ const PERFILES: Array[Dictionary] = [
 	},
 	{	# --- ALTA (original) ---
 		"escala_3d": 1.0,
+		"cielo_estatico": false,
 		"lod_umbral": 1.0,
 		"ssao": true,
 		"ssil": null,          # null = dejar como está en la escena
@@ -132,6 +138,18 @@ var distancia: int = DISTANCIA_MAX
 ## exactamente como estaba antes de existir esta opción.
 var calidad: int = Calidad.ALTA
 
+# --- P10-B: streaming dinámico del mundo (opción OPCIONAL del jugador) --------
+## Interruptor "Optimización agresiva del mundo". APAGADO por defecto: sin él el
+## mundo se comporta como siempre (nada se descarga). Sólo si el jugador lo
+## enciende se habilita el gestor central `StreamingMundo`.
+var optimizacion_agresiva: bool = false
+## Nivel 0..10 de la barra "Distancia de carga" (se traduce a metros reales).
+var distancia_carga: int = 4
+## Nivel 0..10 de la barra "Distancia de precarga" (margen añadido a la carga).
+var distancia_precarga: int = 3
+## Modo de diagnóstico del streaming (opcional; sólo para pruebas).
+var modo_diagnostico_stream: bool = false
+
 ## Valores ORIGINALES del proyecto, capturados la primera vez que se aplica un
 ## perfil (no se escriben a mano: así ALTA devuelve de verdad lo que había).
 var _orig: Dictionary = {}
@@ -141,6 +159,7 @@ var _orig_sombras: Dictionary = {}
 ## escena: si se compartiera, se ensuciarían otros escenarios).
 var _entorno_copia: Environment = null
 var _entorno_original: Environment = null
+var _cielo_baja: Sky = null     # cielo panorámico estático de BAJA (pereza)
 
 var _fps_capa: CanvasLayer
 var _fps_label: Label
@@ -332,6 +351,10 @@ func _guardar() -> void:
 	cf.set_value(SECCION, "mostrar_fps", mostrar_fps)
 	cf.set_value(SECCION, "distancia", distancia)
 	cf.set_value(SECCION, "calidad", calidad)
+	cf.set_value(SECCION, "optimizacion_agresiva", optimizacion_agresiva)
+	cf.set_value(SECCION, "distancia_carga", distancia_carga)
+	cf.set_value(SECCION, "distancia_precarga", distancia_precarga)
+	cf.set_value(SECCION, "modo_diagnostico_stream", modo_diagnostico_stream)
 	cf.save(RUTA)
 
 ## Devuelve true si existía el archivo de preferencias.
@@ -347,6 +370,11 @@ func _cargar() -> bool:
 	mostrar_fps = bool(cf.get_value(SECCION, "mostrar_fps", false))
 	distancia = clampi(int(cf.get_value(SECCION, "distancia", DISTANCIA_MAX)), DISTANCIA_MIN, DISTANCIA_MAX)
 	calidad = clampi(int(cf.get_value(SECCION, "calidad", Calidad.ALTA)), 0, PERFILES.size() - 1)
+	# P10-B: por defecto APAGADO; sólo se enciende si la preferencia guardada lo pidió.
+	optimizacion_agresiva = bool(cf.get_value(SECCION, "optimizacion_agresiva", false))
+	distancia_carga = clampi(int(cf.get_value(SECCION, "distancia_carga", 4)), 0, CARGA_NIVELES)
+	distancia_precarga = clampi(int(cf.get_value(SECCION, "distancia_precarga", 3)), 0, CARGA_NIVELES)
+	modo_diagnostico_stream = bool(cf.get_value(SECCION, "modo_diagnostico_stream", false))
 	return true
 
 # =============================================================== CALIDAD (aplicar)
@@ -355,6 +383,7 @@ func _cargar() -> bool:
 func _reaplicar_todo() -> void:
 	_aplicar_distancia()
 	_aplicar_calidad()
+	_aplicar_streaming()
 
 ## Punto ÚNICO donde el perfil de calidad se traduce en ajustes de renderizado.
 ## Idempotente: se puede llamar tantas veces como haga falta.
@@ -486,6 +515,19 @@ func _entorno_con_perfil(perfil: Dictionary) -> void:
 	env.glow_enabled = _valor_efecto(perfil["glow"], "env_glow")
 	env.volumetric_fog_enabled = _valor_efecto(perfil["vol_fog"], "env_vol")
 	# La niebla NO se toca aquí: la gobierna el mando de distancia de visión.
+	# --- cielo: estático en BAJA, dinámico en MEDIA y ALTA ------------------
+	# Se cambia SÓLO el `sky` de la COPIA del entorno. El cielo dinámico
+	# original (su Sky, su material, sus texturas y parámetros) nunca se toca:
+	# se guarda su referencia y se devuelve tal cual en MEDIA y ALTA.
+	if not _orig.has("env_sky"):
+		_orig["env_sky"] = _entorno_original.sky
+	if bool(perfil.get("cielo_estatico", false)):
+		if _cielo_baja == null:
+			_cielo_baja = load(RUTA_CIELO_BAJA) as Sky
+		if _cielo_baja != null:
+			env.sky = _cielo_baja
+	else:
+		env.sky = _orig["env_sky"] as Sky
 
 ## null en la tabla = "lo que traía la escena" (es el caso de ALTA).
 func _valor_efecto(v: Variant, clave_original: String) -> bool:
@@ -510,3 +552,117 @@ func pasar_calidad(paso: int) -> void:
 
 func texto_calidad() -> String:
 	return CALIDAD_NOMBRES[clampi(calidad, 0, CALIDAD_NOMBRES.size() - 1)]
+
+
+# =============================================================== P10-B: STREAMING
+## Opción OPCIONAL del jugador "Optimización agresiva del mundo". Con ella apagada
+## el mundo se comporta como siempre (nada se descarga). Con ella encendida se
+## habilita el gestor central `StreamingMundo` (que reutiliza los gestores ya
+## probados de ciudad y bosque).
+##
+## Los valores NO son arbitrarios ni copiados de otro juego: la ciudad usa sectores
+## de 42 m y el bosque trozos de 200 m, así que las barras se expresan en METROS
+## reales del mapa, no en "chunks" homogéneos:
+##   · Distancia de carga    -> radio ACTIVO (lo que se mantiene cargado) 60..600 m
+##   · Distancia de precarga -> margen que se SUMA a la carga              20..300 m
+##   · Histéresis de descarga-> +60 m (el sector no oscila cerca del límite)
+## La "distancia de visión" NO se duplica: es el ajuste gráfico ya existente
+## (`distancia`, far de la cámara + niebla), independiente del radio de carga.
+const CARGA_NIVELES := 10
+const CARGA_MIN := 60.0
+const CARGA_MAX := 600.0
+const PRECARGA_MIN := 20.0
+const PRECARGA_MAX := 300.0
+const HISTERESIS_DESCARGA := 60.0
+
+## Radio activo (m) para el nivel de la barra de carga.
+func radio_carga_m() -> float:
+	return lerpf(CARGA_MIN, CARGA_MAX, float(distancia_carga) / float(CARGA_NIVELES))
+
+## Margen de precarga (m) para el nivel de la barra de precarga.
+func margen_precarga_m() -> float:
+	return lerpf(PRECARGA_MIN, PRECARGA_MAX, float(distancia_precarga) / float(CARGA_NIVELES))
+
+func texto_carga() -> String:
+	return "%d m" % int(round(radio_carga_m()))
+
+func texto_precarga() -> String:
+	return "%d m" % int(round(margen_precarga_m()))
+
+## Punto ÚNICO donde la opción de streaming se traduce en el gestor del mundo.
+## En el menú (sin mundo) no encuentra el gestor y no hace nada; cuando el mundo se
+## carga, `_on_node_added` reaplica y entonces sí lo configura.
+func _aplicar_streaming() -> void:
+	var mundo := _buscar_streaming()
+	if mundo == null:
+		return
+	var rc := radio_carga_m()
+	var rp := rc + margen_precarga_m()
+	var rd := rp + HISTERESIS_DESCARGA
+	mundo.set("ciudad_r_activo", rc)
+	mundo.set("ciudad_r_precarga", rp)
+	mundo.set("ciudad_r_descarga", rd)
+	mundo.set("bosque_r_activo", rc)
+	mundo.set("bosque_r_precarga", rp)
+	mundo.set("bosque_r_descarga", rd)
+	mundo.set("modo_diagnostico", modo_diagnostico_stream)
+	mundo.call("set_activo", optimizacion_agresiva)
+	mundo.call("set_diagnostico", modo_diagnostico_stream)
+	if optimizacion_agresiva:
+		mundo.call("aplicar_radios")
+
+func _buscar_streaming() -> Node:
+	if get_tree() == null or get_tree().root == null:
+		return null
+	var r := get_tree().root.find_children("*", "GestorStreamingMundo", true, false)
+	return r[0] if not r.is_empty() else null
+
+# ---------------------------------------------------------------- API (menú P10-B)
+func poner_optimizacion_agresiva(v: bool) -> void:
+	if v == optimizacion_agresiva:
+		return
+	optimizacion_agresiva = v
+	_aplicar_streaming()
+	_guardar()
+	cambiado.emit()
+
+func alternar_optimizacion_agresiva() -> void:
+	poner_optimizacion_agresiva(not optimizacion_agresiva)
+
+func poner_distancia_carga(n: int) -> void:
+	n = clampi(n, 0, CARGA_NIVELES)
+	if n == distancia_carga:
+		return
+	distancia_carga = n
+	if optimizacion_agresiva:
+		_aplicar_streaming()
+	_guardar()
+	cambiado.emit()
+
+func poner_distancia_precarga(n: int) -> void:
+	n = clampi(n, 0, CARGA_NIVELES)
+	if n == distancia_precarga:
+		return
+	distancia_precarga = n
+	if optimizacion_agresiva:
+		_aplicar_streaming()
+	_guardar()
+	cambiado.emit()
+
+func poner_diagnostico_stream(v: bool) -> void:
+	if v == modo_diagnostico_stream:
+		return
+	modo_diagnostico_stream = v
+	if optimizacion_agresiva:
+		_aplicar_streaming()
+	_guardar()
+	cambiado.emit()
+
+func alternar_diagnostico_stream() -> void:
+	poner_diagnostico_stream(not modo_diagnostico_stream)
+
+func texto_optimizacion() -> String:
+	return "SÍ" if optimizacion_agresiva else "NO"
+
+func texto_diagnostico_stream() -> String:
+	return "SÍ" if modo_diagnostico_stream else "NO"

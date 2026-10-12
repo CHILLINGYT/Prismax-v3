@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://world/bosque.gd" id="1_bosque"]
+[ext_resource type="Script" path="res://world/streaming/gestor_streaming_bosque.gd" id="2_gestor"]
+[ext_resource type="Script" path="res://_tests/streaming_bosque_test.gd" id="3_test"]
+
+[node name="TestStreamingBosque" type="Node3D"]
+script = ExtResource("3_test")
+
+[node name="Bosque" type="Node3D" parent="."]
+script = ExtResource("1_bosque")
+
+[node name="Jugador" type="Marker3D" parent="."]
+
+[node name="Gestor" type="Node" parent="."]
+script = ExtResource("2_gestor")
+activo = true
+r_activo = 180.0
+r_precarga = 320.0
+r_descarga = 420.0
+max_ops_por_fotograma = 3
+diagnostico = true

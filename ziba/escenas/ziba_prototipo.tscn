@@ -33,6 +33,7 @@
 [ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="30_config"]
 [ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
 [ext_resource type="Script" uid="uid://dfm5npml16np4" path="res://world/ambiente_dinamico.gd" id="43_ambiente"]
+[ext_resource type="Script" path="res://world/streaming/gestor_streaming_mundo.gd" id="44_streaming"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -176,6 +177,11 @@ libraries/superduper_velocidad = ExtResource("9_luf5j")
 [node name="AmbienteDinamico" type="Node" parent="."]
 script = ExtResource("43_ambiente")
 ruta_jugador = NodePath("../Jugador")
+
+[node name="StreamingMundo" type="Node" parent="."]
+script = ExtResource("44_streaming")
+activo = false
+modo_diagnostico = false
 
 [editable path="Jugador"]
 [editable path="Jugador/Visual/Pose/Volteo/Modelo"]

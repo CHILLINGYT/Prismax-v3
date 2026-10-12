@@ -131,6 +131,23 @@ theme_override_font_sizes/font_size = 20
 text = "NUEVA PARTIDA"
 vertical_alignment = 1
 
+[node name="AjustesOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 3
+description = "AJUSTES: Ajusta las opciones del juego."
+
+[node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/Items/AjustesOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "AJUSTES"
+vertical_alignment = 1
+
 [node name="QuitOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/Items"]
 custom_minimum_size = Vector2(300, 34)
 layout_mode = 2
@@ -146,6 +163,49 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 20
 text = "SALIR DEL JUEGO"
+vertical_alignment = 1
+
+[node name="ConfigItems" type="VBoxContainer" parent="MenuPanel/Content/OptionsList"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 179.0
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="GraficosOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 4
+description = "GRÁFICOS: Ajustes gráficos (próximamente)."
+
+[node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/ConfigItems/GraficosOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "> GRÁFICOS"
+vertical_alignment = 1
+
+[node name="VolverOption" type="MarginContainer" parent="MenuPanel/Content/OptionsList/ConfigItems"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 5
+description = "VOLVER: Regresa al menú principal."
+
+[node name="Label" type="Label" parent="MenuPanel/Content/OptionsList/ConfigItems/VolverOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "VOLVER"
 vertical_alignment = 1
 
 [node name="StoryLabel" type="Label" parent="MenuPanel/Content"]
@@ -194,3 +254,176 @@ offset_top = -300.0
 offset_bottom = -165.0
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="ConfigPanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 556.0
+offset_top = 74.0
+offset_right = -140.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelBG" type="ColorRect" parent="ConfigPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.031, 0.035, 0.047, 0.62)
+
+[node name="ConfigTitle" type="Label" parent="ConfigPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 35.0
+offset_top = 16.0
+offset_right = -35.0
+offset_bottom = 44.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
+theme_override_font_sizes/font_size = 20
+text = "GRÁFICOS"
+
+[node name="ConfigTitleLine" type="ColorRect" parent="ConfigPanel"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 35.0
+offset_top = 52.0
+offset_right = -35.0
+offset_bottom = 53.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.45, 0.47, 0.52, 0.8)
+
+[node name="ConfigContent" type="VBoxContainer" parent="ConfigPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 35.0
+offset_top = 74.0
+offset_right = -35.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="SeccionGraficos" type="VBoxContainer" parent="ConfigPanel/ConfigContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Etiqueta" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "SECCIÓN GRÁFICOS"
+
+[node name="Proximamente" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+theme_override_font_sizes/font_size = 13
+text = "Elige el perfil gráfico del juego:"
+
+[node name="CalidadOption" type="MarginContainer" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 6
+description = "Calidad gráfica."
+
+[node name="Label" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos/CalidadOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "CALIDAD: ALTA"
+
+[node name="OptimizacionOption" type="MarginContainer" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 7
+description = "Optimización agresiva del mundo: carga y descarga por proximidad. Al encenderla aparecen la distancia de carga, la de precarga y el diagnóstico. Apagada, el mundo se comporta como siempre."
+
+[node name="Label" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos/OptimizacionOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "OPTIMIZACIÓN AGRESIVA DEL MUNDO: NO"
+autowrap_mode = 2
+
+[node name="CargaOption" type="MarginContainer" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+visible = false
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 8
+description = "Distancia de carga: cuánto mundo se mantiene alrededor del jugador. Izquierda/derecha para cambiarla."
+
+[node name="Label" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos/CargaOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "DISTANCIA DE CARGA: 276 m"
+autowrap_mode = 2
+
+[node name="PrecargaOption" type="MarginContainer" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+visible = false
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 9
+description = "Distancia de precarga: con cuánta anticipación se preparan los sectores hacia donde va el jugador."
+
+[node name="Label" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos/PrecargaOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "DISTANCIA DE PRECARGA: 104 m"
+autowrap_mode = 2
+
+[node name="DiagnosticoOption" type="MarginContainer" parent="ConfigPanel/ConfigContent/SeccionGraficos"]
+visible = false
+custom_minimum_size = Vector2(300, 34)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+script = ExtResource("4_option")
+action = 10
+description = "Modo de diagnóstico: muestra sectores cargados, en precarga y descargados. Sólo para pruebas."
+
+[node name="Label" type="Label" parent="ConfigPanel/ConfigContent/SeccionGraficos/DiagnosticoOption"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 20
+text = "MODO DE DIAGNÓSTICO: NO"
+autowrap_mode = 2
