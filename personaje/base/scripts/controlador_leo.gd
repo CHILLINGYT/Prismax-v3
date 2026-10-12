@@ -436,6 +436,27 @@ const BLEND_EMOTE := 0.12
 # Fundido al entrar/salir de la transformación.
 const BLEND_TRANSFORMACION := 0.15
 
+# --- SONIDOS de las acciones del velocista (carga, trazado, dash, golpe) ---
+# Offsets MEDIDOS (s) para saltar el silencio DIGITAL de cabecera de los WAV y no
+# meter retardo al empezar: golpe ≈0,136 s, trazado ≈0,133 s. Carga y dash no
+# tienen silencio de cabeza (arrancan en 0). El archivo original NO se toca.
+const AUD_INICIO_TRAZADO := 0.133
+const AUD_INICIO_GOLPE := 0.136
+# Fin del contenido útil del trazado (sin el silencio de cola), para el bucle.
+const AUD_FIN_TRAZADO := 5.477
+
+# --- SONIDOS de las habilidades de FUERZA ---
+# Offsets MEDIDOS (s) para saltar el silencio DIGITAL de cabecera de los mp3 y no
+# meter retardo al empezar. Medidos reproduciendo cada archivo por el bus
+# "Efectos" con captura: salto 0.10, impacto 0.06, agarrapiedra 0.22, piedratirada
+# 0.24, golpe 0.06, patada 0.05. El archivo original NO se toca.
+const AUD_F_SALTO := 0.10
+const AUD_F_IMPACTO := 0.06
+const AUD_F_AGARRE := 0.21
+const AUD_F_TIRADA := 0.23
+const AUD_F_GOLPE := 0.06
+const AUD_F_PATADA := 0.05
+
 # Colores del efecto visual de transformación existente.
 const COLORES_TRANSFORMACION := {
 	&"combate": Color(0.6, 0.1, 1.0, 1.0),
@@ -533,6 +554,23 @@ var _menu_abierto: bool = false
 # modelo y su AnimationPlayer), hermana de las demás representaciones.
 @onready var ataque_visual: Node3D = $Ataque
 @onready var anim_ataque: AnimationPlayer = $Ataque/AnimadorAtaque
+# Reproductores de las acciones del Velocista (carga, trazado, dash y golpe).
+# Son AudioStreamPlayer hijos del jugador, en el bus "Efectos" (igual que el de
+# transformación), así que respetan el volumen general y el de efectos.
+@onready var _sfx_carga: AudioStreamPlayer = $AudioCarga
+@onready var _sfx_trazado: AudioStreamPlayer = $AudioTrazado
+@onready var _sfx_dash: AudioStreamPlayer = $AudioDash
+@onready var _sfx_golpe: AudioStreamPlayer = $AudioGolpe
+# Reproductores de las HABILIDADES de FUERZA (salto, impacto en el suelo, agarre y
+# tirada de roca, puñetazo y patada). Son AudioStreamPlayer hijos del jugador, en
+# el bus "Efectos". Son INDEPENDIENTES entre sí y de los del velocista y de la
+# transformación: uno no detiene a otro.
+@onready var _sfx_f_salto: AudioStreamPlayer = $AudioFuerzaSalto
+@onready var _sfx_f_impacto: AudioStreamPlayer = $AudioFuerzaImpacto
+@onready var _sfx_f_agarre: AudioStreamPlayer = $AudioFuerzaAgarre
+@onready var _sfx_f_tirada: AudioStreamPlayer = $AudioFuerzaTirada
+@onready var _sfx_f_golpe: AudioStreamPlayer = $AudioFuerzaGolpe
+@onready var _sfx_f_patada: AudioStreamPlayer = $AudioFuerzaPatada
 
 # --- Estado forma humana ---
 var h_salto_aire: bool = false
@@ -702,6 +740,8 @@ var _t_emote: float = 0.0
 var _en_modo_ataque: bool = false
 var _t_modo_ataque: float = 0.0
 var _salto_forzado: bool = false
+# Fundido de salida del sonido del trazado (para un final limpio, sin chasquido).
+var _fade_trazado: Tween
 
 # --- Estado forma Combate (módulo ataque) ---
 var c_salto_aire: bool = false
@@ -734,11 +774,18 @@ func _exit_tree() -> void:
 	_indicador_objetivo = null
 
 func _ready() -> void:
+	# El personaje jugable se identifica con el grupo "player": lo esperan el
+	# módulo de NPC de la partida (peatones que reaccionan a Leo, director que no
+	# siembra gente encima del punto de inicio), el gestor del encuentro y el
+	# gerente de enemigos. Es la MISMA convención que usan los jugadores de los
+	# módulos, así que aquí no se crea ningún sistema nuevo.
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
 	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
 	floor_snap_length = 0.2
 	_configurar_animaciones()
+	_configurar_sonidos_velocista()
 	combate.golpe_realizado.connect(_on_golpe_realizado)
 	# Atacar también corta la regeneración de resistencia (sistema de daño/HUD):
 	# se reutiliza la señal de combate existente, sin crear un segundo sistema.
@@ -1499,6 +1546,8 @@ func _detener_combate() -> void:
 func _detener_velocista() -> void:
 	estado = Estado.NORMAL
 	velocity = Vector3.ZERO
+	_parar_carga()
+	_parar_trazado()
 	efectos.terminar_dash()
 	efectos.terminar_carga()
 	efectos.terminar_ejecucion()
@@ -1512,6 +1561,102 @@ func _detener_velocista() -> void:
 	pivote.objetivo_fov = pivote.fov_base
 	pivote.definir_pitch(-0.25)
 	pivote.position.y = h_pivote_y_base
+
+# --- SONIDOS de las acciones del velocista (carga, trazado, dash, golpe) -------
+# Cada sonido se dispara desde la función REAL que arranca o termina su acción,
+# no desde la lectura de un botón: así no suena si la acción no llega a ocurrir y
+# no se repite cada fotograma. Todos salen por los AudioStreamPlayer del jugador
+# (bus "Efectos").
+
+## Prepara el sonido del TRAZADO para cubrir un recorrido más largo que el propio
+## archivo: trabaja sobre una COPIA en memoria del WAV (no toca el recurso original
+## ni su importación) y le fija un bucle recortado al tramo útil medido, para que no
+## haya pausa de silencio al repetir.
+func _configurar_sonidos_velocista() -> void:
+	if _sfx_trazado == null:
+		return
+	var st := _sfx_trazado.stream
+	if st is AudioStreamWAV:
+		var w := (st as AudioStreamWAV).duplicate() as AudioStreamWAV
+		var sr := float(w.mix_rate)
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_begin = int(AUD_INICIO_TRAZADO * sr)
+		w.loop_end = int(AUD_FIN_TRAZADO * sr)
+		_sfx_trazado.stream = w
+
+func _sonar_carga() -> void:
+	if _sfx_carga != null and _sfx_carga.stream != null:
+		_sfx_carga.play()
+
+func _parar_carga() -> void:
+	if _sfx_carga != null and _sfx_carga.playing:
+		_sfx_carga.stop()
+
+func _sonar_trazado() -> void:
+	if _sfx_trazado == null or _sfx_trazado.stream == null:
+		return
+	if _fade_trazado != null and _fade_trazado.is_valid():
+		_fade_trazado.kill()
+	_sfx_trazado.volume_db = 0.0
+	_sfx_trazado.play(AUD_INICIO_TRAZADO)
+
+## Detiene el TRAZADO con un fundido muy breve para que el final (o una
+## interrupción) no chasquee. No sincroniza nada: sólo limpia el corte; el arranque
+## y el fin los marcan las funciones reales del recorrido.
+func _parar_trazado() -> void:
+	if _sfx_trazado == null or not _sfx_trazado.playing:
+		return
+	if _fade_trazado != null and _fade_trazado.is_valid():
+		_fade_trazado.kill()
+	_fade_trazado = create_tween()
+	_fade_trazado.tween_property(_sfx_trazado, "volume_db", -40.0, 0.12)
+	_fade_trazado.tween_callback(_detener_trazado_ya)
+
+func _detener_trazado_ya() -> void:
+	if _sfx_trazado != null and is_instance_valid(_sfx_trazado):
+		_sfx_trazado.stop()
+		_sfx_trazado.volume_db = 0.0
+
+func _sonar_dash() -> void:
+	if _sfx_dash != null and _sfx_dash.stream != null:
+		_sfx_dash.stop()
+		_sfx_dash.play()
+
+func _sonar_golpe() -> void:
+	if _sfx_golpe != null and _sfx_golpe.stream != null:
+		_sfx_golpe.stop()
+		_sfx_golpe.play(AUD_INICIO_GOLPE)
+
+# --- SONIDOS de las habilidades de FUERZA -------------------------------------
+# Cada sonido se dispara desde la función REAL del evento (no al leer el botón) y
+# en su propio reproductor: uno no corta a otro. `stop()`+`play()` garantiza UNA
+# emisión por acción aunque la función se llame más de una vez.
+func _sonar_fuerza_salto() -> void:
+	if _sfx_f_salto != null and _sfx_f_salto.stream != null:
+		_sfx_f_salto.stop()
+		_sfx_f_salto.play(AUD_F_SALTO)
+
+func _sonar_fuerza_impacto() -> void:
+	if _sfx_f_impacto != null and _sfx_f_impacto.stream != null:
+		_sfx_f_impacto.stop()
+		_sfx_f_impacto.play(AUD_F_IMPACTO)
+
+func _sonar_fuerza_agarre() -> void:
+	if _sfx_f_agarre != null and _sfx_f_agarre.stream != null:
+		_sfx_f_agarre.stop()
+		_sfx_f_agarre.play(AUD_F_AGARRE)
+
+func _sonar_fuerza_tirada() -> void:
+	if _sfx_f_tirada != null and _sfx_f_tirada.stream != null:
+		_sfx_f_tirada.stop()
+		_sfx_f_tirada.play(AUD_F_TIRADA)
+
+func _sonar_fuerza_golpe(es_patada: bool) -> void:
+	var p: AudioStreamPlayer = _sfx_f_patada if es_patada else _sfx_f_golpe
+	if p == null or p.stream == null:
+		return
+	p.stop()
+	p.play(AUD_F_PATADA if es_patada else AUD_F_GOLPE)
 
 # ============================================================== FORMA HUMANA (Leo)
 func _direccion_entrada() -> Vector3:
@@ -2866,6 +3011,7 @@ func _procesar_fuerza(delta: float) -> void:
 			velocity.y = F_SALTO
 			f_salto_aire = true
 			_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+			_sonar_fuerza_salto()
 
 	# El indicador de carga se queda un instante a tope tras el supersalto.
 	if _f_flash_indicador > 0.0 and not f_super_cargando:
@@ -3023,6 +3169,7 @@ func _procesar_slam_fuerza(_delta: float) -> void:
 		f_slam = false
 		f_salto_aire = false
 		_reproducir_fuerza(ANIM_F_SLAMIMPACT, BLEND_ATAQUE, true)
+		_sonar_fuerza_impacto()
 		_f_bloqueo_anim = 0.6
 		var onda := FuerzaShockwave.new()
 		onda.radius = F_SLAM_RADIO
@@ -3064,6 +3211,7 @@ func _intentar_roca_fuerza() -> void:
 	host.add_child(roca)
 	roca.global_position = _posicion_roca_nace()
 	roca.sujetar()
+	_sonar_fuerza_agarre()
 	f_roca = roca
 	f_cargando_roca = true
 	f_roca_lista = false
@@ -3096,6 +3244,7 @@ func _lanzar_roca_fuerza() -> void:
 	var dir := _direccion_lanzamiento_roca(
 		f_roca.global_position, objetivo, F_ROCA_VEL, gravedad_efectiva)
 	f_roca.lanzar(dir, F_ROCA_VEL)
+	_sonar_fuerza_tirada()
 	# La piedra lanzada SIGUE existiendo (vuela, impacta y se desvanece sola):
 	# se conserva la referencia hasta que salga del árbol de escena; mientras
 	# exista, Q no puede arrancar otra del suelo.
@@ -3289,6 +3438,7 @@ func _ejecutar_super() -> void:
 		velocity.y = F_SALTO
 		f_salto_aire = true
 		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+		_sonar_fuerza_salto()
 		return
 	var fr := clampf(inverse_lerp(F_SUPER_CARGA_MIN, F_SUPER_CARGA_MAX, cargado), 0.0, 1.0)
 	velocity.y = lerpf(F_SUPER_VEL_MIN, F_SUPER_VEL_MAX, fr)
@@ -3306,6 +3456,7 @@ func _ejecutar_super() -> void:
 		velocity.z = rumbo.z * F_SUPER_IMPULSO
 	_reproducir_fuerza(ANIM_F_SUPERJUMP, BLEND_SALTO, true)
 	_f_bloqueo_anim = maxf(_duracion_fuerza(ANIM_F_SUPERJUMP), 0.2)
+	_sonar_fuerza_salto()
 	# El indicador se queda un momento a tope: se ve la fuerza que llevaba.
 	_f_flash_indicador = 0.35
 	_actualizar_indicador_super(1.0, true)
@@ -3550,6 +3701,7 @@ func _procesar_ataque_fuerza() -> void:
 
 func _aplicar_impacto_golpe_fuerza() -> void:
 	var es_patada := _f_ataque_clip == ANIM_F_KICK
+	_sonar_fuerza_golpe(es_patada)
 	var dano := F_PATADA_DANIO if es_patada else F_PUNIO_DANIO
 	var altura := F_PATADA_ALTURA if es_patada else F_GOLPE_ALTURA
 	var punto := _punto_golpe_fuerza(altura)
@@ -3777,7 +3929,19 @@ func _puede_iniciar_golpe(action: String) -> bool:
 func _gestor_encuentro() -> Node:
 	if _gestor_combate == null or not is_instance_valid(_gestor_combate):
 		_gestor_combate = get_tree().get_first_node_in_group("combat_manager")
+		# El gestor ya avisa cuando un enemigo muere: con eso el objetivo se suelta
+		# al instante y nunca queda una referencia a un nodo liberado.
+		if _gestor_combate != null and _gestor_combate.has_signal("enemy_died") \
+				and not _gestor_combate.enemy_died.is_connected(_on_enemigo_combate_muerto):
+			_gestor_combate.enemy_died.connect(_on_enemigo_combate_muerto)
 	return _gestor_combate
+
+## Enemigo del encuentro que acaba de morir: si era el objetivo del FreeFlow se
+## suelta la referencia (y se apaga el indicador) sin esperar al siguiente fotograma.
+func _on_enemigo_combate_muerto(enemigo: Node3D) -> void:
+	if enemigo == c_objetivo:
+		c_objetivo = null
+		_actualizar_indicador_objetivo()
 
 ## Config vigente: la del gestor si existe; si no, la del propio módulo de
 ## ataque (los MISMOS valores del sistema FreeFlow: no se inventa ninguno).
@@ -4043,7 +4207,7 @@ func _actualizar_indicador_objetivo(delta: float = 0.0) -> void:
 	# Un enemigo puede morir y liberarse mientras era el objetivo: se limpia AQUÍ,
 	# antes de que nadie más lea la referencia, para que no quede una colgada (con
 	# ella el siguiente ataque fallaba al convertirla a Node3D).
-	if c_objetivo != null and not is_instance_valid(c_objetivo):
+	if not is_instance_valid(c_objetivo):
 		c_objetivo = null
 	if forma != Forma.COMBATE or not _objetivo_valido():
 		if _indicador_objetivo != null and is_instance_valid(_indicador_objetivo):
@@ -4185,6 +4349,7 @@ func _procesar_normal(delta: float) -> void:
 		_iniciar_carga()
 
 func _on_golpe_realizado(indice: int) -> void:
+	_sonar_golpe()
 	_en_modo_ataque = true
 	_t_modo_ataque = TIEMPO_MODO_ATAQUE
 	_emote_activo = false
@@ -4399,6 +4564,7 @@ func _iniciar_dash(dir: Vector3) -> void:
 	_t_dash = 0.0
 	_bloqueo_anim = 0.0
 	efectos.iniciar_dash(dir)
+	_sonar_dash()
 
 func _procesar_dash(delta: float) -> void:
 	_t_dash += delta
@@ -4444,6 +4610,7 @@ func _iniciar_carga() -> void:
 	var cam := pivote.get_node_or_null("Brazo/Camara") as Camera3D
 	trazador.iniciar(global_position, cam, 0.0)
 	efectos.iniciar_carga()
+	_sonar_carga()
 
 func _procesar_carga(delta: float) -> void:
 	_t_carga += delta
@@ -4461,6 +4628,7 @@ func _procesar_carga(delta: float) -> void:
 		_soltar_carga()
 
 func _soltar_carga() -> void:
+	_parar_carga()
 	pivote.permitir_look = true
 	pivote.vibracion = 0.0
 	pivote.objetivo_largo = pivote.largo_base
@@ -4503,6 +4671,7 @@ func _iniciar_recorrido() -> void:
 	pivote.objetivo_largo = pivote.largo_base * 0.9
 	pivote.objetivo_fov = pivote.fov_base + 20.0
 	pivote.vibracion = 0.6
+	_sonar_trazado()
 
 # ---------------- Ejecución de la trayectoria ----------------
 # El recorrido se apoya en el terreno REAL de la isla. Antes se hacía con un
@@ -4616,6 +4785,7 @@ func _terminar_ejecucion() -> void:
 	_super_golpeados.clear()
 	_bloqueo_anim = BLOQUEO_FIN_VELOCIDAD
 	_reproducir_anim(ANIM_INACTIVO, BLEND_FIN_VELOCIDAD)
+	_parar_trazado()
 
 # ---------------- Animaciones (velocista) ----------------
 func _configurar_animaciones() -> void:

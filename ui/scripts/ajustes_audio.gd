@@ -12,20 +12,21 @@ extends Node
 ##   · Desactivar diálogos (SÍ/NO): bus "Dialogos".
 ##
 ## -----------------------------------------------------------------------------
-## ETAPA ACTUAL: SIN SONIDO
+## ETAPA ACTUAL: APLICACIÓN REAL ACTIVA
 ## -----------------------------------------------------------------------------
-## PRISMAX todavía no tiene archivos de audio. Por eso estas cuatro preferencias
-## son, de momento, SOLO valores guardados: los controles de la interfaz se mueven,
-## muestran su número y persisten, pero NO modifican ningún bus ni reproducen nada.
+## Estas cuatro preferencias modifican de VERDAD los buses de audio en tiempo real
+## (ver _aplicar): mover una barra en el menú cambia el sonido al instante, sin
+## reiniciar ni detener nada, y se guarda en disco.
 ##
-## Toda la preparación para el futuro está concentrada en _aplicar() y en la
-## constante APLICAR_VOLUMEN_REAL. Cuando llegue el audio real basta con:
-##   1) poner APLICAR_VOLUMEN_REAL = true, y
-##   2) enrutar cada reproductor (música/efectos/diálogos) a su bus correspondiente.
-## No hay que rehacer ni la interfaz ni el guardado.
+##   · Volumen general -> bus Master  (afecta a TODO el audio del juego).
+##   · Volumen música  -> bus Musica  (capa sonora continua = AMBIENTE de ciudad/
+##                                      montaña/playa; NO afecta a los efectos).
+##   · Volumen efectos -> bus Efectos (transformación, sonidos de interfaz, ...).
+##   · Diálogos        -> silencia/reactiva el bus Dialogos.
 ##
-## La lista de buses vive en res://default_bus_layout.tres (Master ya existe;
-## se añaden Musica, Efectos y Dialogos, todos inertes: ningún sonido los usa aún).
+## La lista de buses vive en res://default_bus_layout.tres: Master (implícito) +
+## Musica + Efectos + Dialogos. No se duplica ningún bus ni ninguna cadena de
+## control: TODO el volumen se aplica de forma centralizada en los buses.
 ##
 ## Persistencia: un ConfigFile propio (user://ajustes_audio.cfg) con solo la
 ## sección "audio". No toca otros guardados del proyecto.
@@ -53,9 +54,10 @@ const BUS_MUSICA := &"Musica"
 const BUS_EFECTOS := &"Efectos"
 const BUS_DIALOGOS := &"Dialogos"
 
-## Interruptor de la etapa. En false NADA del audio se toca (etapa actual sin
-## sonidos). Cuando exista audio real, ponerlo a true para activar la aplicación.
-const APLICAR_VOLUMEN_REAL := false
+## Interruptor de aplicación. En true los controles del menú modifican de verdad
+## los buses de audio (Master/Música/Efectos/Diálogos). El proyecto YA tiene audio
+## real (ambiente, transformación, interfaz), así que está ACTIVO.
+const APLICAR_VOLUMEN_REAL := true
 
 # --- Estado (lectura directa desde el menú) -------------------------------------
 var volumen_general: int = VOL_GENERAL_DEFECTO
@@ -118,12 +120,10 @@ func alternar_desactivar_dialogos() -> void:
 	poner_desactivar_dialogos(not desactivar_dialogos)
 
 # ---------------------------------------------------------------- aplicación
-## Punto ÚNICO donde los ajustes se conectan a los buses de audio. En la etapa
-## actual no hace nada porque APLICAR_VOLUMEN_REAL es false: el juego no tiene
-## sonido todavía y estas preferencias solo se guardan.
-##
-## El volumen general actúa como MAESTRO (bus "Master") y no destruye los valores
-## individuales de música/efectos/diálogos: cada categoría conserva el suyo.
+## Punto ÚNICO donde los ajustes se conectan a los buses de audio. El volumen
+## general actúa como MAESTRO (bus "Master") y NO destruye los valores individuales
+## de música/efectos/diálogos: cada categoría conserva el suyo y los buses se
+## encadenan (Master -> categoría), así los niveles se combinan correctamente.
 func _aplicar() -> void:
 	if not APLICAR_VOLUMEN_REAL:
 		return

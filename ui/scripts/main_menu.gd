@@ -55,6 +55,10 @@ func _move(step: int) -> void:
 	var count: int = _items.get_child_count()
 	if count == 0:
 		return
+	# Sonido de navegación: solo si el movimiento cambia de opción (con una sola
+	# opción el índice no cambia y no debe sonar nada).
+	if count > 1:
+		SonidoUI.reproducir_cursor()
 	_selected = wrapi(_selected + step, 0, count)
 	_refresh(false)
 
@@ -99,6 +103,7 @@ func _activate(index: int) -> void:
 	var row := rows[index] as MenuOptionRes
 	if row == null:
 		return
+	SonidoUI.reproducir_click()
 	match row.action:
 		MenuOptionRes.Action.CONTINUE:
 			continue_requested.emit()
@@ -127,6 +132,9 @@ func _ir_al_mundo() -> void:
 func _on_row_hovered(index: int) -> void:
 	if index == _selected:
 		return
+	# El cursor entró en OTRA opción: un único sonido de navegación (no se repite
+	# mientras el ratón permanece sobre la misma fila).
+	SonidoUI.reproducir_cursor()
 	_selected = index
 	_refresh(false)
 

@@ -172,5 +172,9 @@ libraries/superduper_velocidad = ExtResource("9_luf5j")
 
 [node name="Pausa" parent="." unique_id=263530486 instance=ExtResource("15_pausa")]
 
+[node name="AmbienteDinamico" type="Node" parent="."]
+script = ExtResource("43_ambiente")
+ruta_jugador = NodePath("../Jugador")
+
 [editable path="Jugador"]
 [editable path="Jugador/Visual/Pose/Volteo/Modelo"]
