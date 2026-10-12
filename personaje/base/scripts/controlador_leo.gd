@@ -147,6 +147,24 @@ const A_VFX_MAREA_FUERZA := 1.35
 ## golpes, `attack` y `attack_2`). Siguen en la librería del modelo por si se
 ## quisieran recuperar, pero el juego no los reproduce.
 
+# --- MUERTE del jugador -------------------------------------------------------
+## Los FBX de muerte NO traen malla: sólo un esqueleto Mixamo y un clip. Sus
+## animaciones se copian al AnimationPlayer de la forma ACTIVA por NOMBRE de hueso
+## (retarget), así el cadáver es el propio modelo del personaje: ni segundo
+## esqueleto, ni cambio de forma, ni teletransporte. `muerte` se reproduce una vez
+## (dura lo que dura el clip real); `morido` es la pose de cadáver, en bucle.
+const ESC_MUERTE := "res://personaje/transformaciones/Muerte.fbx"
+const ESC_MORIDO := "res://personaje/transformaciones/Morido.fbx"
+const CLIP_MUERTE := &"muerte"
+const CLIP_MORIDO := &"morido"
+## Clip de muerte de la forma VUELO: su rig NO es Mixamo, así que los FBX no
+## encajan en su esqueleto. Se usa el clip de muerte que YA trae su librería.
+const ANIM_MUERTE_VUELO := "Death01"
+## Segundos que el cadáver se queda con `morido` en bucle antes de fundir a negro.
+const MUERTE_ESPERA_FUNDIDO := 1.1
+## Pantalla final (fundido + logo real + NUEVA PARTIDA / VOLVER AL MENÚ).
+const ESCENA_MUERTE_PANTALLA := preload("res://ui/scenes/DeathScreen.tscn")
+
 # --- SONIDOS de la forma acuática (mismo bus "Efectos" que el resto) -----------
 # Volumen de las dos capas del golpe: el físico aporta la contundencia y el acuático
 # complementa el impacto sin taparlo. Los archivos ya miden parecido en pico
@@ -597,6 +615,18 @@ var _transformando: bool = false
 # Verdadero mientras el menú radial de transformaciones (F) está abierto.
 var _menu_abierto: bool = false
 
+# --- MUERTE del jugador -------------------------------------------------------
+## Estados de la secuencia: VIVO (juego normal) -> MURIENDO (clip `muerte`) ->
+## MORIDO (pose de cadáver en bucle + fundido y pantalla final). Se activa UNA vez.
+enum Muerte { VIVO, MURIENDO, MORIDO }
+var _muerte_estado: int = Muerte.VIVO
+## AnimationPlayer de la forma activa que reproduce la secuencia de muerte.
+var _anim_muerte: AnimationPlayer = null
+## Pantalla final (CanvasLayer por encima de todo) instanciada al morir.
+var _pantalla_muerte: DeathScreen = null
+## Caché de los clips de los FBX de muerte (ruta -> Animation), para no releerlos.
+var _clips_muerte: Dictionary = {}
+
 @onready var humano: Node3D = $Humano
 @onready var anim_humano: AnimationPlayer = $Humano/Animador
 @onready var acuatico: Node3D = $Acuatico
@@ -868,6 +898,10 @@ func _ready() -> void:
 	# módulos, así que aquí no se crea ningún sistema nuevo.
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# MUERTE: la señal del sistema de vida/escudo (vida y resistencia agotadas) es
+	# la ÚNICA puerta a la secuencia de muerte. Se conecta aquí, una sola vez.
+	if not estadisticas.murio.is_connected(_al_morir):
+		estadisticas.murio.connect(_al_morir)
 	# Sigue el bordillo hacia abajo (0.153 m) sin despegarse del suelo al bajar de
 	# la acera a la calzada. Es un ajuste pequeño y localizado (por defecto 0.1).
 	floor_snap_length = 0.2
@@ -957,6 +991,11 @@ func id_forma() -> StringName:
 			return &"humano"
 
 func _unhandled_input(event: InputEvent) -> void:
+	# MUERTO: no se atiende NINGUNA acción de juego (movimiento, salto, ataque,
+	# habilidades, transformaciones, turbo, daño de prueba...). La secuencia de
+	# muerte manda; los menús se cierran al morir y dejan de leer sus teclas.
+	if _muerte_estado != Muerte.VIVO:
+		return
 	# Con el menú de transformaciones abierto el ratón debe quedar libre para
 	# pulsar los iconos: se anula el "clic para recapturar" durante ese tiempo.
 	if _menu_abierto:
@@ -1000,6 +1039,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
+	# MUERTE: la secuencia manda. Nada de movimiento, combate, habilidades,
+	# transformaciones ni cámara: sólo el cuerpo cayendo (si murió en el aire)
+	# mientras corre la animación de muerte y su comprobación de fin.
+	if _muerte_estado != Muerte.VIVO:
+		_procesar_muerte(delta)
+		return
 	# El sonido del nado se evalúa SIEMPRE, sea cual sea el camino que tome la forma
 	# acuática en este fotograma (nado, golpe, habilidad, trepada, menú o
 	# transformación): así el bucle arranca y se corta en el fotograma correcto y
@@ -5224,3 +5269,350 @@ func _orientar_instant(dir: Vector3) -> void:
 	if dir.length() < 0.05:
 		return
 	visual.rotation.y = atan2(-dir.x, -dir.z)
+
+# =============================================================================
+#  MUERTE DEL JUGADOR
+# =============================================================================
+## Secuencia: `muerte` (una vez, el clip real importado) -> `morido` (pose de
+## cadáver en bucle) -> fundido a negro -> pantalla final con el logo de Prismax y
+## los dos botones. Se activa UNA vez, desde la señal `murio` de Estadisticas
+## (vida y resistencia agotadas). Mientras dura, TODA la entrada de juego se
+## ignora (movimiento, salto, combate, habilidades, transformaciones, turbo) y la
+## forma activa NO cambia: el cadáver es el propio modelo del personaje.
+func _procesar_muerte(delta: float) -> void:
+	# Si murió en el aire, el cuerpo cae hasta el suelo y se queda ahí: nada de
+	# deslizamientos ni movimientos involuntarios mientras corre la animación.
+	if _muerte_estado == Muerte.MURIENDO and not is_on_floor():
+		velocity.x = 0.0
+		velocity.z = 0.0
+		velocity.y -= H_GRAVEDAD * delta
+		move_and_slide()
+	elif velocity != Vector3.ZERO:
+		velocity = Vector3.ZERO
+	# Alternativa ROBUSTA al final de la animación: la posición REAL del clip que
+	# se está reproduciendo (nunca una duración inventada). El camino normal es la
+	# señal `animation_finished` del AnimationPlayer.
+	if _muerte_estado == Muerte.MURIENDO and _anim_muerte != null \
+			and (_anim_muerte.current_animation == CLIP_MUERTE \
+					or _anim_muerte.current_animation == ANIM_MUERTE_VUELO) \
+			and _anim_muerte.current_animation_length > 0.0 \
+			and _anim_muerte.current_animation_position >= _anim_muerte.current_animation_length - 0.05:
+		_pasar_a_morido()
+
+
+## La señal `murio` de las estadísticas llega aquí UNA sola vez (recibir_danio ya
+## ignora todo cuando el personaje está muerto).
+func _al_morir() -> void:
+	if _muerte_estado != Muerte.VIVO:
+		return
+	_muerte_estado = Muerte.MURIENDO
+	# 1) Cortar lo que estuviera en curso (habilidad, carga, golpe, turbo,
+	#    transformación a medias, nado) SIN tocar la forma elegida.
+	_transformando = false
+	_menu_abierto = false
+	a_en_habilidad = false
+	a_pendiente = 0
+	a_pendiente_t = 0.0
+	a_ataque_activo = false
+	a_ataque_clip = ""
+	a_combo_pedido = false
+	a_nadando = false
+	a_turbo_t = 0.0
+	a_turbo_dir = Vector3.ZERO
+	c_estado = C_E.LIBRE
+	_cancelar_carga_agua()
+	_parar_sonido_nado()
+	velocity = Vector3.ZERO
+	# 2) Los menús no siguen funcionando sobre un cadáver: el radial (F) se cierra y
+	#    deja de leer la tecla; la pausa no puede abrirse encima de la secuencia.
+	if menu_transf != null:
+		if menu_transf.esta_abierto():
+			menu_transf.cerrar()
+		menu_transf.set_process_unhandled_input(false)
+	var host: Node = get_parent()
+	if host != null:
+		var pausa := host.get_node_or_null("Pausa")
+		if pausa != null:
+			pausa.set_process_unhandled_input(false)
+			if pausa.has_method("esta_abierto") and bool(pausa.call("esta_abierto")):
+				pausa.call("cerrar")
+	# 3) La forma VUELO se mueve con SU propio cuerpo: se congela entero (su
+	#    AnimationPlayer sigue vivo: es lo que reproduce la muerte).
+	if forma == Forma.VUELO and vuelo != null:
+		_congelar_ramas(vuelo)
+	# 3b) La representación de la forma activa queda VISIBLE y las demás no: si la
+	#     muerte llegó a mitad de una transformación, no se queda a medias.
+	var activa := _nodo_forma_actual()
+	for n in [humano, visual, acuatico, fuerza, ataque_visual, vuelo]:
+		if n != null:
+			n.visible = n == activa
+	# 4) Pantalla final desde ya (negra y transparente): el fundido lo lanza ella
+	#    misma cuando empieza `morido`.
+	if _pantalla_muerte == null or not is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte = ESCENA_MUERTE_PANTALLA.instantiate() as DeathScreen
+		if _pantalla_muerte != null:
+			if host == null:
+				host = self
+			host.add_child(_pantalla_muerte)
+	# 5) Animación de muerte sobre el modelo ACTIVO.
+	_iniciar_animacion_muerte()
+
+
+## Prepara y arranca `muerte` sobre el AnimationPlayer de la forma activa. Los FBX
+## importados NO traen malla: sólo un esqueleto Mixamo y el clip. Por eso el clip se
+## copia al reproductor de la forma (retarget por NOMBRE de hueso) y el cadáver es
+## el propio modelo del personaje. La forma VUELO tiene otro rig (no Mixamo): usa su
+## propio clip de muerte.
+func _iniciar_animacion_muerte() -> void:
+	var nodo := _nodo_forma_actual()
+	var anim := _animador_forma(nodo)
+	var skel := _esqueleto_de(nodo)
+	_anim_muerte = anim
+	if anim == null:
+		# Sin reproductor no hay animación que esperar: se pasa al final.
+		_pasar_a_morido()
+		return
+	# La animación de muerte no puede depender de una pausa (y la secuencia sigue
+	# aunque el jugador pulse ESC).
+	anim.process_mode = Node.PROCESS_MODE_ALWAYS
+	# Ningún OTRO reproductor del modelo sigue animando el esqueleto: los modelos
+	# FBX traen su propio AnimationPlayer importado y el juego tiene el suyo, y si
+	# cualquiera de ellos sigue reproduciendo (idle, andar...) pisa la pose de
+	# muerte en cada fotograma. Sólo se paran los que están reproduciendo algo.
+	for otro in nodo.find_children("*", "AnimationMixer", true, false):
+		if otro == anim:
+			continue
+		if otro is AnimationPlayer:
+			if (otro as AnimationPlayer).is_playing():
+				(otro as AnimationPlayer).stop()
+		elif otro is AnimationTree:
+			(otro as AnimationTree).active = false
+	if not anim.animation_finished.is_connected(_al_terminar_muerte):
+		anim.animation_finished.connect(_al_terminar_muerte)
+	if nodo == vuelo:
+		if anim.has_animation(ANIM_MUERTE_VUELO):
+			anim.stop()
+			anim.play(ANIM_MUERTE_VUELO)
+			return
+		_pasar_a_morido()
+		return
+	# `muerte` y `morido` se añaden al reproductor UNA vez (si ya están, se
+	# reutilizan): no se duplican clips ni se recrean cada muerte.
+	var factor := _factor_unidades_fbx(ESC_MUERTE, skel)
+	var hay_muerte := anim.has_animation(CLIP_MUERTE)
+	if not hay_muerte:
+		hay_muerte = _retarget_clip(_clip_de_fbx(ESC_MUERTE), anim, skel, CLIP_MUERTE, false, factor)
+	if not anim.has_animation(CLIP_MORIDO):
+		_retarget_clip(_clip_de_fbx(ESC_MORIDO), anim, skel, CLIP_MORIDO, true, factor)
+	if not hay_muerte:
+		# Ninguna pista casó con este esqueleto: mejor sin animación que con una
+		# reproducción incorrecta.
+		push_warning("[Muerte] El clip de muerte no encaja en el esqueleto de la forma activa.")
+		_pasar_a_morido()
+		return
+	anim.stop()
+	anim.play(CLIP_MUERTE, 0.0, 1.0)
+
+
+## Fin del clip `muerte` (señal real del AnimationPlayer). Pasa a `morido` en bucle.
+func _al_terminar_muerte(nombre_clip: StringName) -> void:
+	if _muerte_estado != Muerte.MURIENDO:
+		return
+	if nombre_clip != CLIP_MUERTE and nombre_clip != ANIM_MUERTE_VUELO:
+		return
+	_pasar_a_morido()
+
+
+## Estado MORIDO: la pose de cadáver en bucle (transición corta y controlada) y el
+## aviso a la pantalla final para que empiece el fundido.
+func _pasar_a_morido() -> void:
+	if _muerte_estado != Muerte.MURIENDO:
+		return
+	_muerte_estado = Muerte.MORIDO
+	if _anim_muerte != null and _anim_muerte.has_animation(CLIP_MORIDO):
+		_anim_muerte.play(CLIP_MORIDO, 0.15)
+	if _pantalla_muerte != null and is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte.iniciar_fundido(MUERTE_ESPERA_FUNDIDO)
+
+
+## Representación (nodo del modelo) de la forma ACTIVA. La muerte se aplica ahí,
+## sea la que sea: no cambia de forma ni vuelve a la base.
+func _nodo_forma_actual() -> Node3D:
+	match forma:
+		Forma.VELOCISTA:
+			return visual
+		Forma.ACUATICO:
+			return acuatico
+		Forma.FUERZA:
+			return fuerza
+		Forma.COMBATE:
+			return ataque_visual
+		Forma.VUELO:
+			return vuelo
+		_:
+			return humano
+
+
+## AnimationPlayer del subárbol de una representación (la forma activa trae el suyo).
+func _animador_de(nodo: Node) -> AnimationPlayer:
+	if nodo == null:
+		return null
+	if nodo is AnimationPlayer:
+		return nodo as AnimationPlayer
+	for n in nodo.find_children("*", "AnimationPlayer", true, false):
+		return n as AnimationPlayer
+	return null
+
+
+## AnimationPlayer del JUEGO para la forma activa: es el que reproduce sus clips
+## (idle, andar, nadar...). NO sirve para esto el AnimationPlayer que los modelos
+## FBX traen importado dentro de su escena: ése sólo guarda el clip original del
+## modelo. La forma VUELO usa el reproductor que trae su propio clip de muerte.
+func _animador_forma(nodo: Node) -> AnimationPlayer:
+	match forma:
+		Forma.ACUATICO:
+			return anim_acuatico if anim_acuatico != null else _animador_de(nodo)
+		Forma.FUERZA:
+			return anim_fuerza if anim_fuerza != null else _animador_de(nodo)
+		Forma.COMBATE:
+			return anim_ataque if anim_ataque != null else _animador_de(nodo)
+		Forma.VELOCISTA:
+			return _anim if _anim != null else _animador_de(nodo)
+		Forma.VUELO:
+			for n in nodo.find_children("*", "AnimationPlayer", true, false):
+				var p := n as AnimationPlayer
+				if p != null and p.has_animation(ANIM_MUERTE_VUELO):
+					return p
+			return _animador_de(nodo)
+		_:
+			return anim_humano if anim_humano != null else _animador_de(nodo)
+
+
+## Skeleton3D del subárbol de una representación.
+func _esqueleto_de(nodo: Node) -> Skeleton3D:
+	if nodo == null:
+		return null
+	for n in nodo.find_children("*", "Skeleton3D", true, false):
+		return n as Skeleton3D
+	return null
+
+
+## Reposo de la cadera del FBX (cacheado): con él se convierten las unidades del
+## clip (metros) a las del esqueleto destino.
+var _resto_fbx: Dictionary = {}
+
+
+## Clip del FBX de muerte (cargado UNA vez y cacheado). El FBX no trae malla: se
+## instancia sólo para leer su AnimationPlayer y se libera enseguida.
+func _clip_de_fbx(ruta: String) -> Animation:
+	if _clips_muerte.has(ruta):
+		return _clips_muerte[ruta] as Animation
+	var clip: Animation = null
+	var ps := load(ruta) as PackedScene
+	if ps != null:
+		var raiz := ps.instantiate()
+		var anim := _animador_de(raiz)
+		if anim != null:
+			var lista := anim.get_animation_list()
+			if not lista.is_empty():
+				clip = anim.get_animation(lista[0])
+				if clip != null:
+					clip = clip.duplicate(true) as Animation
+		raiz.free()
+	_clips_muerte[ruta] = clip
+	return clip
+
+
+## Conversión de UNIDADES entre el FBX de la animación y el esqueleto del jugador.
+## Los FBX Mixamo vienen en METROS, pero los modelos del proyecto pueden estar a
+## otra escala (el de Leo humano, a 200): las POSICIONES del clip hay que pasarlas a
+## las unidades del destino o el cuerpo quedaría a años luz del suelo. Se mide con el
+## reposo de la cadera, que es el mismo rig Mixamo en los dos.
+func _factor_unidades_fbx(ruta: String, skel: Skeleton3D) -> float:
+	if skel == null:
+		return 1.0
+	var i := skel.find_bone("mixamorig_Hips")
+	if i < 0:
+		return 1.0
+	var destino := skel.get_bone_rest(i).origin.y
+	var fuente := float(_resto_fbx.get(ruta, 0.0))
+	if fuente <= 0.0:
+		var ps := load(ruta) as PackedScene
+		if ps != null:
+			var raiz := ps.instantiate()
+			for n in raiz.find_children("*", "Skeleton3D", true, false):
+				var sk := n as Skeleton3D
+				var j := sk.find_bone("mixamorig_Hips")
+				if j >= 0:
+					fuente = sk.get_bone_rest(j).origin.y
+				break
+			raiz.free()
+		_resto_fbx[ruta] = fuente
+	if fuente <= 0.0 or destino <= 0.0:
+		return 1.0
+	return destino / fuente
+
+
+## Copia un clip al AnimationPlayer destino reescribiendo sus pistas al esqueleto
+## REAL: mismo NOMBRE de hueso (Mixamo), una pista por hueso existente; las pistas
+## de huesos que esa forma no tenga se descartan (nunca una pista rota). Las rutas
+## de pista de estos reproductores son relativas a su `root_node` (el nodo padre),
+## igual que las librerías del proyecto. `factor` convierte las POSICIONES del FBX
+## (en metros) a las unidades del esqueleto destino (el del jugador está a otra
+## escala). Devuelve true si casó algún hueso.
+func _retarget_clip(origen: Animation, player: AnimationPlayer, skel: Skeleton3D,
+		nombre: StringName, bucle: bool, factor := 1.0) -> bool:
+	if origen == null or player == null or skel == null:
+		return false
+	var raiz: Node = player.get_node_or_null(player.root_node)
+	if raiz == null or not (raiz is Node3D):
+		raiz = player
+	var base := String((raiz as Node3D).get_path_to(skel))
+	var copia := origen.duplicate(true) as Animation
+	if copia == null:
+		return false
+	var casan := 0
+	var escala := not is_equal_approx(factor, 1.0)
+	for i in range(copia.get_track_count() - 1, -1, -1):
+		var trozos := String(copia.track_get_path(i)).split(":")
+		var hueso := trozos[trozos.size() - 1]
+		if hueso != "" and skel.find_bone(hueso) >= 0:
+			copia.track_set_path(i, NodePath(base + ":" + hueso))
+			if escala and copia.track_get_type(i) == Animation.TYPE_POSITION_3D:
+				for k in copia.track_get_key_count(i):
+					var v := copia.track_get_key_value(i, k) as Vector3
+					copia.track_set_key_value(i, k, v * factor)
+			casan += 1
+		else:
+			copia.remove_track(i)
+	if casan == 0:
+		return false
+	copia.loop_mode = Animation.LOOP_LINEAR if bucle else Animation.LOOP_NONE
+	# En Godot 4.7 el clip se añade a la LIBRERÍA del reproductor (el AnimationPlayer
+	# ya no expone add_animation): la global (`""`), que es donde viven los clips de
+	# la forma. Si no existiera, se crea.
+	var lib: AnimationLibrary = null
+	if player.has_animation_library(&""):
+		lib = player.get_animation_library(&"")
+	if lib == null:
+		lib = AnimationLibrary.new()
+		player.add_animation_library(&"", lib)
+	if lib.has_animation(nombre):
+		lib.remove_animation(nombre)
+	lib.add_animation(nombre, copia)
+	return true
+
+
+## Detiene el PROCESO de un subárbol (movimiento, cámara, entrada) SIN tocar los
+## AnimationPlayer/AudioStreamPlayer: son justo lo que la secuencia necesita.
+func _congelar_ramas(nodo: Node) -> void:
+	if nodo == null:
+		return
+	if not (nodo is AnimationPlayer) and not (nodo is AudioStreamPlayer) \
+			and not (nodo is AudioStreamPlayer3D):
+		nodo.set_process(false)
+		nodo.set_physics_process(false)
+		nodo.set_process_input(false)
+		nodo.set_process_unhandled_input(false)
+	for c in nodo.get_children():
+		_congelar_ramas(c)
