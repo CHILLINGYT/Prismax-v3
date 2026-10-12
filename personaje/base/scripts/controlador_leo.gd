@@ -617,6 +617,10 @@ var _menu_abierto: bool = false
 # modelo y su AnimationPlayer), hermana de las demás representaciones.
 @onready var ataque_visual: Node3D = $Ataque
 @onready var anim_ataque: AnimationPlayer = $Ataque/AnimadorAtaque
+# Transformación VUELO: el cuerpo volador (instancia de vuelo_player.tscn) y la
+# cápsula de colisión del cuerpo principal, que se desactiva mientras se vuela.
+@onready var vuelo: Node3D = $Vuelo
+@onready var _colision: CollisionShape3D = $Colision
 # Reproductores de las acciones del Velocista (carga, trazado, dash y golpe).
 # Son AudioStreamPlayer hijos del jugador, en el bus "Efectos" (igual que el de
 # transformación), así que respetan el volumen general y el de efectos.
@@ -634,6 +638,14 @@ var _menu_abierto: bool = false
 @onready var _sfx_f_tirada: AudioStreamPlayer = $AudioFuerzaTirada
 @onready var _sfx_f_golpe: AudioStreamPlayer = $AudioFuerzaGolpe
 @onready var _sfx_f_patada: AudioStreamPlayer = $AudioFuerzaPatada
+# Reproductores de los sonidos ACUÁTICOS y del golpe de COMBATE. Son
+# AudioStreamPlayer hijos del jugador, en el bus "Efectos" (mismos criterios que
+# el resto). Los acuáticos se preparan en `_preparar_sonidos_agua()`.
+@onready var _sfx_nado: AudioStreamPlayer = $AudioNado
+@onready var _sfx_golpe_fisico: AudioStreamPlayer = $AudioGolpeAguaFisico
+@onready var _sfx_golpe_agua: AudioStreamPlayer = $AudioGolpeAguaSalpicadura
+@onready var _sfx_habilidad_agua: AudioStreamPlayer = $AudioHabilidadesAgua
+@onready var _sfx_golpe_combate: AudioStreamPlayer = $AudioGolpeCombate
 # Pisadas sincronizadas con la animación real, para las cuatro transformaciones.
 # El nodo vive en la escena del jugador y crea él mismo sus reproductores en el
 # bus "Efectos" (ver personaje/base/scripts/pasos_jugador.gd).
@@ -2237,14 +2249,6 @@ func _sonar_golpe_agua() -> void:
 func _sonar_habilidad_agua() -> void:
 	if _sfx_habilidad_agua != null and _sfx_habilidad_agua.stream != null:
 		_sfx_habilidad_agua.play()
-
-
-## GOLPE de la forma Combate con IMPACTO CONFIRMADO: una vez por golpe, tanto si lo
-## aplica el contrato de encuentro (take_hit) como si lo aplica la esfera de daño.
-## Un golpe al aire no llama aquí, así que no suena nada y no hay daño ni efectos.
-func _sonar_golpe_combate() -> void:
-	if _sfx_golpe_combate != null and _sfx_golpe_combate.stream != null:
-		_sfx_golpe_combate.play()
 
 
 # --- Natación (sólo la forma acuática) ---------------------------------------
