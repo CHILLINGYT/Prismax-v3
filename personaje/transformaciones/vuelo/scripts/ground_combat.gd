@@ -150,6 +150,10 @@ func _lanzar(indice: int) -> void:
 		printerr("[GroundCombat] No está el clip: ", cadena[indice])
 		_terminar()
 		return
+	# ESTAMINA: cada golpe del combo se cobra al LANZARSE de verdad (con su clip
+	# ya resuelto); sin energía no arranca (uno en curso termina solo).
+	if not CostosEstamina.activar_ataque(get_parent(), &"golpe"):
+		return
 	_indice = indice
 	_buffer = false
 	_clip_actual = clip

@@ -74,6 +74,13 @@ func _vida(e) -> float:
 		return float(e.call("vida_actual"))
 	return float(e.get("vida_actual"))
 
+## Vida MÁXIMA del enemigo (la de su escena/instancia): las comprobaciones nunca
+## hardcodean la vida base, así la suite no se rompe si el enemigo sube de vida.
+func _vida_max_de(e) -> float:
+	if e == null or not is_instance_valid(e):
+		return -1.0
+	return float(e.get("vida_max"))
+
 func _vivo(e) -> bool:
 	if e == null or not is_instance_valid(e):
 		return false
@@ -135,20 +142,24 @@ func _correr() -> void:
 	var lejano := _crear_enemigo(frente * 8.0)
 	var detras := _crear_enemigo(-frente * 1.5)
 	await _esperar(6)
+	# La vida del enemigo es la de SU escena (75 hoy): se lee de la instancia en
+	# lugar de hardcodearla.
+	var vmax := _vida_max_de(objetivo)
 	_check("el enemigo de prueba arranca con su vida completa",
-			is_equal_approx(_vida(objetivo), 60.0), "vida=%.1f" % _vida(objetivo))
+			is_equal_approx(_vida(objetivo), vmax),
+			"vida=%.1f (max %.1f)" % [_vida(objetivo), vmax])
 
 	Input.action_press("atacar")
 	await _esperar(3)
 	Input.action_release("atacar")
 	await _esperar_seg(0.5)
 	_check("el clic izquierdo del velocista quita vida al enemigo",
-			is_equal_approx(_vida(objetivo), 60.0 - DANIO_VEL),
-			"vida=%.1f (esperado %.1f)" % [_vida(objetivo), 60.0 - DANIO_VEL])
+			is_equal_approx(_vida(objetivo), vmax - DANIO_VEL),
+			"vida=%.1f (esperado %.1f)" % [_vida(objetivo), vmax - DANIO_VEL])
 	_check("el golpe no alcanza a quien está lejos",
-			is_equal_approx(_vida(lejano), 60.0), "vida=%.1f" % _vida(lejano))
+			is_equal_approx(_vida(lejano), _vida_max_de(lejano)), "vida=%.1f" % _vida(lejano))
 	_check("el golpe no alcanza a quien está detrás",
-			is_equal_approx(_vida(detras), 60.0), "vida=%.1f" % _vida(detras))
+			is_equal_approx(_vida(detras), _vida_max_de(detras)), "vida=%.1f" % _vida(detras))
 	_check("el ataque del velocista no daña al propio jugador",
 			is_equal_approx(_stats.vida, vida_jug_antes),
 			"vida %.1f → %.1f" % [vida_jug_antes, _stats.vida])
@@ -168,7 +179,7 @@ func _correr() -> void:
 		Input.action_release("atacar")
 		await _esperar_seg(0.35)
 	await _esperar_seg(0.5)
-	var esperado := 60.0 - (3.0 * float(_jug.VEL_ATAQUE_DANIO)
+	var esperado := vmax - (3.0 * float(_jug.VEL_ATAQUE_DANIO)
 			+ float(_jug.VEL_ATAQUE_DANIO_REMATE))
 	_check("el combo avanza golpe a golpe con el daño nuevo (3 x 7 + remate)",
 			absf(_vida(objetivo) - esperado) <= 1.0 and _vivo(objetivo),
@@ -283,7 +294,7 @@ func _correr() -> void:
 	for _i in 12:
 		await _esperar(4)
 		print("[DIAG] tanque: t=%.2f s vida=%.2f" % [_i * 4.0 / 60.0, _vida(tanque_obj)])
-	var quitado := 60.0 - _vida(tanque_obj)
+	var quitado := _vida_max_de(tanque_obj) - _vida(tanque_obj)
 	_check("el golpe del Tanque quita la mitad de la vida del enemigo estándar",
 			quitado >= PUNIO_TANQUE - 6.0 and quitado <= PATADA_TANQUE + 6.0,
 			"quitó %.1f de 60 PV (referencia %.0f entregados)" % [quitado, PUNIO_TANQUE])

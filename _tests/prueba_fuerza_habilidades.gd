@@ -68,6 +68,13 @@ func _vida(e) -> float:
 		return float(e.call("vida_actual"))
 	return float(e.get("vida_actual"))
 
+## Vida MÁXIMA del enemigo (la de su escena/instancia): las comprobaciones nunca
+## hardcodean la vida base, así la suite no se rompe si el enemigo sube de vida.
+func _vida_max_de(e) -> float:
+	if e == null or not is_instance_valid(e):
+		return -1.0
+	return float(e.get("vida_max"))
+
 func _cambiar_forma(id: StringName, forma: int) -> bool:
 	_jug._on_transformacion_elegida(id)
 	var t := 0
@@ -226,9 +233,11 @@ func _correr() -> void:
 			impacto and _jug.f_recuperacion > 0.0 and _jug.f_recuperacion <= RECUP_SLAM,
 			"recuperación=%.2f" % _jug.f_recuperacion)
 
-	var dano_cerca := 60.0 - _vida(enemigo_cerca)
-	var dano_medio := 60.0 - _vida(enemigo_medio)
-	var dano_lejos := 60.0 - _vida(enemigo_lejos)
+	# La vida del enemigo es la de SU escena (75 hoy): se lee de la instancia.
+	var vmax := _vida_max_de(enemigo_cerca)
+	var dano_cerca := vmax - _vida(enemigo_cerca)
+	var dano_medio := vmax - _vida(enemigo_medio)
+	var dano_lejos := vmax - _vida(enemigo_lejos)
 	_check("9. El enemigo a 1.5 m recibe daño moderado (≈40 PV)",
 			dano_cerca >= 33.0 and dano_cerca <= 47.0,
 			"daño=%.1f" % dano_cerca)
@@ -242,9 +251,9 @@ func _correr() -> void:
 	# Una sola aplicación: 1 s después, la vida no cambió.
 	await _esperar_seg(1.0)
 	_check("10. El daño del pisotón se aplica UNA vez por impacto",
-			is_equal_approx(60.0 - _vida(enemigo_cerca), dano_cerca) \
-				and is_equal_approx(60.0 - _vida(enemigo_medio), dano_medio),
-			"%.1f / %.1f" % [60.0 - _vida(enemigo_cerca), 60.0 - _vida(enemigo_medio)])
+			is_equal_approx(vmax - _vida(enemigo_cerca), dano_cerca) \
+				and is_equal_approx(vmax - _vida(enemigo_medio), dano_medio),
+			"%.1f / %.1f" % [vmax - _vida(enemigo_cerca), vmax - _vida(enemigo_medio)])
 	_check("11. Tras la recuperación (%.2f s) el control vuelve" % RECUP_SLAM,
 			_jug.f_recuperacion <= 0.0)
 
@@ -264,7 +273,7 @@ func _correr() -> void:
 		await get_tree().physics_frame
 		t += 1.0 / 60.0
 	await _esperar_seg(0.4)
-	var dano_doble := 60.0 - _vida(enemigo_doble)
+	var dano_doble := vmax - _vida(enemigo_doble)
 	_check("12. E repetida en un mismo salto produce UN solo impacto",
 			dano_doble >= 33.0 and dano_doble <= 47.0, "daño=%.1f" % dano_doble)
 
@@ -284,7 +293,7 @@ func _correr() -> void:
 	# Al transformarse, el pisotón se CANCELA limpiamente (f_slam queda limpio): o
 	# no hay impacto (0 daño) o el cuerpo llegó a tocar el suelo antes y hubo UN
 	# impacto real. Lo que jamás puede pasar es daño "fantasma" fuera de rango.
-	var dano_transform := 60.0 - _vida(enemigo_transform)
+	var dano_transform := vmax - _vida(enemigo_transform)
 	_check("13. Sin daño fantasma al transformarse (cancelado o impacto real único)",
 			is_zero_approx(dano_transform) or (dano_transform >= 33.0 and dano_transform <= 47.0),
 			"daño=%.1f" % dano_transform)
@@ -309,10 +318,10 @@ func _correr() -> void:
 	await _tecla_accion(&"fuerza_slam")
 	await _esperar_seg(0.3)
 	_check("14. En otra forma E no daña ni activa el pisotón (sólo es de Fuerza)",
-			not _jug.f_slam and is_equal_approx(_vida(enemigo_otras), 60.0),
+			not _jug.f_slam and is_equal_approx(_vida(enemigo_otras), _vida_max_de(enemigo_otras)),
 			"vida enemigo=%.1f" % _vida(enemigo_otras))
 	_check("14. El enemigo de fuera del radio sigue intacto (6.5 m)",
-			is_equal_approx(_vida(enemigo_lejos), 60.0))
+			is_equal_approx(_vida(enemigo_lejos), vmax))
 
 	_resumen()
 
