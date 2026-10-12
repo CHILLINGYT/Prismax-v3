@@ -91,7 +91,8 @@ const TECLAS := {
 
 @export_group("Enemigos")
 ## Vida de cada cápsula (configurable; se aplica al aparecer).
-@export var vida_enemigo: float = 60.0
+## +25 % sobre el valor original (60 -> 75) a petición de diseño.
+@export var vida_enemigo: float = 75.0
 ## Daño de cada golpe enemigo (por EstadisticasJugador.recibir_danio).
 @export var dano_enemigo: float = 10.0
 
@@ -99,13 +100,15 @@ const TECLAS := {
 ## Cuántos enemigos cuerpo a cuerpo genera la tecla H.
 @export var cantidad_melee: int = 3
 ## Vida de cada cuerpo a cuerpo (se aplica al aparecer).
-@export var vida_melee: float = 60.0
+## +25 % sobre el valor original (60 -> 75).
+@export var vida_melee: float = 75.0
 ## Daño de cada golpe del combo golpe1-2-3 (H).
 @export var dano_melee: float = 8.0
 ## Cuántos tiradores genera la tecla J.
 @export var cantidad_tirador: int = 2
 ## Vida de cada tirador (se aplica al aparecer).
-@export var vida_tirador: float = 45.0
+## +25 % sobre el valor original (45 -> 56.25).
+@export var vida_tirador: float = 56.25
 ## Daño de cada proyectil del tirador (J).
 @export var dano_tirador: float = 6.0
 
@@ -199,6 +202,44 @@ func generar_tipo(tipo: int) -> void:
 
 func retirar_tipo(tipo: int) -> void:
 	_retirar(tipo)
+
+# =============================================================== ETAPA 1 (eventos)
+## API pública para el sistema de eventos: crea UN enemigo de un tipo concreto en
+## una POSICIÓN GLOBAL dada, sin depender de que esté cerca del jugador. Devuelve
+## el nodo creado o null si el tipo, la escena o la posición no son válidos (en
+## ese caso NO se crea nada).
+##
+## Reutiliza EXACTAMENTE la misma escena, inicialización, registro de combate y
+## contrato de daño que G/H/J: sólo cambia de dónde sale la posición. El enemigo
+## NO entra en los cajones por tipo de las teclas, así que retirar_grupo(),
+## retirar_tipo() y los conteos de G/H/J no cambian en nada.
+func crear_enemigo_en(posicion: Vector3, tipo: int) -> Node3D:
+	if not ESCENAS.has(tipo):
+		push_warning("[Enemigos] crear_enemigo_en: tipo inválido (%s)." % str(tipo))
+		return null
+	var escena: PackedScene = ESCENAS[tipo]
+	if escena == null:
+		push_warning("[Enemigos] crear_enemigo_en: no hay escena para el tipo %s." % str(tipo))
+		return null
+	if not is_inside_tree():
+		push_warning("[Enemigos] crear_enemigo_en: el gerente no está en el árbol.")
+		return null
+	_resolver_referencias()
+	if _jugador == null:
+		push_warning("[Enemigos] crear_enemigo_en: no hay jugador en la escena.")
+		return null
+	var apoyo: Variant = _validar_posicion_en(posicion)
+	if apoyo == null:
+		push_warning("[Enemigos] crear_enemigo_en: posición inválida %s (sin suelo firme o con obstáculo)." % str(posicion))
+		return null
+	return _instanciar_enemigo_en(escena, tipo, apoyo)
+
+## Comprueba sin efectos secundarios si una posición global es válida para un
+## enemigo (suelo firme + hueco libre) y devuelve el punto de apoyo, o null. La
+## usa el DirectorEventos para validar tubos y puntos de aparición.
+func posicion_valida_en(posicion: Vector3) -> Variant:
+	_resolver_referencias()
+	return _validar_posicion_en(posicion)
 
 func _alternar_grupo() -> void:
 	_alternar_tipo(Tipo.MEZCLA)
@@ -384,6 +425,57 @@ func _crear_enemigo(escena: PackedScene, tipo: int, grupo: int, pos: Vector3, an
 	if e is CollisionObject3D:
 		excluir.append((e as CollisionObject3D).get_rid())
 	colocados.append(pos)
+	return e
+
+## ============================================================= ETAPA 1 (auxiliares)
+## Posición de apoyo válida para un enemigo bajo `posicion`, o null. Mismos
+## criterios que la aparición de G: suelo firme (rayo hacia abajo, máscara 1) y
+## hueco libre a la altura del pecho (misma sonda esférica). No modifica estado.
+func _validar_posicion_en(posicion: Vector3) -> Variant:
+	if not is_inside_tree():
+		return null
+	if _sonda_hueco == null:
+		_sonda_hueco = SphereShape3D.new()
+		_sonda_hueco.radius = 0.55
+	var espacio := get_world_3d().direct_space_state
+	var excluir: Array[RID] = []
+	if _jugador is CollisionObject3D:
+		excluir.append((_jugador as CollisionObject3D).get_rid())
+	var rayo := PhysicsRayQueryParameters3D.create(
+			posicion + Vector3.UP * 24.0, posicion - Vector3.UP * 32.0, 1, excluir)
+	var golpe := espacio.intersect_ray(rayo)
+	if golpe.is_empty():
+		return null
+	var suelo: Vector3 = golpe.get("position", Vector3.ZERO)
+	var apoyo := suelo + Vector3.UP * (ALTURA_CAPSULA * 0.5 + 0.06)
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = _sonda_hueco
+	q.transform = Transform3D(Basis(), apoyo + Vector3.UP * 0.9)
+	q.collision_mask = 1
+	q.collide_with_bodies = true
+	q.collide_with_areas = false
+	q.exclude = excluir
+	if not espacio.intersect_shape(q, 1).is_empty():
+		return null
+	return apoyo
+
+## Crea y añade el enemigo ya validado. NO lo mete en los cajones por tipo ni en
+## _enemigos: es un enemigo "de evento", fuera del ciclo de las teclas.
+func _instanciar_enemigo_en(escena: PackedScene, tipo: int, pos: Vector3) -> Node3D:
+	var e := escena.instantiate() as Node3D
+	if e == null:
+		push_warning("[Enemigos] No se pudo instanciar la escena del tipo %s." % str(tipo))
+		return null
+	_siguiente_id += 1
+	e.name = "%s%d" % [PREFIJOS[tipo], _siguiente_id]
+	if "vida_max" in e:
+		e.set("vida_max", _vida_de(tipo))
+	if "danio_base" in e:
+		e.set("danio_base", _dano_de(tipo))
+	if e.has_method("configurar"):
+		e.call("configurar", self, _siguiente_id)
+	add_child(e)
+	e.global_position = pos
 	return e
 
 func _vida_de(tipo: int) -> float:
