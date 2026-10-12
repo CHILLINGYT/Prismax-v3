@@ -246,13 +246,13 @@ func _correr() -> void:
 			"nodos=%d" % _contar_indicadores(get_parent()))
 
 	# --- 4: el indicador pertenece al FreeFlow: al salir de la forma se apaga --
-	# Se sale hacia otra forma de combate: `_on_transformacion_elegida` no tiene
-	# entrada para "humano" (eso lo gestiona el menú radial), así que el caso usa
-	# "velocista", que sí pasa por el camino real de transformación.
-	await _esperar_seg(0.9)          # deja terminar el último golpe
-	var volvio := await _cambiar_forma(&"velocista", 1)
-	_check("4. la forma sale de Ataque (a Velocista)", volvio, "forma=%d" % int(_jug.forma))
+	# Salir de una forma es elegir SU MISMO icono otra vez en el menú radial (el
+	# controlador alterna a humano; el antiguo id directo "humano" ya no existe en
+	# `_on_transformacion_elegida`). Se usa esa vía real, la misma del jugador.
+	var salio := await _cambiar_forma(&"combate", 0)
 	await _esperar_seg(0.3)
+	_check("4. elegir otra vez la forma Ataque devuelve a humano (vía real del menú)",
+			salio, "forma=%d" % int(_jug.forma))
 	_check("4. al salir de la forma Ataque el indicador se apaga",
 			_indicador() == null or not _indicador().visible,
 			"visible=%s" % str(_indicador() != null and _indicador().visible))

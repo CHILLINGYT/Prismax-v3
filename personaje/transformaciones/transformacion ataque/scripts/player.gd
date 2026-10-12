@@ -377,8 +377,12 @@ func _begin_attack() -> void:
 	# turning towards another enemy switches to it immediately, mid-combo.
 	var enemies: Array = _manager.get_active_enemies() if _manager != null else []
 	var threats = _manager.threats if _manager != null else null
-	var previous: Node3D = _target
-	_target = CombatTargeting.select_target(self, _input_dir(), _camera_dir(), enemies, _config, _target, threats)
+	# A dead, already-freed target is not valid as the "current" of the selection
+	# call (the parameter is typed, and passing a freed object errors out): it
+	# counts as no target, and the chain still restarts because the selection
+	# changed.
+	var previous: Node3D = _target if is_instance_valid(_target) else null
+	_target = CombatTargeting.select_target(self, _input_dir(), _camera_dir(), enemies, _config, previous, threats)
 
 	# FreeFlow rule: a CONFIRMED change of target restarts the Sprint at jab, so
 	# half a sequence is never carried over to another enemy. Only the next attack
@@ -825,7 +829,8 @@ func _begin_sequence(data: AttackData, kind: String, keep_target: bool = false) 
 	if not keep_target:
 		var enemies: Array = _manager.get_active_enemies() if _manager != null else []
 		var threats = _manager.threats if _manager != null else null
-		_target = CombatTargeting.select_target(self, _input_dir(), _camera_dir(), enemies, _config, _target, threats)
+		var previo: Node3D = _target if is_instance_valid(_target) else null
+		_target = CombatTargeting.select_target(self, _input_dir(), _camera_dir(), enemies, _config, previo, threats)
 	if _target != null and is_instance_valid(_target) and _flat_distance(_target) > _attack.ideal_distance:
 		state = State.APPROACH
 		_approach_timer = _config.approach_max_time

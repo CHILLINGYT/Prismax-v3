@@ -1,4 +1,4 @@
-[gd_resource type="AnimationLibrary" format=3]
+[gd_resource type="AnimationLibrary" format=3 uid="uid://bketmyjv8pfs6"]
 
 [ext_resource type="Animation" path="res://personaje/transformaciones/acuatica/animations/climb_ladder.tres" id="1_j8jw2"]
 [ext_resource type="Animation" path="res://personaje/transformaciones/acuatica/animations/idle_stand.tres" id="2_4nr1g"]

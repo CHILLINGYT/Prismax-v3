@@ -1,4 +1,4 @@
-[gd_resource type="NoiseTexture2D" load_steps=3 format=3]
+[gd_resource type="NoiseTexture2D" format=3 uid="uid://bkj2o2i076mw4"]
 
 [sub_resource type="Gradient" id="Gradient_stars"]
 offsets = PackedFloat32Array(0, 0.9, 0.95, 1)
@@ -11,9 +11,6 @@ frequency = 0.1
 fractal_octaves = 2
 
 [resource]
-width = 512
-height = 512
-seamless = true
-seamless_blend_skirt = 0.1
-color_ramp = SubResource("Gradient_stars")
 noise = SubResource("FastNoiseLite_stars")
+color_ramp = SubResource("Gradient_stars")
+seamless = true
