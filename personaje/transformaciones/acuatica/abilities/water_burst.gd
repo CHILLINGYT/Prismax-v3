@@ -47,6 +47,9 @@ func _advance(delta: float) -> void:
 		_travel += delta
 		super(delta)
 		if not _spent and _flying and _travel >= travel_time:
+			# Se acabó el VUELO sin haber tocado nada (ni enemigo ni escenario): la
+			# esfera revienta en el aire y suena el FINAL, nunca un impacto simulado.
+			_sonar_fin(global_position)
 			_explode(global_position)
 		return
 
@@ -63,12 +66,15 @@ func _advance(delta: float) -> void:
 		_fade_out()
 
 
-## Al chocar durante el vuelo no desaparece: explota en el sitio del golpe.
+## Al chocar durante el vuelo no desaparece: explota en el sitio del golpe. Si el
+## choque ha sido contra el ESCENARIO (pared, suelo, un objeto), también suena.
 func _impact(point: Vector3, target: Node3D) -> void:
 	if _spent or not _flying:
 		return
 	if target != null:
 		hurt(target, point)
+	else:
+		_sonar_impacto_escena(point)
 	_explode(point)
 
 

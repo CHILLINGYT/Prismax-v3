@@ -18,3 +18,8 @@ extends Resource
 @export var cancel_window: float = 0.12
 @export var knockback: float = 3.0
 @export var stun: float = 0.0
+## Playback speed of the clip (1.0 = the clip's own pace). The phase timers above
+## are in REAL seconds and are built from the clip's measured impact instant
+## divided by this speed, so a faster clip still lands its damage exactly on the
+## visual contact.
+@export var speed: float = 1.0
