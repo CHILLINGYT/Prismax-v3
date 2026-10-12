@@ -54,6 +54,15 @@ const ANCHO_BARRA := 0.9
 @export var espera_min: float = 0.8
 @export var espera_max: float = 1.8
 
+@export_group("Animación")
+## Clips de la librería nativa Mixamo. Si la escena no trae nodo `Animador`, se
+## ignoran sin más: el enemigo sigue funcionando igual.
+@export var clip_idle: StringName = &"idle_combate"
+@export var clip_andar: StringName = &"caminar_combate"
+@export var clip_ataque: StringName = &"golpe_1"
+@export var clip_recibir: StringName = &"recibir_combate"
+@export var clip_muerte: StringName = &"muerte_1"
+
 @export_group("Movimiento")
 @export var velocidad: float = 3.2
 @export var aceleracion: float = 16.0
@@ -83,8 +92,11 @@ var _velocidad_propia: float = 0.0
 @onready var _cuerpo: MeshInstance3D = $Cuerpo
 @onready var _barra: Node3D = $BarraVida
 @onready var _barra_mesh: MeshInstance3D = $BarraVida/Barra
+@onready var _visual: Node3D = get_node_or_null("Visual") as Node3D
+@onready var _anim: AnimationPlayer = get_node_or_null("Animador") as AnimationPlayer
 var _mat_cuerpo: StandardMaterial3D
 var _mat_barra: ShaderMaterial
+var _mat_flash: Array[StandardMaterial3D] = []
 
 # =============================================================== Ciclo de vida
 ## Lo llama el gerente ANTES de añadirlo al árbol.
@@ -100,8 +112,11 @@ func _ready() -> void:
 	# Espera inicial repartida: los seis no arrancan el primer ataque a la vez.
 	_espera = randf_range(0.2, 0.9)
 	_duplicar_materiales()
+	_preparar_flash_visual()
 	_actualizar_barra()
 	_registrar_en_combate()
+	if _anim != null and _anim.has_animation(clip_idle):
+		_anim.play(clip_idle)
 
 # =============================================================== Bucle de IA
 func _physics_process(delta: float) -> void:
@@ -109,6 +124,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_actualizar_flash(delta)
 	_actualizar_barra_por_camara()
+	_animar_por_velocidad()
 	_espera = maxf(0.0, _espera - delta)
 
 	var jugador: Node3D = _obtener_jugador()
@@ -200,6 +216,7 @@ func _fase_recuperar(delta: float) -> void:
 
 func _empezar_preparacion() -> void:
 	_estado = Estado.PREPARAR
+	_animar_una_vez(clip_ataque)
 	_t_ataque = t_preparacion * randf_range(0.9, 1.2)
 	_inclinacion = 0.1
 	_flash = 0.5
@@ -259,6 +276,9 @@ func _actualizar_flash(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta * 3.5)
 	if _mat_cuerpo != null:
 		_mat_cuerpo.emission_energy_multiplier = _flash * 1.4
+	for m in _mat_flash:
+		if is_instance_valid(m):
+			m.emission_energy_multiplier = _flash * 1.8
 
 # =============================================================== Contratos de daño
 func is_alive() -> bool:
@@ -312,6 +332,7 @@ func _aplicar_dano(cantidad: float, dir: Vector3, empuje: float, aturde: float) 
 		return
 	_vida = maxf(0.0, _vida - cantidad)
 	_flash = 1.0
+	_animar_una_vez(clip_recibir)
 	if empuje > 0.0 and dir.length_squared() > 0.0001:
 		velocity.x += dir.x * empuje
 		velocity.z += dir.z * empuje
@@ -347,6 +368,7 @@ func _morir() -> void:
 	remove_from_group(GRUPO_DANIO)
 	remove_from_group(GRUPO)
 	velocity = Vector3.ZERO
+	_animar_una_vez(clip_muerte)
 	# Un muerto no bloquea ni es seleccionable; desaparece en medio segundo.
 	set_deferred("collision_layer", 0)
 	set_deferred("collision_mask", 0)
@@ -496,6 +518,48 @@ func _actualizar_barra_por_camara() -> void:
 		_barra.visible = false
 	elif not _barra.visible and dist > 2.6:
 		_barra.visible = true
+
+# ---------------------------------------------------------------- animación
+func _animar(clip: StringName) -> void:
+	if _anim == null or not _anim.has_animation(clip):
+		return
+	if _anim.current_animation == String(clip) and _anim.is_playing():
+		return
+	_anim.play(clip)
+
+func _animar_una_vez(clip: StringName) -> void:
+	if _anim == null or not _anim.has_animation(clip):
+		return
+	_anim.play(clip)
+
+## Locomoción: anda o se queda quieto según su velocidad real.
+func _animar_por_velocidad() -> void:
+	if _estado == Estado.PREPARAR or _estado == Estado.GOLPEAR or _estado == Estado.MUERTO:
+		return
+	var sp := Vector2(velocity.x, velocity.z).length()
+	_animar(clip_andar if sp > 0.4 else clip_idle)
+
+## Copia POR INSTANCIA los materiales del modelo para poder destellar al recibir
+## daño (la cápsula de depósito queda oculta cuando el modelo se visualiza).
+func _preparar_flash_visual() -> void:
+	if _visual == null:
+		return
+	for n in _visual.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var base := mi.get_active_material(s)
+			if base == null or not (base is BaseMaterial3D):
+				continue
+			var dup := (base as BaseMaterial3D).duplicate() as BaseMaterial3D
+			if dup is StandardMaterial3D:
+				var sm := dup as StandardMaterial3D
+				sm.emission_enabled = true
+				sm.emission = Color(1.0, 0.25, 0.22)
+				sm.emission_energy_multiplier = 0.0
+				_mat_flash.append(sm)
+			mi.set_surface_override_material(s, dup)
 
 func _duplicar_materiales() -> void:
 	# Materiales POR INSTANCIA (duplicados una sola vez): el destello de daño y
