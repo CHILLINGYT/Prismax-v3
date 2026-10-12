@@ -1,8 +1,8 @@
 class_name PasosJugador
 extends Node
 
-## Pisadas del jugador SINCRONIZADAS CON LA ANIMACIÓN REAL, para las cuatro
-## transformaciones (humano, combate, fuerza y velocista).
+## Pisadas del jugador SINCRONIZADAS CON LA ANIMACIÓN REAL, para las cinco
+## transformaciones (humano, combate, fuerza, velocista y acuático).
 ##
 ## No usa temporizadores propios ni un reloj paralelo: cada fotograma el
 ## controlador le pasa el AnimationPlayer de la forma activa y este nodo lee la
@@ -52,6 +52,13 @@ const TABLA := {
 	"velocista": {
 		"caminar_hacia_adelante": {"izq": 0.3688, "der": 0.8750, "carpeta": "velocidad", "guarda": 0.10, "sep": 0.12, "vol": -5.0},
 		"caminar_hacia_atras":    {"izq": 0.6579, "der": 0.1250, "carpeta": "velocidad", "guarda": 0.10, "sep": 0.12, "vol": -5.0},
+	},
+	"acuatico": {
+		# Fases MEDIDAS con .backup_pasos/_fases_contacto.gd sobre el PROPIO modelo
+		# acuático (tobillo mixamorig_LeftFoot/RightFoot, el MÍNIMO del apoyo), NO
+		# copiadas de otra forma: walk y run tienen sus propios puntos de contacto.
+		"walk": {"izq": 0.2762, "der": 0.7297, "carpeta": "acuatico", "guarda": 0.10, "sep": 0.12, "vol": -5.0},
+		"run":  {"izq": 0.3512, "der": 0.8690, "carpeta": "acuatico", "guarda": 0.08, "sep": 0.10, "vol": -4.0},
 	},
 }
 
