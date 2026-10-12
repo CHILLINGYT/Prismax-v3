@@ -5398,12 +5398,11 @@ func _iniciar_animacion_muerte() -> void:
 		return
 	# `muerte` y `morido` se añaden al reproductor UNA vez (si ya están, se
 	# reutilizan): no se duplican clips ni se recrean cada muerte.
-	var factor := _factor_unidades_fbx(ESC_MUERTE, skel)
 	var hay_muerte := anim.has_animation(CLIP_MUERTE)
 	if not hay_muerte:
-		hay_muerte = _retarget_clip(_clip_de_fbx(ESC_MUERTE), anim, skel, CLIP_MUERTE, false, factor)
+		hay_muerte = _retarget_clip(_clip_de_fbx(ESC_MUERTE), anim, skel, CLIP_MUERTE, false, ESC_MUERTE)
 	if not anim.has_animation(CLIP_MORIDO):
-		_retarget_clip(_clip_de_fbx(ESC_MORIDO), anim, skel, CLIP_MORIDO, true, factor)
+		_retarget_clip(_clip_de_fbx(ESC_MORIDO), anim, skel, CLIP_MORIDO, true, ESC_MORIDO)
 	if not hay_muerte:
 		# Ninguna pista casó con este esqueleto: mejor sin animación que con una
 		# reproducción incorrecta.
@@ -5553,15 +5552,87 @@ func _factor_unidades_fbx(ruta: String, skel: Skeleton3D) -> float:
 	return destino / fuente
 
 
-## Copia un clip al AnimationPlayer destino reescribiendo sus pistas al esqueleto
-## REAL: mismo NOMBRE de hueso (Mixamo), una pista por hueso existente; las pistas
-## de huesos que esa forma no tenga se descartan (nunca una pista rota). Las rutas
-## de pista de estos reproductores son relativas a su `root_node` (el nodo padre),
-## igual que las librerías del proyecto. `factor` convierte las POSICIONES del FBX
-## (en metros) a las unidades del esqueleto destino (el del jugador está a otra
-## escala). Devuelve true si casó algún hueso.
+## Reposos del esqueleto de un FBX de animación, por nombre de hueso: rotaciones
+## en espacio de MODELO (acumuladas), jerarquía de padres y reposo de la cadera.
+## Se cachea por ruta (el FBX sólo se instancia una vez por partida).
+var _reposos_fbx: Dictionary = {}
+
+
+func _reposos_de_fbx(ruta: String) -> Dictionary:
+	if _reposos_fbx.has(ruta):
+		return _reposos_fbx[ruta]
+	var datos := {"rot": {}, "padre": {}, "hips": Vector3.ZERO, "hips_padre": "", "hay": false}
+	var ps := load(ruta) as PackedScene
+	if ps != null:
+		var raiz := ps.instantiate()
+		var sk := _esqueleto_de(raiz)
+		if sk != null:
+			var rot: Dictionary = {}
+			var padre: Dictionary = {}
+			var mundos: Array[Quaternion] = []
+			for i in sk.get_bone_count():
+				var q: Quaternion = sk.get_bone_rest(i).basis.get_rotation_quaternion()
+				var par := sk.get_bone_parent(i)
+				if par >= 0:
+					q = mundos[par] * q
+					padre[sk.get_bone_name(i)] = sk.get_bone_name(par)
+				else:
+					padre[sk.get_bone_name(i)] = ""
+				mundos.append(q)
+			for i in sk.get_bone_count():
+				rot[sk.get_bone_name(i)] = mundos[i]
+			datos["rot"] = rot
+			datos["padre"] = padre
+			var hb := sk.find_bone("mixamorig_Hips")
+			if hb >= 0:
+				datos["hips"] = sk.get_bone_rest(hb).origin
+				datos["hips_padre"] = padre.get("mixamorig_Hips", "")
+			datos["hay"] = true
+		raiz.free()
+	_reposos_fbx[ruta] = datos
+	return datos
+
+
+## Reposos (rotaciones en espacio de MODELO + jerarquía de padres) del esqueleto
+## de una forma del jugador.
+func _reposos_mundo(sk: Skeleton3D) -> Dictionary:
+	var rot: Dictionary = {}
+	var padre: Dictionary = {}
+	var mundos: Array[Quaternion] = []
+	for i in sk.get_bone_count():
+		var q: Quaternion = sk.get_bone_rest(i).basis.get_rotation_quaternion()
+		var par := sk.get_bone_parent(i)
+		if par >= 0:
+			q = mundos[par] * q
+			padre[sk.get_bone_name(i)] = sk.get_bone_name(par)
+		else:
+			padre[sk.get_bone_name(i)] = ""
+		mundos.append(q)
+	for i in sk.get_bone_count():
+		rot[sk.get_bone_name(i)] = mundos[i]
+	return {"rot": rot, "padre": padre}
+
+
+## Copia un clip al AnimationPlayer destino adaptándolo al esqueleto REAL:
+##  * Rutas: mismo NOMBRE de hueso (Mixamo) relativo al `root_node` del
+##    reproductor; las pistas de huesos que esa forma no tenga se descartan
+##    (nunca una pista rota).
+##  * Rotaciones: cambio de base por las poses de REPOSO reales de los dos rigs
+##    (`destino = A · origen · B`, con el reposo del destino ALINEADO por
+##    dirección — la misma técnica verificada en los combos acuáticos). Copiar
+##    los cuaterniones crudos sólo vale si ambos esqueletos comparten reposo: el
+##    del humano difiere del FBX hasta ~24° (hombros) pero el del acuático y el
+##    de fuerza hasta 180° (brazos, dedos), y ahí cada pista rota el hueso en
+##    ejes ajenos: el cadáver quedaba retorcido.
+##  * Posición (cadera): sólo el DESPLAZAMIENTO respecto al reposo, convertido al
+##    espacio del destino: rotado al marco de su padre y escalado por la razón de
+##    alturas de cadera (los FBX Mixamo vienen en metros y cada modelo está en
+##    sus unidades).
+##  * `ruta_fbx`: FBX del que proviene el clip (para leer SUS reposos). Si falta
+##    o el FBX no trae esqueleto, se usa el modo antiguo (copia cruda + factor).
+## Devuelve true si casó algún hueso.
 func _retarget_clip(origen: Animation, player: AnimationPlayer, skel: Skeleton3D,
-		nombre: StringName, bucle: bool, factor := 1.0) -> bool:
+		nombre: StringName, bucle: bool, ruta_fbx := "") -> bool:
 	if origen == null or player == null or skel == null:
 		return false
 	var raiz: Node = player.get_node_or_null(player.root_node)
@@ -5571,17 +5642,61 @@ func _retarget_clip(origen: Animation, player: AnimationPlayer, skel: Skeleton3D
 	var copia := origen.duplicate(true) as Animation
 	if copia == null:
 		return false
+	var src := _reposos_de_fbx(ruta_fbx) if ruta_fbx != "" else {}
+	var retarget := bool(src.get("hay", false))
+	var dst: Dictionary = {}
+	var dst_al: Dictionary = {}
+	var k := 1.0
+	if retarget:
+		dst = _reposos_mundo(skel)
+		var rot_d: Dictionary = dst["rot"]
+		var rot_o: Dictionary = src["rot"]
+		for bn in rot_d:
+			var q_d: Quaternion = rot_d[bn]
+			var q_o: Quaternion = rot_o.get(bn, q_d)
+			var u := (q_d * Vector3.UP).normalized()
+			var v := (q_o * Vector3.UP).normalized()
+			dst_al[bn] = Quaternion(u, v) * q_d
+		var hd := skel.find_bone("mixamorig_Hips")
+		if hd >= 0:
+			var h_dest: Vector3 = skel.get_bone_rest(hd).origin
+			var h_orig: Vector3 = src.get("hips", Vector3.ZERO)
+			if h_dest.length() > 0.0 and h_orig.length() > 0.0:
+				k = h_dest.length() / h_orig.length()
+	else:
+		k = _factor_unidades_fbx(ruta_fbx, skel)
 	var casan := 0
-	var escala := not is_equal_approx(factor, 1.0)
 	for i in range(copia.get_track_count() - 1, -1, -1):
 		var trozos := String(copia.track_get_path(i)).split(":")
 		var hueso := trozos[trozos.size() - 1]
 		if hueso != "" and skel.find_bone(hueso) >= 0:
 			copia.track_set_path(i, NodePath(base + ":" + hueso))
-			if escala and copia.track_get_type(i) == Animation.TYPE_POSITION_3D:
-				for k in copia.track_get_key_count(i):
-					var v := copia.track_get_key_value(i, k) as Vector3
-					copia.track_set_key_value(i, k, v * factor)
+			if copia.track_get_type(i) == Animation.TYPE_POSITION_3D:
+				var rest_d: Vector3 = skel.get_bone_rest(skel.find_bone(hueso)).origin
+				var rest_o: Vector3 = src.get("hips", Vector3.ZERO)
+				var a_pos := Quaternion.IDENTITY
+				if retarget and hueso == "mixamorig_Hips":
+					var nom_p := String(src.get("hips_padre", ""))
+					if nom_p != "" and dst_al.has(nom_p) and (src["rot"] as Dictionary).has(nom_p):
+						a_pos = (dst_al[nom_p] as Quaternion).inverse() * (src["rot"][nom_p] as Quaternion)
+				for key in copia.track_get_key_count(i):
+					var v := copia.track_get_key_value(i, key) as Vector3
+					if retarget and hueso == "mixamorig_Hips":
+						copia.track_set_key_value(i, key, rest_d + a_pos * ((v - rest_o) * k))
+					else:
+						copia.track_set_key_value(i, key, v * k)
+			elif copia.track_get_type(i) == Animation.TYPE_ROTATION_3D \
+					and retarget and dst_al.has(hueso) and (src["rot"] as Dictionary).has(hueso):
+				var a := Quaternion.IDENTITY
+				var nom_padre := String((src["padre"] as Dictionary).get(hueso, ""))
+				if nom_padre != "" and dst_al.has(nom_padre) \
+						and (src["rot"] as Dictionary).has(nom_padre):
+					a = (dst_al[nom_padre] as Quaternion).inverse() \
+							* (src["rot"][nom_padre] as Quaternion)
+				var b := (src["rot"][hueso] as Quaternion).inverse() * (dst_al[hueso] as Quaternion)
+				for key in copia.track_get_key_count(i):
+					var q := copia.track_get_key_value(i, key) as Quaternion
+					copia.track_set_key_value(i, key, a * q * b)
 			casan += 1
 		else:
 			copia.remove_track(i)
