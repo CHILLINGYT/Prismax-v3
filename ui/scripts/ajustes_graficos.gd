@@ -180,7 +180,11 @@ func _crear_overlay_fps() -> void:
 	_fps_label.name = "ContadorFPS"
 	_fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fps_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_fps_label.position = Vector2(12, 8)
+	# A la DERECHA del minimapa: el minimapa ocupa el HUD arriba-izquierda con
+	# margen 16 y lado 170, así que su borde derecho cae en x=186. Se deja un
+	# margen de 10 px. El anclaje arriba-izquierda mantiene la etiqueta dentro de
+	# la pantalla en cualquier resolución y evita solaparse con el minimapa.
+	_fps_label.position = Vector2(196, 16)
 	_fps_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	_fps_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
 	_fps_label.add_theme_constant_override("shadow_offset_x", 1)
