@@ -44,6 +44,10 @@ func _physics_process(delta: float) -> void:
 		return
 	if not Input.is_action_just_pressed(accion):
 		return
+	# ESTAMINA: el palmazo se paga al ejecutarse; sin energía no sale (y el
+	# enfriamiento no se consume).
+	if not CostosEstamina.activar_habilidad(_player, &"palmazo"):
+		return
 	_cd = cooldown
 	_palmazo()
 

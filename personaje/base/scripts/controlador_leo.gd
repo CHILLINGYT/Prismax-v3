@@ -1123,6 +1123,9 @@ func _physics_process(delta: float) -> void:
 	# "Vuelo") que se mueve por sí mismo. Este cuerpo principal queda como ancla
 	# quieta: no procesa movimiento ni gravedad para no competir con él.
 	if forma == Forma.VUELO:
+		# La estamina del águila (volar/boost/picada y caminar en el suelo) se
+		# evalúa aquí: este cuerpo no procesa el movimiento del volador.
+		_procesar_estamina_vuelo(delta)
 		return
 	# Con el menú radial de transformaciones abierto (F): se congela el control
 	# de movimiento (sin tocar la cámara ni la posición de forma brusca) hasta
@@ -1201,6 +1204,78 @@ func _physics_process(delta: float) -> void:
 	# y encadenar ambos podría provocar dobles ascensos o saltos de posición.
 	if estado != Estado.EJECUCION and not a_subiendo_escalera:
 		_resolver_escalon()
+
+	# ESTAMINA: consumo del movimiento REAL de este fotograma (una sola clave por
+	# forma y tramo; quieto, contra una pared o con el menú abierto no gasta).
+	_procesar_estamina_movimiento(delta)
+
+# =============================================================== ESTAMINA
+# El SISTEMA (valores, regeneración y bloqueo) vive en EstadisticasJugador; aquí
+# sólo se llama, con las claves centralizadas de CostosEstamina. Reglas:
+#   · El movimiento cobra el tramo que corresponda (caminar/correr/esprintar,
+#     nadar/nado rápido/turbo, volar/boost/picada) y sólo con desplazamiento real.
+#   · Nada cobra dos veces: cada ataque paga al ARRANCAR de verdad y cada
+#     habilidad al activarse (nunca al presionar ni al confirmar el impacto).
+#   · Sin estamina se bloquean acciones NUEVAS (ataques, habilidades, dash,
+#     turbo, sprint); caminar, el salto básico y aterrizar siguen siempre vivos.
+
+## ¿La forma activa se quedó sin estamina? (bloquea correr/esprint nuevos).
+func _est_agotada() -> bool:
+	return estadisticas != null and estadisticas.stamina_agotada()
+
+## Consumo del movimiento del fotograma, por forma y tramo real (una sola clave).
+func _procesar_estamina_movimiento(delta: float) -> void:
+	if estadisticas == null:
+		return
+	var v := Vector2(velocity.x, velocity.z).length()
+	var quieto := v < CostosEstamina.UMBRAL_MOVIMIENTO
+	if forma == Forma.ACUATICO:
+		if a_nadando:
+			if not quieto:
+				var rapido := Input.is_action_pressed("correr") and not _est_agotada()
+				CostosEstamina.gastar_movimiento(self, &"nadar_rapido" if rapido else &"nadar", delta)
+			# Propulsión del turbo: gasta por segundo ENCIMA de su activación.
+			if a_turbo_t > 0.0:
+				CostosEstamina.gastar_movimiento(self, &"turbo", delta)
+		elif not quieto:
+			_tramo_tierra_estamina(delta)
+	elif forma == Forma.VELOCISTA:
+		if estado == Estado.EJECUCION:
+			# La supervelocidad consume mientras corre el trayecto (su activación
+			# ya se cobró al confirmar la ruta).
+			CostosEstamina.gastar_movimiento(self, &"supervelocidad", delta)
+		elif estado == Estado.NORMAL and not quieto:
+			_tramo_tierra_estamina(delta)
+	elif not quieto:
+		_tramo_tierra_estamina(delta)
+
+## Tramo terrestre: esprintar/correr con SHIFT (sólo con estamina) o caminar.
+## El velocista usa su propia clave de esprint (su tabla no tiene "correr": su
+## máximo terrestre es el esprint, la tasa más alta de las formas terrestres).
+func _tramo_tierra_estamina(delta: float) -> void:
+	var corriendo := Input.is_action_pressed("correr") and not _est_agotada()
+	var clave := &"caminar"
+	if corriendo:
+		clave = &"esprintar" if forma == Forma.VELOCISTA else &"correr"
+	CostosEstamina.gastar_movimiento(self, clave, delta)
+
+## Consumo del ÁGUILA: volar (con boost/picada) mientras vuela de verdad, y el
+## tramo terrestre cuando camina por el suelo. El cuerpo real es el nodo "Vuelo".
+func _procesar_estamina_vuelo(delta: float) -> void:
+	if estadisticas == null or not (vuelo is CharacterBody3D):
+		return
+	var fc := vuelo.get_node_or_null("FlightController")
+	if fc != null and bool(fc.is_flying):
+		var clave := &"volar"
+		if bool(fc.is_diving):
+			clave = &"volar_picada"
+		elif fc.has_method("is_boosting") and bool(fc.is_boosting()):
+			clave = &"volar_boost"
+		CostosEstamina.gastar_movimiento(self, clave, delta)
+		return
+	var cuerpo := vuelo as CharacterBody3D
+	if Vector2(cuerpo.velocity.x, cuerpo.velocity.z).length() >= CostosEstamina.UMBRAL_MOVIMIENTO:
+		_tramo_tierra_estamina(delta)
 
 # Menú abierto: sin control horizontal, sólo gravedad y pose quieta, para que
 # el personaje no se mueva ni quede flotando. La cámara no se modifica.
@@ -2057,7 +2132,7 @@ func _procesar_humano(delta: float) -> void:
 	h_agachado = Input.is_action_pressed("agacharse") and not h_salto_aire
 
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_action_pressed("correr") and not h_agachado
+	var corriendo := Input.is_action_pressed("correr") and not h_agachado and not _est_agotada()
 	var vel_objetivo := h_vel_caminar
 	if h_agachado:
 		vel_objetivo = H_VEL_AGACHADO
@@ -2232,7 +2307,7 @@ func _procesar_acuatico(delta: float) -> void:
 		_actualizar_anim_acuatico(delta)
 		return
 
-	var corriendo := Input.is_action_pressed("correr") and not a_agachado
+	var corriendo := Input.is_action_pressed("correr") and not a_agachado and not _est_agotada()
 	var vel_objetivo := h_vel_caminar
 	if a_agachado:
 		vel_objetivo = H_VEL_AGACHADO
@@ -2463,6 +2538,10 @@ func _intentar_turbo_acuatico() -> void:
 	# funciones coexisten y la propulsión sigue su cuenta.
 	if a_en_habilidad or a_ataque_activo or a_subiendo_escalera:
 		return
+	# ESTAMINA: la activación del turbo se paga UNA vez aquí (su propulsión
+	# además gasta por segundo en el bucle de nado); sin energía no arranca.
+	if not CostosEstamina.activar_habilidad(self, &"turbo"):
+		return
 	a_turbo_t = A_TURBO_DURACION
 	a_turbo_cooldown = A_TURBO_ENFRIAMIENTO
 	a_turbo_dir = _direccion_entrada()
@@ -2518,6 +2597,10 @@ func _golpe_acuatico() -> void:
 ## entero desde el principio, con su instante de impacto medido y el golpe todavía
 ## sin conectar. Un golpe = UNA sola aplicación de daño.
 func _iniciar_ataque_acuatico(clip: String) -> void:
+	# ESTAMINA: cada golpe del pez (jab o cruzado) se cobra al ARRANCAR; sin
+	# estamina el golpe no sale (uno ya en curso nunca se corta por esto).
+	if not CostosEstamina.activar_ataque(self, &"golpe"):
+		return
 	a_ataque_activo = true
 	a_ataque_clip = clip
 	a_ataque_dur = _duracion_clip_acuatico(clip)
@@ -3107,6 +3190,10 @@ func _intentar_habilidad_agua(idx: int) -> void:
 	var nombre_estado := "ability_%d" % idx
 	if anim_acuatico == null or not anim_acuatico.has_animation(nombre_estado):
 		return
+	# ESTAMINA: la habilidad se cobra al ACTIVARSE (ya pasaron todos los
+	# chequeos): si no alcanza no se enciende y el enfriamiento no se gasta.
+	if not CostosEstamina.activar_habilidad(self, CostosEstamina.clave_habilidad_agua(idx)):
+		return
 	a_en_habilidad = true
 	a_t_habilidad = _duracion_clip_acuatico(nombre_estado) + 0.15
 	a_pendiente = idx
@@ -3323,7 +3410,7 @@ func _procesar_fuerza(delta: float) -> void:
 
 	f_agachado = Input.is_action_pressed("agacharse") and not f_salto_aire
 	var dir := _direccion_entrada()
-	var corriendo := Input.is_action_pressed("correr") and not f_agachado
+	var corriendo := Input.is_action_pressed("correr") and not f_agachado and not _est_agotada()
 	var vel := F_VEL_CAMINAR
 	if f_agachado:
 		vel = F_VEL_CAMINAR * 0.6
@@ -3485,6 +3572,9 @@ func _iniciar_embestida_fuerza() -> void:
 	# interrumpe a medias (se suelta ESPACIO y ya se decide).
 	if f_embestiendo or f_cargando_roca or f_super_cargando or not is_on_floor():
 		return
+	# ESTAMINA: la embestida se paga al arrancar; sin energía no sale.
+	if not CostosEstamina.activar_habilidad(self, &"embestida"):
+		return
 	f_embestiendo = true
 	f_t_embestida = 0.0
 	f_embestida_golpeados.clear()
@@ -3524,6 +3614,9 @@ func _procesar_embestida_fuerza(delta: float) -> void:
 # --- Supersalto con golpe: pisotón aéreo (E en el aire) ---
 func _intentar_slam_fuerza() -> void:
 	if f_slam or is_on_floor():
+		return
+	# ESTAMINA: el pisotón aéreo se paga al arrancar; sin energía no sale.
+	if not CostosEstamina.activar_habilidad(self, &"pisotón"):
 		return
 	f_slam = true
 
@@ -3565,6 +3658,10 @@ func _intentar_roca_fuerza() -> void:
 	# Mientras la última piedra LANZADA siga existiendo en el mundo no se
 	# arranca otra: soltarla de las manos no significa que haya desaparecido.
 	if not _puede_levantar_roca():
+		return
+	# ESTAMINA: levantar la mole se paga al empezar (el levantamiento entero es
+	# la habilidad); sin energía no se intenta.
+	if not CostosEstamina.activar_habilidad(self, &"roca"):
 		return
 	if _f_ik == null:
 		_preparar_ik_roca()
@@ -3763,6 +3860,10 @@ func _buscar_esqueleto_fuerza() -> Skeleton3D:
 # anillo del HUD, colocado abajo en el centro de la pantalla.
 
 func _puede_cargar_super() -> bool:
+	# Con la estamina agotada NO se carga el supersalto: el toque de ESPACIO cae
+	# al salto normal de siempre (el salto básico nunca se bloquea).
+	if _est_agotada():
+		return false
 	return not f_embestiendo and not f_slam and not f_cargando_roca \
 		and not f_ataque and f_recuperacion <= 0.0
 
@@ -3803,6 +3904,14 @@ func _ejecutar_super() -> void:
 		return
 	if cargado < F_SUPER_CARGA_MIN:
 		# Toque corto: el salto NORMAL de siempre, sin ceremonial.
+		velocity.y = F_SALTO
+		f_salto_aire = true
+		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
+		_sonar_fuerza_salto()
+		return
+	# ESTAMINA: el supersalto (carga completa) se paga al EJECUTARSE. Sin energía
+	# no hay supersalto, pero el salto básico sigue disponible: nunca se bloquea.
+	if not CostosEstamina.activar_habilidad(self, &"super_salto"):
 		velocity.y = F_SALTO
 		f_salto_aire = true
 		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
@@ -4042,6 +4151,11 @@ func _golpe_fuerza(es_patada: bool) -> void:
 ## Arranca un golpe completo: clip entero desde el principio y daño pendiente
 ## hasta la extensión real del puño o del pie.
 func _iniciar_ataque_fuerza(clip: String) -> void:
+	# ESTAMINA: los golpes de Fuerza se cobran al ARRANCAR de verdad (aquí),
+	# incluidos los encadenados del combo; sin energía el golpe no sale.
+	var clave := &"patada" if clip == ANIM_F_KICK else &"golpe"
+	if not CostosEstamina.activar_ataque(self, clave):
+		return
 	f_ataque = true
 	_f_ataque_clip = clip
 	_f_ataque_dur = _duracion_fuerza(clip)
@@ -4410,6 +4524,13 @@ func _cadena_combate(cfg: Variant) -> Array:
 	return _c_cadena_datos
 
 func _c_iniciar_fase_golpe() -> void:
+	# ESTAMINA: cada golpe del FreeFlow se cobra al ARRANCAR la fase de verdad
+	# (una vez por golpe, nunca al confirmar el impacto). Sin estamina el golpe
+	# no sale y el estado vuelve a LIBRE: ni combos colgados ni atascos.
+	if not CostosEstamina.activar_ataque(self, &"golpe"):
+		c_estado = C_E.LIBRE
+		c_objetivo = null
+		return
 	c_estado = C_E.PREPARAR
 	c_fase = c_golpe.windup
 	c_golpe_hecho = false
@@ -4767,7 +4888,10 @@ func _procesar_normal(delta: float) -> void:
 		_orientar(delta, -dir if retrocede else dir)
 
 	if is_on_floor() and Input.is_action_just_pressed("atacar"):
-		combate.intentar_golpe()
+		# ESTAMINA: la pulsación sólo llega al sistema si alcanza; el cobro real
+		# del golpe ocurre en _on_golpe_realizado (un golpe aceptado = un cobro).
+		if CostosEstamina.puede_ataque(self, &"golpe"):
+			combate.intentar_golpe()
 	if Input.is_action_just_pressed("emote"):
 		_intentar_emote()
 	if Input.is_action_just_pressed("dash"):
@@ -4776,6 +4900,9 @@ func _procesar_normal(delta: float) -> void:
 		_iniciar_carga()
 
 func _on_golpe_realizado(indice: int) -> void:
+	# ESTAMINA: un golpe REALIZADO cuesta una vez (el velocista es el que más
+	# gasta por golpe: su combo es pura velocidad).
+	CostosEstamina.activar_ataque(self, &"golpe")
 	_sonar_golpe()
 	_en_modo_ataque = true
 	_t_modo_ataque = TIEMPO_MODO_ATAQUE
@@ -4968,6 +5095,10 @@ func _actualizar_logica_atras(delta: float, dir: Vector3) -> void:
 
 # ---------------- Dash ----------------
 func _intentar_dash() -> void:
+	# ESTAMINA: el dash (en suelo o en el aire) se paga al arrancar; sin energía
+	# no sale ni cambia el estado del velocista.
+	if not CostosEstamina.activar_habilidad(self, &"dash"):
+		return
 	var dir := _direccion_entrada()
 	if dir.length() < 0.05:
 		dir = -pivote.global_transform.basis.z
@@ -5086,6 +5217,12 @@ func _procesar_preparado(delta: float) -> void:
 		_iniciar_recorrido()
 
 func _iniciar_recorrido() -> void:
+	# ESTAMINA: activar la supervelocidad se paga aquí (el recorrido además
+	# consume por segundo). Sin energía la ruta se cancela con seguridad: se
+	# vuelve al estado normal con el mismo cierre que al salir de la forma.
+	if not CostosEstamina.activar_habilidad(self, &"supervelocidad"):
+		_detener_velocista()
+		return
 	estado = Estado.EJECUCION
 	_super_golpeados.clear()
 	# La arremetida NO se detiene con los enemigos: se les retira de la máscara

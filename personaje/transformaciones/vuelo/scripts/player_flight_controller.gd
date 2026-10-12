@@ -92,6 +92,10 @@ class_name VueloPlayerFlightController
 
 var is_flying: bool = false
 var is_diving: bool = false
+## Descenso forzado por ESTAMINA AGOTADA: el ave baja sola (controlada) hasta
+## aterrizar — ni caída instantánea ni teletransporte — y el control horizontal
+## sigue vivo. Se limpia al soltar el vuelo o tocar suelo.
+var descenso_forzado: bool = false
 
 ## Modo de vuelo actual (para animaciones): flote/subida/avance/bajada/dive.
 var _modo_vuelo: StringName = &"flote"
@@ -135,6 +139,10 @@ func update_flight(
 			_demanda = 0.0
 			_update_hover_bob(visual_root, false, delta)
 		else:
+			# ESTAMINA: el despegue se paga UNA vez y sólo aquí; sin energía la
+			# tecla no levanta y el cuerpo sigue en modo terrestre.
+			if not CostosEstamina.activar_habilidad(character, &"despegue"):
+				return false
 			is_flying = true
 			is_diving = false
 			# Despegue según cómo venga: quieto = un impulso; caminando =
@@ -163,6 +171,7 @@ func update_flight(
 	if is_flying and character.is_on_floor() and character.velocity.y <= 0.0:
 		is_flying = false
 		is_diving = false
+		descenso_forzado = false
 		_boost_timer = 0.0
 		_velocidad_aire = 0.0
 		_demanda = 0.0
@@ -170,16 +179,24 @@ func update_flight(
 		return false
 
 	if not is_flying:
+		descenso_forzado = false
 		_modo_vuelo = &"flote"
 		_bank = 0.0
 		visual_root.rotation.z = 0.0
 		_update_hover_bob(visual_root, false, delta)
 		return false
 
+	# ESTAMINA AGOTADA EN PLENO VUELO: descenso forzado y CONTROLADO (nunca una
+	# caída seca): el ave baja por sí misma con el control horizontal intacto
+	# hasta aterrizar; la regeneración empieza al tocar suelo.
+	if CostosEstamina.agotada(character):
+		descenso_forzado = true
+
 	# Boost: mantener Shift en vuelo (en tierra, Shift es sprint).
 	var boosting: bool = (
 		Input.is_action_pressed("correr")
 		and not is_diving
+		and not descenso_forzado
 	)
 
 	# WASD dirige el vuelo siguiendo la orientación de la cámara.
@@ -211,7 +228,10 @@ func update_flight(
 	if Input.is_action_pressed("fly_down"):
 		vertical_input -= 1.0
 
-	flight_direction += Vector3.UP * vertical_input
+	# Con el descenso forzado por estamina agotada la componente vertical apunta
+	# SIEMPRE hacia abajo, pero WASD sigue dirigiendo el ave: transición segura,
+	# sin caída instantánea ni teletransporte.
+	flight_direction += Vector3.UP * (-1.0 if descenso_forzado else vertical_input)
 
 	var has_flight_direction: bool = (
 		flight_direction.length_squared() > 0.001
@@ -226,7 +246,7 @@ func update_flight(
 
 	# Dive-bomb estilo Spider-Man: mantener Ctrl compromete el picado,
 	# que sigue la mirada de la cámara. Soltar Ctrl lo cancela.
-	var ctrl_pressed: bool = Input.is_action_pressed("fly_down")
+	var ctrl_pressed: bool = Input.is_action_pressed("fly_down") and not descenso_forzado
 
 	if ctrl_pressed:
 		if not is_diving:
