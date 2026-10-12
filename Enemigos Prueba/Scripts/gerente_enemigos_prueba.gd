@@ -156,7 +156,7 @@ func posicion_de(e: Node3D) -> Vector3:
 			tiene = true
 	if not tiene:
 		var ang := float(_angulos.get(e.get_instance_id(), 0.0))
-		base = _jugador.global_position + Vector3(cos(ang), 0.0, sin(ang)) * radio_cerco
+		base = _centro_jugador() + Vector3(cos(ang), 0.0, sin(ang)) * radio_cerco
 	return _recortar_contra_paredes(e, base)
 
 func enemigos_vivos() -> Array:
@@ -165,7 +165,24 @@ func enemigos_vivos() -> Array:
 func jugador() -> Node3D:
 	if _jugador == null or not is_instance_valid(_jugador):
 		_resolver_referencias()
+	# El "objetivo" de combate es el CUERPO ACTIVO: en la transformación VUELO
+	# la raíz del jugador queda como ancla inmóvil y el cuerpo que realmente se
+	# mueve es el nodo hijo "Vuelo". Sin esto, los enemigos perseguían/atacaban
+	# la posición vieja del ancla (spawns, cerco, orientación y ataques).
+	if _jugador != null and _jugador.has_method("cuerpo_activo"):
+		var activo := _jugador.call("cuerpo_activo") as Node3D
+		if activo != null:
+			return activo
 	return _jugador
+
+## Centro REAL de combate del jugador (mismo criterio que jugador()).
+func _centro_jugador() -> Vector3:
+	if _jugador == null or not is_instance_valid(_jugador):
+		_resolver_referencias()
+	if _jugador == null:
+		return Vector3.ZERO
+	var objetivo := jugador()
+	return objetivo.global_position if objetivo != null else _jugador.global_position
 
 func estadisticas() -> EstadisticasJugador:
 	if _estadisticas == null or not is_instance_valid(_estadisticas):
@@ -248,11 +265,16 @@ func _generar(tipo: int) -> void:
 	cuantos = plan.size()
 	if cuantos <= 0:
 		return
-	var centro := _jugador.global_position
+	var centro := _centro_jugador()
 	var base := _angulo_frente()
 	var excluir: Array[RID] = []
 	if _jugador is CollisionObject3D:
 		excluir.append((_jugador as CollisionObject3D).get_rid())
+	# El cuerpo activo (p. ej. el águila volando) también se excluye: el sondeo
+	# de puntos de aparición no debe chocar con él.
+	var activo := jugador()
+	if activo != null and activo != _jugador and activo is CollisionObject3D:
+		excluir.append((activo as CollisionObject3D).get_rid())
 	var colocados: Array[Vector3] = []
 	var creados := 0
 	for i in cuantos:
@@ -414,11 +436,14 @@ func _recortar_contra_paredes(e: Node3D, base: Vector3) -> Vector3:
 	var ahora := Time.get_ticks_msec() / 1000.0
 	var entrada: Dictionary = _destino_cache.get(id, {})
 	if entrada.is_empty() or ahora - float(entrada.get("t", -1.0)) > 0.25:
-		var desde := _jugador.global_position + Vector3.UP * 1.1
+		var desde := _centro_jugador() + Vector3.UP * 1.1
 		var hacia := base + Vector3.UP * 1.1
 		var excluir: Array[RID] = []
 		if _jugador is CollisionObject3D:
 			excluir.append((_jugador as CollisionObject3D).get_rid())
+		var activo := jugador()
+		if activo != null and activo != _jugador and activo is CollisionObject3D:
+			excluir.append((activo as CollisionObject3D).get_rid())
 		for otro in _enemigos:
 			if otro != e and otro is CollisionObject3D:
 				excluir.append((otro as CollisionObject3D).get_rid())
@@ -473,11 +498,14 @@ func _reasignar_angulos() -> void:
 		_angulos[vivos[i].get_instance_id()] = TAU * (float(i) / float(n)) + desplazamiento
 
 func _angulo_actual_de(e: Node3D) -> float:
-	var dif := e.global_position - _jugador.global_position
+	var dif := e.global_position - _centro_jugador()
 	return atan2(dif.z, dif.x)
 
 func _angulo_frente() -> float:
-	var frente := -_jugador.global_transform.basis.z
+	var objetivo := jugador()
+	if objetivo == null:
+		return 0.0
+	var frente := -objetivo.global_transform.basis.z
 	frente.y = 0.0
 	if frente.length_squared() < 0.0001:
 		return 0.0

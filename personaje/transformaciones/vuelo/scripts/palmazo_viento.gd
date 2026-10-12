@@ -98,13 +98,20 @@ func _primer_player(nodo: Node) -> AnimationPlayer:
 func _rafaga(dir: Vector3, origen: Vector3) -> void:
 	var cos_ap := cos(deg_to_rad(apertura_grados))
 	var vistas := {}
-	for grupo in ["maniqui", "agarrables"]:
+	# "damageable" = enemigos reales del proyecto: la ráfaga también los empuja
+	# y les pega por el puente de daño compartido.
+	for grupo in ["maniqui", "agarrables", "damageable"]:
 		for nodo in get_tree().get_nodes_in_group(grupo):
 			var cuerpo := nodo as Node3D
 			if cuerpo == null or vistas.has(cuerpo.get_instance_id()):
 				continue
 			vistas[cuerpo.get_instance_id()] = true
-			var hacia := cuerpo.global_position - origen
+			# Los enemigos del proyecto tienen el origen en los PIES: el cono se
+			# mide contra su pecho, no contra el suelo.
+			var punto: Vector3 = cuerpo.global_position
+			if not (cuerpo is RigidBody3D):
+				punto += Vector3.UP * 1.1
+			var hacia := punto - origen
 			if hacia.length() > radio:
 				continue
 			if hacia.length_squared() > 0.001 and hacia.normalized().dot(dir) < cos_ap:
@@ -114,14 +121,12 @@ func _rafaga(dir: Vector3, origen: Vector3) -> void:
 			print("[Palmazo] Ráfaga pega a ", cuerpo.name)
 
 func _empujar(cuerpo: Node3D, dir_empuje: Vector3) -> void:
+	# Maniquíes de práctica Y enemigos reales del proyecto: daño + empuje por el
+	# puente compartido (cada tipo con su contrato correcto, sin fuego amigo).
+	if VueloDano.aplicar(cuerpo, dano, (dir_empuje + Vector3.UP * empuje_hacia_arriba).normalized(), fuerza):
+		return
 	var rb := cuerpo as RigidBody3D
 	if rb == null:
-		return
-	if cuerpo.has_method("recibir_golpe"):
-		# El maniquí aplica su propio knockback + daño + etiqueta; la
-		# dirección inclinada hacia arriba le suma la elevación.
-		var inclinada := (dir_empuje + Vector3.UP * empuje_hacia_arriba).normalized()
-		cuerpo.recibir_golpe(dano, inclinada, fuerza)
 		return
 	# Prop genérico: impulso proporcional a la masa (mismo arranque).
 	rb.apply_central_impulse((dir_empuje + Vector3.UP * empuje_hacia_arriba) * fuerza * rb.mass)
