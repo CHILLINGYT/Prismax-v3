@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://ui/scripts/intro_video.gd" id="1_scr"]
-[ext_resource type="VideoStream" path="res://Nueva animacion de inicio/video inicio.ogv" id="2_video"]
+[ext_resource type="VideoStream" path="res://Nueva animacion de inicio/video-inicio.ogv" id="2_video"]
 
 [node name="IntroVideo" type="Control"]
 layout_mode = 3
