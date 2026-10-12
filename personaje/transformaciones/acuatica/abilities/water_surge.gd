@@ -20,10 +20,40 @@ extends "res://personaje/transformaciones/acuatica/abilities/water_ability.gd"
 @export var wave_height := 3.0
 @export var wave_width := 5.0
 
+## Sonido del IMPACTO de la ola: el MISMO chapoteo de impacto que las demás
+## habilidades acuáticas (golpe agua 2.wav). La ACTIVACIÓN de la oleada es otro
+## momento y otro archivo (efecto habilidades.wav, lo dispara el controlador). Suena
+## UNA vez por cada objetivo alcanzado de verdad y nunca al crear la ola ni cuando no
+## toca a nadie: el marcador _hit_ids garantiza que un mismo objetivo no vuelva a
+## sonar en toda la ejecución de la habilidad.
+const AUD_OLA_IMPACTO := preload("res://Audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav")
+
+## Reproductores en rueda: varios impactos seguidos (o dos a la vez) no se cortan
+## entre sí y NUNCA se crean nodos nuevos mientras dura la habilidad.
+const VOCES_IMPACTO := 5
+## Volumen de cada impacto: por debajo del golpe del puño, para que una ola que barre
+## a varios enemigos no sature.
+const AUD_OLA_DB := -6.0
+## CHOQUE contra el escenario (pared, suelo, un objeto) y FINAL por tiempo sin haber
+## tocado nada: los dos suenan con el mismo chapoteo de la ola, pero más bajos y (el
+## final) más grave, para distinguirse de sus impactos contra enemigos.
+const AUD_OLA_CHOQUE_DB := -9.0
+const AUD_OLA_FIN_DB := -13.0
+const AUD_OLA_FIN_PITCH := 0.8
+
 var _hit_ids := {}
+var _voces: Array[AudioStreamPlayer3D] = []
+var _voz := 0
+## El choque contra el escenario y el final por tiempo ya sonaron (una vez cada uno).
+var _ola_choque_sonado := false
+var _ola_fin_sonado := false
 
 
 func _build_visual() -> void:
+	# La oleada conserva SU reproductor de impacto (5 voces y más alcance, para un
+	# muro que barre a varios): se desactiva el genérico de la clase base para que
+	# cada impacto suene UNA sola vez, no dos.
+	sonido_impacto_propio = true
 	# El muro de agua se arma con varias esferas translucidas solapadas: leidas
 	# de frente parece una pared de agua y no hace falta ninguna malla nueva.
 	var mat := ShaderMaterial.new()
@@ -69,6 +99,23 @@ func _build_visual() -> void:
 	})
 	add_child(spray)
 	spray.emitting = true
+	# Voces del sonido de impacto, listas desde el primer fotograma: 3D (se oye venir
+	# del agua, no del jugador) y reutilizadas, para no crear nodos por impacto. Viven
+	# en un GRUPO COMPARTIDO colgado del host: la oleada se libera al acabarse y, si
+	# fueran hijas suyas, el último chapoteo se cortaría a media reproducción.
+	var pool := _pool_sonidos(POOL_IMPACTO_OLA)
+	if pool.get_child_count() == 0:
+		for i in VOCES_IMPACTO:
+			var voz := AudioStreamPlayer3D.new()
+			voz.name = "SonidoOla%d" % (i + 1)
+			voz.stream = AUD_OLA_IMPACTO
+			voz.volume_db = AUD_OLA_DB
+			voz.max_distance = 45.0
+			pool.add_child(voz)
+	_voces.clear()
+	for hijo in pool.get_children():
+		if hijo is AudioStreamPlayer3D:
+			_voces.append(hijo as AudioStreamPlayer3D)
 
 
 ## Golpea a TODOS los que pilla, pero a cada uno una sola vez: si no, un muro que
@@ -80,6 +127,43 @@ func _check_hits() -> void:
 			continue
 		_hit_ids[id] = true
 		hurt(target, global_position)
+		# IMPACTO CONFIRMADO de la ola: suena aquí, una vez por objetivo alcanzado.
+		_sonar_impacto()
+
+
+## Un impacto de la ola: una voz libre reproduce el efecto en la posición de la ola
+## (el choque) y, si están sonando todas, la rueda. Las voces viven en el host, así
+## que hay que colocar cada una en el sitio del impacto (no heredan la posición).
+## El volumen y el tono se fijan SIEMPRE: una voz que acaba de sonar como final (más
+## grave) no puede contagiar ese tono al siguiente impacto.
+func _sonar_impacto() -> void:
+	if _voces.is_empty():
+		return
+	var voz := _tomar_voz(_voces, _voz)
+	if voz.playing:
+		_voz = (_voz + 1) % _voces.size()
+	voz.global_position = global_position
+	voz.volume_db = AUD_OLA_DB
+	voz.pitch_scale = 1.0
+	voz.play()
+
+
+## CHOQUE de la ola contra el ESCENARIO (pared, suelo, un objeto): también suena,
+## una sola vez (la ola se gasta en ese choque).
+func _sonar_choque() -> void:
+	if _ola_choque_sonado:
+		return
+	_ola_choque_sonado = true
+	_sonar_voz(_voces, global_position, AUD_OLA_CHOQUE_DB, 1.0)
+
+
+## FINAL por tiempo: la ola se apagó sin llegar a tocar nada. Suena más bajo y más
+## grave, como cierre, y nunca como un impacto contra un enemigo que no golpeó.
+func _sonar_fin_ola() -> void:
+	if _ola_fin_sonado:
+		return
+	_ola_fin_sonado = true
+	_sonar_voz(_voces, global_position, AUD_OLA_FIN_DB, AUD_OLA_FIN_PITCH)
 
 
 ## La oleada NO se para con los enemigos: los atraviesa y sigue. Si se parara en
@@ -95,11 +179,17 @@ func _advance(delta: float) -> void:
 	super(delta)
 
 
-func _on_impact(point: Vector3, _target: Node3D) -> void:
+func _on_impact(point: Vector3, target: Node3D) -> void:
+	# La oleada solo llega aquí al topar con el ESCENARIO (nunca se para con los
+	# enemigos): es un choque real y suena.
+	if target == null:
+		_sonar_choque()
 	water_burst(point, wave_width * 0.6, 1.1)
 	water_ring(point + Vector3.UP * 0.1, wave_width * 1.8, 0.9, 1.0)
 	water_foam(point, wave_width * 0.5, 1.4)
 
 
 func _on_expire() -> void:
+	# Se le acabó el tiempo a la ola: FINAL (después de los impactos que sí haya dado).
+	_sonar_fin_ola()
 	water_foam(global_position, wave_width * 0.5, 1.2)
