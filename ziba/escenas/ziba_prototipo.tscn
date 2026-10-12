@@ -32,6 +32,7 @@
 [ext_resource type="Script" path="res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd" id="29_combat"]
 [ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="30_config"]
 [ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
+[ext_resource type="Script" uid="uid://dfm5npml16np4" path="res://world/ambiente_dinamico.gd" id="43_ambiente"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
