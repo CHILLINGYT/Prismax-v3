@@ -32,17 +32,38 @@ const RETIRADA_FIN := 0.68    ## hora tope: a esta fase ya no queda NADIE tomand
 const NOCHE := 0.70           ## fase a partir de la cual es de noche (también < 0.22)
 const NOCHE_ABS := 0.68
 
+# --- Entrar en las casas y los edificios (puertas reales del mapa) --------------
+## Probabilidad de que un ciudadano, al decidir qué hacer, se vaya a una puerta (de día).
+## Es un suceso OCASIONAL: con ~70 ciudadanos decidiendo, 0,012 son unas 2-3 entradas por
+## minuto en toda la ciudad (y las calles siguen llenas).
+@export_range(0.0, 0.5) var entrar_prob := 0.012
+## La misma probabilidad al atardecer y de noche: es cuando la gente vuelve a casa.
+@export_range(0.0, 0.5) var entrar_prob_tarde := 0.022
+## Andar desde la fase en la que cuenta como "tarde".
+@export var entrar_tarde := 0.60
+## Cuántos ciudadanos pueden estar entrando a la vez (las calles nunca se vacían).
+@export_range(0, 12) var entrar_max := 3
+## Radio (m) desde el ciudadano en el que se buscan puertas libres.
+@export var entrar_radio := 65.0
+## Espera frente a la puerta antes de desaparecer (s): el instante de "ya voy a entrar".
+@export var entrar_espera := Vector2(1.2, 2.6)
+## Descanso de una puerta tras usarla (s): no se encadenan entradas en la misma puerta.
+@export var entrar_descanso := Vector2(45.0, 110.0)
+## Retardo con el que aparece el reemplazo de quien se ha metido en una casa (s). Se
+## escalona para no crear ciudadanos de golpe ni vaciar las calles.
+@export var nacer_retardo := Vector2(12.0, 40.0)
+
 @export_group("Cantidad")
 ## Ciudadanos totales que recorren la ciudad.
-@export_range(0, 200) var cantidad_total := 52
+@export_range(0, 200) var cantidad_total := 70
 ## Fracción de ciudadanos cuyo destino son plazas y parques (los demás, la ciudad).
-@export_range(0.0, 1.0) var proporcion_plaza := 0.28
+@export_range(0.0, 1.0) var proporcion_plaza := 0.30
 ## Peatones del frente costero (paseo, arena; algunos se tumban en reposeras).
-@export_range(0, 60) var cantidad_playa := 12
+@export_range(0, 60) var cantidad_playa := 16
 ## Asientos de banco que como mucho están ocupados a la vez (los bancos quedan libres).
-@export_range(0, 100) var max_sentados := 14
+@export_range(0, 100) var max_sentados := 18
 ## Reposeras que como mucho están ocupadas a la vez (siempre quedan reposeras vacías).
-@export_range(0, 100) var max_tumbados := 9
+@export_range(0, 100) var max_tumbados := 11
 ## Descanso mínimo y máximo en un banco (segundos).
 @export var duracion_banco := Vector2(25.0, 110.0)
 ## Descanso mínimo y máximo tumbado al sol (segundos).
@@ -81,9 +102,31 @@ var _bloqueo_desde := {}                   ## NPCCitizen -> momento en que empez
 ## Obstáculos sólidos del mapa (troncos, canteros, bancos, reposeras, postes de sombrilla)
 ## como círculos en planta: {x, z, r}. La evitación local los consulta con una rejilla
 ## espacial, así que cada peatón mira sólo lo que tiene cerca (no hay sensores por NPC).
+## Las farolas añaden los suyos al construirse (ver `agregar_obstaculos`).
 var _obstaculos: Array = []
 var _rejilla: Dictionary = {}              ## Vector2i -> Array[int] (índices de _obstaculos)
 const CELDA := 2.0
+
+## Puertas reales del mapa donde un ciudadano puede simular que entra en una casa
+## (centro del portón, normal hacia la calle, punto de parada frente a la puerta y
+## estado). Se VALIDAN al instalar contra la red peatonal y el mobiliario: una puerta
+## sin acceso limpio se descarta y nunca se usa (nadie atraviesa una pared).
+var _portales: Array[Dictionary] = []
+var _entrando := 0                 ## ciudadanos entrando ahora mismo
+var _entradas := 0                 ## entradas completadas (informe y pruebas)
+var _nacimientos := 0              ## ciudadanos creados por el sistema (informe y pruebas)
+var _nacimientos_pendientes := 0   ## apariciones que faltan por crear (escalonadas)
+var _pendientes_perfiles: Array[String] = []   ## perfil de cada aparición pendiente
+var _escena_ciudadano: PackedScene = null      ## NPC_Citizen.tscn (se carga una vez)
+var _t_nacimiento := 0.0           ## momento (s de juego) del próximo nacimiento
+var _t_ahora := 0.0                ## reloj de juego acumulado (horas de uso de puertas)
+# Contadores de diagnóstico del reparto de "entrar en una casa" (para las pruebas: dicen
+# exactamente en qué puerta de la decisión se queda la gente).
+var _entrar_llamadas := 0
+var _entrar_puerta := 0            ## pasaron el sorteo de probabilidad
+var _entrar_tope := 0              ## había ya demasiados entrando
+var _entrar_sin_puerta := 0        ## no había puerta libre cerca
+var _entrar_ok := 0                ## orden entregada
 # --- Sectores de población ---------------------------------------------------
 ## Ciudadanos que han nacido en cada sector (para repartir sin acumulaciones).
 var _sector_censo: Dictionary = {}
@@ -119,15 +162,17 @@ func instalar(datos: Dictionary) -> void:
 	_preparar_asientos(datos)
 	_preparar_reposeras(datos)
 	_preparar_obstaculos(datos)
+	_preparar_portales(datos)
 	_preparar_sectores()
 	_cargar_modelos()
 	_buscar_ciclo()
 	_sembrar(datos)
 	_instalado = true
 	var res := red.resumen()
-	print("[Peatones] red: %d vértices %s | %d ciudadanos (playa %d) | bancos %d asientos libres %d | reposeras %d libres %d | obstáculos %d" % [
+	print("[Peatones] red: %d vértices %s | %d ciudadanos (playa %d) | bancos %d asientos libres %d | reposeras %d libres %d | obstáculos %d | puertas %d usables de %d" % [
 		res["nodos"], res["por_tipo"], peatones.size(), _cuantos_perfil("costa"),
-		_asientos.size(), max_sentados, _reposeras.size(), max_tumbados, _obstaculos.size()])
+		_asientos.size(), max_sentados, _reposeras.size(), max_tumbados, _obstaculos.size(),
+		_portales.size(), (datos.get("portales", []) as Array).size()])
 	print("[Peatones] reparto por sectores: ", _sector_censo)
 
 
@@ -200,6 +245,106 @@ func _celda(x: float, z: float) -> Vector2i:
 	return Vector2i(floori(x / CELDA), floori(z / CELDA))
 
 
+## Puertas usables: se validan con la geometría REAL del mapa.
+##
+##   · El punto de parada se calcula POR DELANTE de la puerta: centro del portón más la
+##     normal hacia la calle por (lo que sobresale el marco + 0,85 m). Ahí se para una
+##     persona antes de entrar, a un paso largo de la hoja.
+##   · La puerta debe tener un vértice de la red peatonal (vereda, plaza, parque, paseo o
+##     acceso) a menos de 7 m: el último tramo a pie es corto y va por la acera, nunca por
+##     la calzada ni a través de una fachada.
+##   · El punto de parada no puede caer sobre la calzada ni dentro de un obstáculo (árbol,
+##     cantero, banco, palmera o farola).
+##   · Se comprueba que la normal apunte AL LADO DE LA ACERA: si apuntara hacia dentro del
+##     edificio, ese portón se descarta (no se inventa una entrada a través de la pared).
+## Las descartadas quedan fuera del reparto y se informan por consola.
+func _preparar_portales(datos: Dictionary) -> void:
+	_portales.clear()
+	var posiciones: Array = datos.get("portales", [])
+	var dirs: Array = datos.get("portales_dir", [])
+	var frentes: Array = datos.get("portales_frente", [])
+	if posiciones.is_empty():
+		print("[Peatones] puertas: el generador no ha pasado ningún portal")
+		return
+	var desc_red := 0
+	var desc_obst := 0
+	var desc_normal := 0
+	var desc_calzada := 0
+	for i in posiciones.size():
+		var pos: Vector3 = posiciones[i]
+		var dir: Vector3 = dirs[i] if i < dirs.size() else Vector3.FORWARD
+		dir.y = 0.0
+		if dir.length_squared() < 0.0001:
+			continue
+		dir = dir.normalized()
+		var frente := float(frentes[i]) if i < frentes.size() else 0.0
+		var pie := pos + dir * (frente + 0.85)
+		var nodo := red.nodo_mas_cercano(pie, ["acera", "plaza", "parque", "paseo", "acceso"])
+		if nodo < 0:
+			desc_red += 1
+			continue
+		if pie.distance_to(red.pos(nodo)) > 7.0:
+			desc_red += 1
+			continue
+		if pie.distance_to(red.pos(nodo)) > pos.distance_to(red.pos(nodo)) + 0.2:
+			desc_normal += 1
+			continue
+		if red.es_calzada(pie):
+			desc_calzada += 1
+			continue
+		if not _libre_de_obstaculos(pie, 0.45):
+			desc_obst += 1
+			continue
+		_portales.append({
+			"pos": Vector3(pos.x, pos.y, pos.z),
+			"dir": dir,
+			"pie": pie,
+			"nodo": nodo,
+			"yaw": atan2(-dir.x, -dir.z),     # mirando HACIA la puerta
+			"libre": true,
+			"libre_a": 0.0,
+		})
+	print("[Peatones] puertas usables: %d de %d (descartadas: %d sin acceso en la red, %d por mobiliario, %d mal orientadas, %d sobre la calzada)" % [
+			_portales.size(), posiciones.size(), desc_red, desc_obst, desc_normal, desc_calzada])
+
+
+## ¿El punto está libre de los obstáculos sólidos del mapa (con `aire` m de holgura)?
+func _libre_de_obstaculos(p: Vector3, aire: float) -> bool:
+	var c := _celda(p.x, p.z)
+	var n := int(ceil((aire + 2.0) / CELDA)) + 1
+	for dx in range(-n, n + 1):
+		for dz in range(-n, n + 1):
+			var celda := Vector2i(c.x + dx, c.y + dz)
+			if not _rejilla.has(celda):
+				continue
+			for idx: int in (_rejilla[celda] as Array):
+				var o: Dictionary = _obstaculos[idx]
+				var d := Vector2(float(o["x"]) - p.x, float(o["z"]) - p.z).length()
+				if d < float(o["r"]) + aire:
+					return false
+	return true
+
+
+## Añade obstáculos a la lista viva. La usa el nodo Farolas cuando construye sus postes:
+## para el peatón son tan sólidos como un árbol y hay que rodearlos. Se insertan en la
+## rejilla espacial igual que el mobiliario del generador.
+func agregar_obstaculos(lista: Array) -> int:
+	var n := 0
+	for o: Dictionary in lista:
+		var r := float(o.get("r", 0.5))
+		if r <= 0.0:
+			continue
+		_obstaculos.append({"x": float(o.get("x", 0.0)), "z": float(o.get("z", 0.0)), "r": r})
+		var c := _celda(float(o.get("x", 0.0)), float(o.get("z", 0.0)))
+		if not _rejilla.has(c):
+			_rejilla[c] = []
+		(_rejilla[c] as Array).append(_obstaculos.size() - 1)
+		n += 1
+	if n > 0:
+		print("[Peatones] farolas apuntadas como obstáculo: %d (total %d)" % [n, _obstaculos.size()])
+	return n
+
+
 ## Empuje lateral (en metros de apartado) para no meterse en el mobiliario que se tiene
 ## delante. Recorre sólo las celdas de alrededor del peatón: es barato y vale para todos.
 func _empuje_mobiliario(p: Vector3, adelante: Vector3, lateral: Vector3, lado_pref: float) -> float:
@@ -227,7 +372,7 @@ func _empuje_mobiliario(p: Vector3, adelante: Vector3, lateral: Vector3, lado_pr
 	return clampf(empuje, -1.0, 1.0)
 
 
-## Reparte los vértices de la red en sectores de población: rejilla 3x3 sobre el núcleo
+## Reparte los vértices de la red en sectores de población: rejilla 4x4 sobre el núcleo
 ## urbano, un sector propio para la franja costera (paseo y arena) y un sector por plaza o
 ## parque. Los ciudadanos nacen en los sectores menos poblados de su perfil, así que la
 ## gente queda repartida por todo el mapa y no se apila en un mismo sitio.
@@ -255,8 +400,8 @@ func _preparar_sectores() -> void:
 			z1 = maxf(z1, p.z)
 		for i2: int in urbanos:
 			var p2 := red.pos(i2)
-			var sx := clampi(int((p2.x - x0) / maxf(x1 - x0, 1.0) * 3.0), 0, 2)
-			var sz := clampi(int((p2.z - z0) / maxf(z1 - z0, 1.0) * 3.0), 0, 2)
+			var sx := clampi(int((p2.x - x0) / maxf(x1 - x0, 1.0) * 4.0), 0, 3)
+			var sz := clampi(int((p2.z - z0) / maxf(z1 - z0, 1.0) * 4.0), 0, 3)
 			_apuntar_sector("B%d%d" % [sx, sz], i2)
 	if not costa.is_empty():
 		_nodos_por_sector["costa"] = costa
@@ -409,56 +554,84 @@ func _buscar_ciclo() -> void:
 # =============================================================================
 
 func _sembrar(_datos: Dictionary) -> int:
-	var escena: PackedScene = load("res://NPCs/Scenes/NPC_Citizen.tscn")
-	if escena == null or red == null:
+	_escena_ciudadano = load("res://NPCs/Scenes/NPC_Citizen.tscn") as PackedScene
+	if _escena_ciudadano == null or red == null:
 		return 0
+	# Se crea la mayor parte de la población de una vez y el RESTO queda apuntado para
+	# aparecer escalonado en los primeros segundos (nunca decenas de ciudadanos con sus
+	# modelos en un solo fotograma). El reparto por sectores decide DÓNDE nace cada uno.
+	var inicial := int(round(float(cantidad_total) * 0.7))
 	var nuevos := 0
 	var usados: Array[Vector2] = []
-	# Los candidatos se agrupan por sector: cada ciudadano nace en uno de los tres sectores
-	# menos poblados de su perfil, así queda gente repartida por todo el mapa.
-	var grupos := {
-		"costa": _candidatos_por_perfil("costa"),
-		"plaza": _candidatos_por_perfil("plaza"),
-		"paseo": _candidatos_por_perfil("paseo"),
-	}
 	for i in cantidad_total:
-		var perfil := "paseo"
-		if i < cantidad_playa:
-			perfil = "costa"
-		elif _rng.randf() < proporcion_plaza:
-			perfil = "plaza"
-		var por_sector: Dictionary = grupos[perfil]
-		if por_sector.is_empty():
-			por_sector = grupos["paseo"]
-			if por_sector.is_empty():
-				continue
-		var sectores := _sectores_menos_poblados(por_sector)
-		if sectores.is_empty():
-			continue
-		var clave := String(sectores[_rng.randi() % sectores.size()])
-		var candidatos: Array = por_sector[clave]
-		var punto := _punto_libre(candidatos, usados)
-		if punto == Vector3.INF:
-			continue
-		var c := escena.instantiate() as NPCCitizen
-		if c == null:
-			continue
-		var idx_modelo := (_rng.randi() % _modelos.size()) if not _modelos.is_empty() else -1
-		c.model_scene = _modelos[idx_modelo] if idx_modelo >= 0 else null
-		c.body_type = sexo_de(idx_modelo)
-		c.position = punto
-		c.rotation.y = _rng.randf_range(0.0, TAU)
-		# La franja costera camina por el paseo y, de día, también por la arena; la mayoría
-		# de ellos puede tumbarse en una reposera. Los de ciudad y plaza usan bancos.
-		var recostarse := perfil == "costa" and _rng.randf() < 0.7
-		var sentarse := perfil != "costa" and _rng.randf() < 0.62
-		add_child(c)
-		c.activar_red(red, self, perfil, sentarse, recostarse)
-		peatones.append(c)
-		usados.append(Vector2(punto.x, punto.z))
-		_sector_censo[clave] = int(_sector_censo.get(clave, 0)) + 1
-		nuevos += 1
+		var perfil := _perfil_para(i)
+		if i < inicial:
+			if _nacer(perfil, usados) != null:
+				nuevos += 1
+		else:
+			_pendientes_perfiles.append(perfil)
+			_nacimientos_pendientes += 1
+	_t_nacimiento = _t_ahora + 1.0
 	return nuevos
+
+
+## Perfil del ciudadano número `i` del reparto: los primeros son del frente costero,
+## luego los de plaza/parque (por proporción) y el resto, urbanos.
+func _perfil_para(i: int) -> String:
+	if i < cantidad_playa:
+		return "costa"
+	if _rng.randf() < proporcion_plaza:
+		return "plaza"
+	return "paseo"
+
+
+## Crea UN ciudadano del perfil pedido en el sector MENOS poblado de ese perfil (así se
+## reparte por todo el mapa y las apariciones no se acumulan en el mismo sitio). Devuelve
+## null si no encontró hueco: el sistema lo reintenta más tarde.
+func _nacer(perfil: String, usados: Array[Vector2]) -> NPCCitizen:
+	if _escena_ciudadano == null or red == null:
+		return null
+	var por_sector: Dictionary = _candidatos_por_perfil(perfil)
+	if por_sector.is_empty():
+		por_sector = _candidatos_por_perfil("paseo")
+	if por_sector.is_empty():
+		return null
+	var sectores := _sectores_menos_poblados(por_sector)
+	if sectores.is_empty():
+		return null
+	var clave := String(sectores[_rng.randi() % sectores.size()])
+	var candidatos: Array = por_sector[clave]
+	var punto := _punto_libre(candidatos, usados)
+	if punto == Vector3.INF:
+		return null
+	var c := _escena_ciudadano.instantiate() as NPCCitizen
+	if c == null:
+		return null
+	var idx_modelo := (_rng.randi() % _modelos.size()) if not _modelos.is_empty() else -1
+	c.model_scene = _modelos[idx_modelo] if idx_modelo >= 0 else null
+	c.body_type = sexo_de(idx_modelo)
+	c.position = punto
+	c.rotation.y = _rng.randf_range(0.0, TAU)
+	# La franja costera camina por el paseo y, de día, también por la arena; la mayoría
+	# de ellos puede tumbarse en una reposera. Los de ciudad y plaza usan bancos.
+	var recostarse := perfil == "costa" and _rng.randf() < 0.7
+	var sentarse := perfil != "costa" and _rng.randf() < 0.62
+	add_child(c)
+	c.activar_red(red, self, perfil, sentarse, recostarse)
+	peatones.append(c)
+	usados.append(Vector2(punto.x, punto.z))
+	_sector_censo[clave] = int(_sector_censo.get(clave, 0)) + 1
+	_nacimientos += 1
+	return c
+
+
+## Posiciones de todos los ciudadanos vivos: se usa para no nacer encima de nadie.
+func _usados_actuales() -> Array[Vector2]:
+	var usados: Array[Vector2] = []
+	for c in peatones:
+		if is_instance_valid(c):
+			usados.append(Vector2(c.global_position.x, c.global_position.z))
+	return usados
 
 
 ## Punto de aparición sobre la red: intenta hasta 24 veces separado del resto (y fuera del
@@ -493,8 +666,13 @@ func _cuantos_perfil(p: String) -> int:
 # =============================================================================
 
 ## El ciudadano pregunta qué hacer. Devuelve {} para pasear, o la orden con el
-## asiento/reposera reservada (nunca la misma plaza para dos personas).
+## asiento/reposera/puerta reservada (nunca la misma plaza para dos personas).
 func pedir_actividad(c: NPCCitizen) -> Dictionary:
+	# Entrar en una casa: suceso OCASIONAL (más probable al atardecer y de noche, que es
+	# cuando la gente vuelve a casa) y con tope de gente entrando a la vez.
+	var orden_entrar := _orden_entrada(c)
+	if not orden_entrar.is_empty():
+		return orden_entrar
 	if c.puede_recostarse and _puede_tomar_sol() and _libres(_reposeras) > 0 \
 			and _rng.randf() < 0.62:
 		var ocupadas := _count_libres_false(_reposeras)
@@ -529,6 +707,94 @@ func pedir_actividad(c: NPCCitizen) -> Dictionary:
 	return {}
 
 
+## Entrar en una casa: elige una puerta LIBRE cerca del ciudadano, la reserva y devuelve
+## el punto de parada (delante de la puerta, sobre la acera), la dirección hacia la que hay
+## que mirar y cuánto se queda quieto antes de desaparecer. Devuelve {} casi siempre: es un
+## suceso ocasional, con tope de gente entrando a la vez y puertas en descanso tras usarse.
+func _orden_entrada(c: NPCCitizen) -> Dictionary:
+	_entrar_llamadas += 1
+	if _portales.is_empty() or _entrando >= entrar_max:
+		_entrar_tope += 1
+		return {}
+	if _reservas.has(c):
+		return {}                      # ya tiene una plaza/puerta cogida: no se le da otra
+	if not c.tiene_posturas():
+		return {}
+	var prob := entrar_prob_tarde if (_fase >= entrar_tarde or es_noche()) else entrar_prob
+	if _rng.randf() > prob:
+		return {}
+	_entrar_puerta += 1
+	var libres: Array = []
+	var pc := Vector2(c.global_position.x, c.global_position.z)
+	for i in _portales.size():
+		var p: Dictionary = _portales[i]
+		if not bool(p["libre"]) or _t_ahora < float(p["libre_a"]):
+			continue
+		var pie: Vector3 = p["pie"]
+		var d := Vector2(pie.x, pie.z).distance_to(pc)
+		if d > entrar_radio:
+			continue
+		libres.append({"i": i, "d": d})
+	if libres.is_empty():
+		_entrar_sin_puerta += 1
+		return {}
+	libres.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a["d"]) < float(b["d"]))
+	# Entre las 4 puertas libres más cercanas se sortea: no todos entran por la misma.
+	var elegido: int = int(libres[_rng.randi() % mini(4, libres.size())]["i"])
+	var p2: Dictionary = _portales[elegido]
+	_portales[elegido]["libre"] = false
+	_entrando += 1
+	_entrar_ok += 1
+	_reservas[c] = {"tipo": "entrada", "indice": elegido}
+	return {
+		"tipo": "entrada",
+		"punto": p2["pie"],
+		"punto_ini": p2["pie"],
+		"nodo": int(p2["nodo"]),
+		"dir": p2["dir"],
+		"yaw": float(p2["yaw"]),
+		"ref": elegido,
+		"espera": _rng.randf_range(entrar_espera.x, entrar_espera.y),
+	}
+
+
+## Un ciudadano ha terminado de meterse en una casa: su puerta queda libre (con un
+## descanso) y se apunta una aparición de reemplazo, para que el sistema siga disponiendo
+## de esa gente y las calles no se vacíen. Nadie se teletransporta: el ciudadano sale de la
+## escena y su hueco se vuelve a llenar en otro sector con retardo.
+func ciudadano_adentro(c: NPCCitizen) -> void:
+	_entrando = maxi(_entrando - 1, 0)
+	_entradas += 1
+	if _reservas.has(c):
+		var r: Dictionary = _reservas[c]
+		_reservas.erase(c)
+		var idx := int(r.get("indice", -1))
+		if String(r.get("tipo", "")) == "entrada" and idx >= 0 and idx < _portales.size():
+			_portales[idx]["libre"] = true
+			_portales[idx]["libre_a"] = _t_ahora + _rng.randf_range(
+					entrar_descanso.x, entrar_descanso.y)
+	_pendientes_perfiles.append(String(c.perfil))
+	_nacimientos_pendientes += 1
+	# Higiene: este ciudadano ya no existe; sus listas internas se limpian y, si se han
+	# acumulado unos cuantos huecos, se compacta el censo (no crece sin fin).
+	_bloqueo_desde.erase(c)
+	_limites.erase(c)
+	var huerfanos := 0
+	for p in peatones:
+		if not is_instance_valid(p):
+			huerfanos += 1
+	if huerfanos >= 10:
+		var vivos: Array[NPCCitizen] = []
+		for p2 in peatones:
+			if is_instance_valid(p2):
+				vivos.append(p2)
+		peatones = vivos
+	if OS.is_debug_build():
+		print("[Peatones] una entrada terminada (perfil %s): entradas=%d subiendo=%d pendientes=%d" % [
+				c.perfil, _entradas, _entrando, _nacimientos_pendientes])
+
+
 ## Suelta la reserva que tenga este ciudadano (al levantarse, atascarse o cancelar).
 func liberar(c: NPCCitizen) -> void:
 	if not _reservas.has(c):
@@ -536,12 +802,55 @@ func liberar(c: NPCCitizen) -> void:
 	var r: Dictionary = _reservas[c]
 	_reservas.erase(c)
 	var idx := int(r["indice"])
-	if String(r["tipo"]) == "reposera":
+	var tipo := String(r["tipo"])
+	if tipo == "reposera":
 		if idx >= 0 and idx < _reposeras.size():
 			_reposeras[idx]["libre"] = true
+	elif tipo == "entrada":
+		# Iba a entrar y no pudo llegar (o se canceló): la puerta se libera y el hueco de
+		# "entrando" se devuelve, pero NO se apunta reemplazo (nadie se ha ido del mapa).
+		_entrando = maxi(_entrando - 1, 0)
+		if idx >= 0 and idx < _portales.size():
+			_portales[idx]["libre"] = true
 	else:
 		if idx >= 0 and idx < _asientos.size():
 			_asientos[idx]["libre"] = true
+
+
+## Depuración autorreparadora (cada 0,5 s): las reservas son un diccionario por ciudadano,
+## así que una reserva pisada o de un ciudadano que ha desaparecido por otra vía dejaría su
+## puerta/silla marcada como ocupada para siempre. Aquí se sueltan esos huecos huérfanos y
+## se recalcula el contador de gente entrando desde las reservas REALES (el tope nunca se
+## queda atascado y ninguna puerta se pierde).
+func _depurar_reservas() -> void:
+	for c in _reservas.keys():
+		if is_instance_valid(c) and not (c as Node).is_queued_for_deletion():
+			continue
+		_reservas.erase(c)
+	var ref_portales := {}
+	var ref_asientos := {}
+	var ref_reposeras := {}
+	_entrando = 0
+	for c2 in _reservas.keys():
+		var r: Dictionary = _reservas[c2]
+		var idx := int(r.get("indice", -1))
+		match String(r.get("tipo", "")):
+			"entrada":
+				ref_portales[idx] = true
+				_entrando += 1
+			"banco":
+				ref_asientos[idx] = true
+			"reposera":
+				ref_reposeras[idx] = true
+	for i in _portales.size():
+		if not bool(_portales[i]["libre"]) and not ref_portales.has(i):
+			_portales[i]["libre"] = true
+	for i2 in _asientos.size():
+		if not bool(_asientos[i2]["libre"]) and not ref_asientos.has(i2):
+			_asientos[i2]["libre"] = true
+	for i3 in _reposeras.size():
+		if not bool(_reposeras[i3]["libre"]) and not ref_reposeras.has(i3):
+			_reposeras[i3]["libre"] = true
 
 
 func _libres(lista: Array) -> int:
@@ -804,6 +1113,7 @@ func _despejar_inicio_jugador() -> void:
 func _process(delta: float) -> void:
 	if not _instalado:
 		return
+	_t_ahora += delta
 	_t_lod += delta
 	_t_avisos += delta
 	_t_ciclo += delta
@@ -815,7 +1125,23 @@ func _process(delta: float) -> void:
 		_avisar_peatones()
 	if _t_ciclo >= 0.5:
 		_t_ciclo = 0.0
+		_depurar_reservas()
 		_gestionar_ciclo()
+	# Apariciones escalonadas: el resto del reparto inicial y los reemplazos de quien se ha
+	# metido en una casa nacen de uno en uno (nunca todos de golpe), en el sector menos
+	# poblado de su perfil.
+	if _nacimientos_pendientes > 0 and _t_ahora >= _t_nacimiento:
+		_nacimientos_pendientes -= 1
+		var perfil_n := "paseo"
+		if not _pendientes_perfiles.is_empty():
+			perfil_n = _pendientes_perfiles.pop_front()
+		if _nacer(perfil_n, _usados_actuales()) == null:
+			_nacimientos_pendientes += 1        # no había hueco: se reintenta en un rato
+			_pendientes_perfiles.push_front(perfil_n)
+		var espera := _rng.randf_range(nacer_retardo.x, nacer_retardo.y)
+		if _t_ahora < 90.0:
+			espera = _rng.randf_range(0.8, 2.6)     # arranque: la ciudad se llena en seguida
+		_t_nacimiento = _t_ahora + espera
 	# El jugador puede aparecer DESPUÉS del reparto (su nodo se une al grupo más tarde): en cuanto
 	# se le localiza, se despeja su entorno de una vez.
 	if not _despejado:
@@ -844,8 +1170,9 @@ func _auditar() -> void:
 			continue
 		if c.state == NPCCitizen.State.POSTURA:
 			var fase := c.fase_postura()
-			if fase == "reposar" or fase == "entrar" or fase == "salir":
-				continue                # está en el banco o en la reposera
+			if fase == "reposar" or fase == "entrar" or fase == "salir" \
+					or fase == "mirar" or fase == "penetrar":
+				continue                # está en el banco, la reposera o la puerta
 		var t := c.tramo_red()
 		var clase := String(t[2]) if t.size() >= 3 else ""
 		if red.es_calzada(c.global_position) and clase != "cruce":
@@ -863,7 +1190,9 @@ func _auditar() -> void:
 func resumen() -> Dictionary:
 	var r := {"total": 0, "caminando": 0, "quietos": 0, "sentados": 0, "tumbados": 0,
 			"yendo_a_postura": 0, "banco_libre": 0, "reposera_libre": 0, "reservas": 0,
-			"clavados": 0, "bloqueados": 0}
+			"clavados": 0, "bloqueados": 0, "entrando": 0, "yendo_a_puerta": 0,
+			"puertas": 0, "puertas_libres": 0, "entradas": 0, "nacimientos": 0,
+			"pendientes": 0}
 	for c in peatones:
 		if not is_instance_valid(c):
 			continue
@@ -875,6 +1204,8 @@ func resumen() -> Dictionary:
 						r["tumbados"] += 1
 					else:
 						r["sentados"] += 1
+				"mirar", "penetrar":
+					r["yendo_a_puerta"] += 1
 				_:
 					r["yendo_a_postura"] += 1
 		elif c.is_walking():
@@ -890,6 +1221,18 @@ func resumen() -> Dictionary:
 	r["banco_libre"] = _libres(_asientos)
 	r["reposera_libre"] = _libres(_reposeras)
 	r["reservas"] = _reservas.size()
+	r["entrando"] = _entrando
+	r["puertas"] = _portales.size()
+	var libres := 0
+	for p: Dictionary in _portales:
+		if bool(p["libre"]):
+			libres += 1
+	r["puertas_libres"] = libres
+	r["entradas"] = _entradas
+	r["nacimientos"] = _nacimientos
+	r["pendientes"] = _nacimientos_pendientes
+	r["entrar_diag"] = {"llamadas": _entrar_llamadas, "tope": _entrar_tope,
+			"sorteo": _entrar_puerta, "sin_puerta": _entrar_sin_puerta, "ok": _entrar_ok}
 	r["fase"] = _fase
 	r["noche"] = es_noche()
 	r["retirada"] = _retirada
