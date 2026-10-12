@@ -167,6 +167,7 @@ func _construir_filas(forma: StringName) -> void:
 func _extras_de(forma: StringName) -> Array:
 	var extras: Array = [
 		{"tecla": "RATÓN", "texto": "Mirar alrededor", "nota": "Fijo (se ajusta en JUGABILIDAD)"},
+		{"tecla": "M", "texto": "Minimapa", "nota": "Alternar minimapa normal / ampliado (fijo)"},
 	]
 	if forma == AjustesControlesService.FUERZA:
 		extras.append({"tecla": "ESC", "texto": "Cancelar habilidad", "nota": "Fijo (pausa/cancelar)"})
