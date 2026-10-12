@@ -5,7 +5,10 @@ extends Node3D
 # CombatManager del módulo FreeFlow, la lista de pruebas del encargo:
 #   1. el mapa de entrada de main: G = enemigos_prueba (sin duplicados), el menú
 #      radial de transformaciones sigue en F y la acción directa antigua no vuelve;
-#   2. pulsar G genera exactamente 6 enemigos distribuidos alrededor del jugador;
+#   2. la API de cápsulas (generar_grupo) genera exactamente 6 repartidas
+#      alrededor del jugador. La tecla G ya NO genera cápsulas: ahora genera 5
+#      enemigos, 3 de cuerpo a cuerpo + 2 con armas (eso lo verifica la suite de
+#      esqueleto). Aquí se sigue validando el sistema de CÁPSULAS, sin cambios;
 #   3. todos quedan en los grupos "enemigos_prueba" y "damageable" y registrados;
 #   4. el anillo de cerco reparte 6 posiciones (formación del módulo);
 #   5. el sistema de turnos limita a 2 atacantes simultáneos;
@@ -15,7 +18,7 @@ extends Node3D
 #      y vuelve al recuperarse;
 #   9. FreeFlow selecciona y golpea las cápsulas (daño por take_hit);
 #  10. la muerte retira al enemigo del combate, de los grupos y de la selección;
-#  11. G con un grupo activo lo retira (sin duplicar) y permite regenerar;
+#  11. retirar/generar de la API de cápsulas no duplica y permite regenerar;
 #  12. la escena principal del proyecto no cambia y contiene el sistema.
 #
 # No forma parte del juego: vive en res://_tests/ y se ejecuta como una ESCENA
@@ -155,9 +158,10 @@ func _correr() -> void:
 			_mgr.call("get_player") == _jug)
 
 	# ---------------------------------------------------------------- 2. G = 6
-	await _pulsar_tecla(KEY_G)
+	_gerente.call("generar_grupo")
+	await _esperar_frames(3)
 	var enemigos := _enemigos()
-	_check("2. Pulsar G genera exactamente 6 enemigos", enemigos.size() == 6,
+	_check("2. La API de cápsulas genera exactamente 6 enemigos", enemigos.size() == 6,
 			"grupo=%d" % enemigos.size())
 
 	# Distribución alrededor del jugador (se mide enseguida: aún casi no caminan).
@@ -441,25 +445,28 @@ func _correr() -> void:
 	_check("10. Con 5 vivos el cerco se recalcula solo (todos con posición)",
 			slots_5 == 5, "con_slot=%d" % slots_5)
 
-	# ---------------------------------------------------------------- 11. G otra vez
-	await _pulsar_tecla(KEY_G)
+	# ------------------------------------------------------- 11. regenerar (API)
+	_gerente.call("retirar_grupo")
+	await _esperar_frames(2)
 	var restantes := _enemigos()
-	_check("11. G con grupo activo lo RETIRA (no genera otros seis encima)",
+	_check("11. Retirar con el grupo activo lo quita entero (no genera otros seis encima)",
 			restantes.is_empty(), "quedan=%d" % restantes.size())
 	_check("11. El gerente queda sin referencias tras retirar",
 			_gerente.call("enemigos_vivos").is_empty())
-	await _pulsar_tecla(KEY_G)
+	_gerente.call("generar_grupo")
+	await _esperar_frames(3)
 	var nuevos := _enemigos()
 	var ids_nuevos := {}
 	for e in nuevos:
 		ids_nuevos[e.id_ia] = true
-	_check("11. G de nuevo genera un grupo limpio de 6", nuevos.size() == 6,
+	_check("11. Volver a generar produce un grupo limpio de 6", nuevos.size() == 6,
 			"grupo=%d" % nuevos.size())
 	_gerente.call("generar_grupo")
 	await _esperar_frames(3)
 	_check("11. Llamar a generar con grupo activo no duplica (sigue habiendo 6)",
 			_enemigos().size() == 6, "grupo=%d" % _enemigos().size())
-	await _pulsar_tecla(KEY_G)
+	_gerente.call("retirar_grupo")
+	await _esperar_frames(2)
 	_check("11. Limpieza final del grupo de pruebas", _enemigos().is_empty())
 
 	# ---------------------------------------------------------------- 12. proyecto

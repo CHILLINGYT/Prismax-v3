@@ -5,9 +5,10 @@ extends Node3D
 ## (res://ziba/escenas/ziba_prototipo.tscn). No es una escena de prueba: vive en
 ## el mundo real y funciona con cualquier transformación del jugador.
 ##
-## Tecla G (acción "enemigos_prueba"): genera exactamente seis cápsulas
-## alrededor del jugador en puntos validados (suelo firme + hueco libre). Si ya
-## hay un grupo activo NO genera otras seis encima: retira el grupo y lo dice
+## Tecla G (acción "enemigos_prueba"): genera CINCO enemigos alrededor del
+## jugador en puntos validados (suelo firme + hueco libre): tres de CUERPO A
+## CUERPO (la misma escena de H) y dos CON ARMAS (la misma escena de J). Si ya
+## hay un grupo activo NO genera otros cinco encima: retira el grupo y lo dice
 ## por consola, de modo que G se puede reutilizar para regenerarlo limpio.
 ##
 ## Coordina sin duplicar nada de lo que ya existe:
@@ -29,14 +30,54 @@ const ESCENA_ENEMIGO := preload("res://Enemigos Prueba/Scenes/enemigo_prueba.tsc
 ## El tipo del enemigo se resuelve con preload (no con el class_name global):
 ## así este script no depende de la caché de clases global del editor.
 const ClaseEnemigo := preload("res://Enemigos Prueba/Scripts/enemigo_prueba.gd")
+## Escenas de los enemigos CON ESQUELETO (cuerpo a cuerpo y tirador). Igual que la
+## cápsula, se resuelven con preload para no depender de la caché de clases global.
+const ESCENA_MELEE := preload("res://Enemigos Prueba/Scenes/enemigo_melee.tscn")
+const ESCENA_TIRADOR := preload("res://Enemigos Prueba/Scenes/enemigo_tirador.tscn")
 const GRUPO := &"enemigos_prueba"
 const ACCION := &"enemigos_prueba"
+const ACCION_MELEE := &"enemigos_melee"
+const ACCION_TIRADOR := &"enemigos_tirador"
 const GRUPO_GESTOR := &"combat_manager"
 const GRUPO_JUGADOR := &"player"
 ## Altura total (m) de la cápsula del enemigo: la misma de enemigo_prueba.tscn.
 const ALTURA_CAPSULA := 1.8
 
+## Tipos de enemigo que puede generar este gerente, cada uno con su tecla:
+## H = cuerpo a cuerpo, J = tirador, G = MEZCLA de los dos (3 + 2).
+## CAPSULA sigue existiendo para la API de cápsulas (generar_grupo), pero la
+## tecla G ya NO la usa.
+enum Tipo { CAPSULA, MELEE, TIRADOR, MEZCLA }
+const ESCENAS := {
+	Tipo.CAPSULA: ESCENA_ENEMIGO,
+	Tipo.MELEE: ESCENA_MELEE,
+	Tipo.TIRADOR: ESCENA_TIRADOR,
+}
+const NOMBRES := {
+	Tipo.CAPSULA: "cápsula",
+	Tipo.MELEE: "cuerpo a cuerpo",
+	Tipo.TIRADOR: "tirador",
+	Tipo.MEZCLA: "cuerpo a cuerpo + armas",
+}
+const PREFIJOS := {
+	Tipo.CAPSULA: "Enemigo",
+	Tipo.MELEE: "Melee",
+	Tipo.TIRADOR: "Tirador",
+}
+const TECLAS := {
+	Tipo.CAPSULA: "G",
+	Tipo.MELEE: "H",
+	Tipo.TIRADOR: "J",
+	Tipo.MEZCLA: "G",
+}
+
 @export_group("Aparición (tecla G)")
+## Cuántos enemigos de CUERPO A CUERPO genera la tecla G (escena de H).
+@export var cantidad_melee_g: int = 3
+## Cuántos enemigos CON ARMAS genera la tecla G (escena de J).
+@export var cantidad_tirador_g: int = 2
+## Cuántas cápsulas genera la API de cápsulas (generar_grupo). La tecla G ya no
+## usa este valor: se conserva para las pruebas del sistema de cápsulas.
 @export var cantidad: int = 6
 ## Radio (m) al que se reparten los enemigos alrededor del jugador.
 @export var radio_aparicion: float = 7.0
@@ -54,7 +95,24 @@ const ALTURA_CAPSULA := 1.8
 ## Daño de cada golpe enemigo (por EstadisticasJugador.recibir_danio).
 @export var dano_enemigo: float = 10.0
 
+@export_group("Enemigos con esqueleto (H / J)")
+## Cuántos enemigos cuerpo a cuerpo genera la tecla H.
+@export var cantidad_melee: int = 3
+## Vida de cada cuerpo a cuerpo (se aplica al aparecer).
+@export var vida_melee: float = 60.0
+## Daño de cada golpe del combo golpe1-2-3 (H).
+@export var dano_melee: float = 8.0
+## Cuántos tiradores genera la tecla J.
+@export var cantidad_tirador: int = 2
+## Vida de cada tirador (se aplica al aparecer).
+@export var vida_tirador: float = 45.0
+## Daño de cada proyectil del tirador (J).
+@export var dano_tirador: float = 6.0
+
 var _enemigos: Array[Node3D] = []
+## Enemigos agrupados por tipo (Tipo -> Array): permite que cada tecla genere o
+## retire SÓLO su tipo sin estorbar a los demás.
+var _grupos: Dictionary = {}
 var _angulos: Dictionary = {}        # instance_id -> ángulo base (respaldo sin gestor)
 var _destino_cache: Dictionary = {}  # instance_id -> {t, p} (recorte contra paredes)
 var _siguiente_id: int = 0
@@ -66,6 +124,8 @@ var _sonda_hueco: SphereShape3D
 func _ready() -> void:
 	_sonda_hueco = SphereShape3D.new()
 	_sonda_hueco.radius = 0.55
+	for t in [Tipo.CAPSULA, Tipo.MELEE, Tipo.TIRADOR, Tipo.MEZCLA]:
+		_grupos[t] = []
 	# El jugador puede no existir aún cuando el mundo se instancia en la pantalla
 	# de carga: se resuelve en diferido y, si hiciera falta, otra vez al generar.
 	_resolver_referencias.call_deferred()
@@ -73,6 +133,12 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(ACCION):
 		_alternar_grupo()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(ACCION_MELEE):
+		_alternar_tipo(Tipo.MELEE)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(ACCION_TIRADOR):
+		_alternar_tipo(Tipo.TIRADOR)
 		get_viewport().set_input_as_handled()
 
 # =============================================================== API (la usa el enemigo)
@@ -115,36 +181,73 @@ func gestor_combate() -> Node:
 	return _gestor
 
 # =============================================================== Aparición (G)
-## API pública de la aparición (para pruebas y depuración): genera el grupo
-## igual que la tecla G. Si ya hay uno activo NO duplica: lo avisa y no hace nada.
+## API pública de la aparición de CÁPSULAS (pruebas y depuración de ese sistema):
+## genera el grupo de cápsulas y, si ya hay uno activo, no duplica. La tecla G ya
+## NO entra por aquí: G genera la mezcla de cuerpo a cuerpo + armas.
 func generar_grupo() -> void:
-	_generar_grupo()
+	_generar(Tipo.CAPSULA)
 
-## API pública: retira el grupo activo (igual que la segunda pulsación de G).
+## API pública: retira TODOS los grupos activos (igual que la segunda pulsación
+## de G, ampliada a los tipos nuevos para no dejar nada suelto).
 func retirar_grupo() -> void:
-	if _enemigos.is_empty():
-		_limpiar_muertos()
-	_retirar_grupo()
+	_retirar_todos()
+
+## API pública de los enemigos con esqueleto (pruebas y depuración): genera o
+## retira el grupo de un tipo concreto sin pasar por el teclado.
+func generar_tipo(tipo: int) -> void:
+	_generar(tipo)
+
+func retirar_tipo(tipo: int) -> void:
+	_retirar(tipo)
 
 func _alternar_grupo() -> void:
-	_limpiar_muertos()
-	if not _enemigos.is_empty():
-		print("[Enemigos] Grupo ya activo (%d enemigos): se retira. Pulsa G otra vez para generar uno nuevo." % _enemigos.size())
-		_retirar_grupo()
-		return
-	_generar_grupo()
+	_alternar_tipo(Tipo.MEZCLA)
 
-func _generar_grupo() -> void:
+func _alternar_tipo(tipo: int) -> void:
 	_limpiar_muertos()
-	if not _enemigos.is_empty():
-		# Nunca se generan seis encima de un grupo activo.
-		print("[Enemigos] Ya hay un grupo activo (%d): no se genera otro." % _enemigos.size())
+	var lista: Array = _grupos.get(tipo, [])
+	if not lista.is_empty():
+		if tipo == Tipo.CAPSULA or tipo == Tipo.MEZCLA:
+			print("[Enemigos] Grupo ya activo (%d enemigos): se retira. Pulsa G otra vez para generar uno nuevo." % lista.size())
+		else:
+			print("[Enemigos] Grupo de %s ya activo (%d): se retira. Pulsa %s otra vez para generar uno nuevo." % [NOMBRES[tipo], lista.size(), TECLAS[tipo]])
+		_retirar(tipo)
+		return
+	_generar(tipo)
+
+func _generar(tipo: int) -> void:
+	_limpiar_muertos()
+	var lista: Array = _grupos.get(tipo, [])
+	if not lista.is_empty():
+		# Nunca se genera encima de un grupo activo del mismo cajón.
+		if tipo == Tipo.CAPSULA or tipo == Tipo.MEZCLA:
+			print("[Enemigos] Ya hay un grupo activo (%d): no se genera otro." % lista.size())
+		else:
+			print("[Enemigos] Ya hay un grupo de %s activo (%d): no se genera otro." % [NOMBRES[tipo], lista.size()])
 		return
 	_resolver_referencias()
 	if _jugador == null:
 		push_warning("[Enemigos] No se encontró el jugador en la escena: no se generan enemigos.")
 		return
 
+	var cuantos := _cantidad_de(tipo)
+	if cuantos <= 0:
+		return
+	# Plan de aparición: una entrada por enemigo. La tecla G (MEZCLA) reparte
+	# cuerpo a cuerpo y armas reutilizando las MISMAS escenas de H y J; el resto
+	# de tipos usa su propia escena. El cupo total reparte el anillo por igual.
+	var plan: Array = []
+	if tipo == Tipo.MEZCLA:
+		for i in cantidad_melee_g:
+			plan.append({"escena": ESCENA_MELEE, "tipo": Tipo.MELEE})
+		for i in cantidad_tirador_g:
+			plan.append({"escena": ESCENA_TIRADOR, "tipo": Tipo.TIRADOR})
+	else:
+		for i in cuantos:
+			plan.append({"escena": ESCENAS[tipo], "tipo": tipo})
+	cuantos = plan.size()
+	if cuantos <= 0:
+		return
 	var centro := _jugador.global_position
 	var base := _angulo_frente()
 	var excluir: Array[RID] = []
@@ -152,26 +255,58 @@ func _generar_grupo() -> void:
 		excluir.append((_jugador as CollisionObject3D).get_rid())
 	var colocados: Array[Vector3] = []
 	var creados := 0
-	for i in cantidad:
-		var ang := base + TAU * float(i) / float(cantidad)
+	for i in cuantos:
+		var ang := base + TAU * float(i) / float(cuantos)
 		var punto: Variant = _buscar_punto(ang, centro, excluir, colocados)
 		if punto == null:
 			continue
-		if _crear_enemigo(punto, ang, excluir, colocados) != null:
+		var paso: Dictionary = plan[i]
+		if _crear_enemigo(paso["escena"], int(paso["tipo"]), tipo, punto, ang, excluir, colocados) != null:
 			creados += 1
-	print("[Enemigos] Generados %d/%d alrededor del jugador (radio %.1f m)." % [creados, cantidad, radio_aparicion])
+	if tipo == Tipo.CAPSULA:
+		print("[Enemigos] Generados %d/%d alrededor del jugador (radio %.1f m)." % [creados, cuantos, radio_aparicion])
+	elif tipo == Tipo.MEZCLA:
+		print("[Enemigos] Generados %d/%d alrededor del jugador (radio %.1f m): %d cuerpo a cuerpo + %d armas." % [creados, cuantos, radio_aparicion, cantidad_melee_g, cantidad_tirador_g])
+	else:
+		print("[Enemigos] Generados %d/%d de %s alrededor del jugador (radio %.1f m)." % [creados, cuantos, NOMBRES[tipo], radio_aparicion])
 	grupo_generado.emit(creados)
 
-func _retirar_grupo() -> void:
-	var lote := _enemigos.duplicate()
-	for e in lote:
-		if is_instance_valid(e) and e is ClaseEnemigo:
-			(e as ClaseEnemigo).retirar()
-	_enemigos.clear()
-	_angulos.clear()
-	_destino_cache.clear()
-	print("[Enemigos] Grupo retirado.")
+func _retirar(tipo: int) -> void:
+	var lista: Array = _grupos.get(tipo, [])
+	for e in lista.duplicate():
+		# Duck typing: retira cualquier enemigo con retirar(), sin exigir su clase.
+		if is_instance_valid(e) and (e as Node).has_method("retirar"):
+			(e as Node).call("retirar")
+	_grupos[tipo] = []
+	_limpiar_muertos()
+	if tipo == Tipo.CAPSULA or tipo == Tipo.MEZCLA:
+		print("[Enemigos] Grupo retirado.")
+	else:
+		print("[Enemigos] Grupo de %s retirado." % NOMBRES[tipo])
 	grupo_retirado.emit()
+
+func _retirar_todos() -> void:
+	var habia := not _enemigos.is_empty()
+	for e in _enemigos.duplicate():
+		if is_instance_valid(e) and (e as Node).has_method("retirar"):
+			(e as Node).call("retirar")
+	for t in _grupos.keys():
+		_grupos[t] = []
+	_limpiar_muertos()
+	if habia:
+		print("[Enemigos] Grupo retirado.")
+		grupo_retirado.emit()
+
+func _cantidad_de(tipo: int) -> int:
+	match tipo:
+		Tipo.MELEE:
+			return cantidad_melee
+		Tipo.TIRADOR:
+			return cantidad_tirador
+		Tipo.MEZCLA:
+			return cantidad_melee_g + cantidad_tirador_g
+		_:
+			return cantidad
 
 # =============================================================== Puntos válidos
 ## Busca un punto de aparición: suelo firme, lejos del jugador y de los ya
@@ -219,25 +354,55 @@ func _buscar_punto(ang0: float, centro: Vector3, excluir: Array[RID], colocados:
 		return pos
 	return null
 
-func _crear_enemigo(pos: Vector3, ang: float, excluir: Array[RID], colocados: Array[Vector3]) -> ClaseEnemigo:
-	var e := ESCENA_ENEMIGO.instantiate() as ClaseEnemigo
+## Crea un enemigo. `tipo` decide vida, daño y prefijo de nombre; `grupo` es el
+## cajón del gerente al que pertenece (la tecla que lo generó) y es lo que se
+## retira de una vez: la tecla G mete sus cinco enemigos de DOS tipos distintos
+## en el mismo cajón (MEZCLA) para que una sola pulsación retire todos.
+func _crear_enemigo(escena: PackedScene, tipo: int, grupo: int, pos: Vector3, ang: float, excluir: Array[RID], colocados: Array[Vector3]) -> Node3D:
+	var e := escena.instantiate() as Node3D
 	if e == null:
 		return null
 	_siguiente_id += 1
-	e.name = "Enemigo%d" % _siguiente_id
-	e.vida_max = vida_enemigo
-	e.danio_base = dano_enemigo
-	e.configurar(self, _siguiente_id)
+	e.name = "%s%d" % [PREFIJOS[tipo], _siguiente_id]
+	# Ajustes por tipo con duck typing: la cápsula y los enemigos con esqueleto
+	# comparten los NOMBRES de propiedad (vida_max/danio_base), pero no la clase.
+	if "vida_max" in e:
+		e.set("vida_max", _vida_de(tipo))
+	if "danio_base" in e:
+		e.set("danio_base", _dano_de(tipo))
+	if e.has_method("configurar"):
+		e.call("configurar", self, _siguiente_id)
 	add_child(e)
 	e.global_position = pos
 	# La conexión muere con el nodo al liberarse: no queda ninguna referencia.
 	e.murio.connect(_al_morir_enemigo)
 	_enemigos.append(e)
+	var lista: Array = _grupos.get(grupo, [])
+	lista.append(e)
+	_grupos[grupo] = lista
 	_angulos[e.get_instance_id()] = ang
 	if e is CollisionObject3D:
 		excluir.append((e as CollisionObject3D).get_rid())
 	colocados.append(pos)
 	return e
+
+func _vida_de(tipo: int) -> float:
+	match tipo:
+		Tipo.MELEE:
+			return vida_melee
+		Tipo.TIRADOR:
+			return vida_tirador
+		_:
+			return vida_enemigo
+
+func _dano_de(tipo: int) -> float:
+	match tipo:
+		Tipo.MELEE:
+			return dano_melee
+		Tipo.TIRADOR:
+			return dano_tirador
+		_:
+			return dano_enemigo
 
 # =============================================================== Cerco
 ## Recorta el destino contra paredes: si un muro corta la recta jugador->anillo,
@@ -276,12 +441,17 @@ func _recortar_contra_paredes(e: Node3D, base: Vector3) -> Vector3:
 
 ## Al morir un enemigo se recalcula el reparto: con CombatManager lo hace su
 ## formation en el siguiente fotograma; el respaldo queda aquí equiespaciado.
-func _al_morir_enemigo(e: ClaseEnemigo) -> void:
+func _al_morir_enemigo(e: Node3D) -> void:
 	_enemigos.erase(e)
+	for t in _grupos.keys():
+		(_grupos[t] as Array).erase(e)
 	_angulos.erase(e.get_instance_id())
 	_destino_cache.erase(e.get_instance_id())
 	_reasignar_angulos()
-	print("[Enemigos] Enemigo %d eliminado. Quedan %d." % [e.id_ia, _enemigos.size()])
+	var id: Variant = e.get("id_ia")
+	if id == null:
+		id = -1
+	print("[Enemigos] Enemigo %d eliminado. Quedan %d." % [int(id), _enemigos.size()])
 
 func _reasignar_angulos() -> void:
 	if _jugador == null or not is_instance_valid(_jugador):
@@ -319,6 +489,23 @@ func _limpiar_muertos() -> void:
 		if is_instance_valid(e) and e.is_alive():
 			vivos.append(e)
 	_enemigos = vivos
+	# Sincroniza las listas por tipo y limpia ángulos/caché de los que ya no están.
+	for t in _grupos.keys():
+		var lista: Array = _grupos[t]
+		var viva: Array = []
+		for e in lista:
+			if is_instance_valid(e) and e.is_alive():
+				viva.append(e)
+		_grupos[t] = viva
+	var ids: Dictionary = {}
+	for e in _enemigos:
+		ids[e.get_instance_id()] = true
+	for k in _angulos.keys():
+		if not ids.has(k):
+			_angulos.erase(k)
+	for k in _destino_cache.keys():
+		if not ids.has(k):
+			_destino_cache.erase(k)
 
 # =============================================================== Referencias
 func _resolver_referencias() -> void:

@@ -43,6 +43,9 @@ signal resumed
 @onready var _description: Label = %Description
 # Contenido de la categoria GRÁFICOS (mismo panel derecho, sin duplicarlo).
 @onready var _config_content: VBoxContainer = %ConfigContent
+@onready var _calidad_izq: Button = %CalidadIzq
+@onready var _calidad_der: Button = %CalidadDer
+@onready var _calidad_valor: Label = %CalidadValor
 @onready var _modo_izq: Button = %ModoIzq
 @onready var _modo_der: Button = %ModoDer
 @onready var _modo_valor: Label = %ModoValor
@@ -377,6 +380,8 @@ func _titulo_categoria(row: MenuOptionRes) -> String:
 ## así no hay señales duplicadas. Todos los cambios se aplican/guardan a través
 ## del singleton AjustesGraficos.
 func _conectar_opciones_graficos() -> void:
+	_calidad_izq.pressed.connect(_on_calidad_paso.bind(-1))
+	_calidad_der.pressed.connect(_on_calidad_paso.bind(1))
 	_modo_izq.pressed.connect(AjustesGraficos.alternar_pantalla)
 	_modo_der.pressed.connect(AjustesGraficos.alternar_pantalla)
 	_res_izq.pressed.connect(_on_resolucion_paso.bind(-1))
@@ -388,11 +393,17 @@ func _conectar_opciones_graficos() -> void:
 func _on_resolucion_paso(paso: int) -> void:
 	AjustesGraficos.poner_resolucion(AjustesGraficos.resolucion_idx + paso)
 
+## Cambia el perfil de calidad gráfica (Baja / Media / Alta). Todo el trabajo lo
+## hace el singleton: aquí sólo se pide el paso.
+func _on_calidad_paso(paso: int) -> void:
+	AjustesGraficos.pasar_calidad(paso)
+
 func _on_fps_paso() -> void:
 	AjustesGraficos.poner_mostrar_fps(not AjustesGraficos.mostrar_fps)
 
 ## Refleja en la interfaz el estado REAL que vive en AjustesGraficos.
 func _actualizar_opciones_graficos() -> void:
+	_calidad_valor.text = AjustesGraficos.texto_calidad()
 	_modo_valor.text = "PANTALLA COMPLETA" if AjustesGraficos.pantalla_completa else "VENTANA"
 	_res_valor.text = AjustesGraficos.texto_resolucion()
 	_fps_valor.text = "SÍ" if AjustesGraficos.mostrar_fps else "NO"
