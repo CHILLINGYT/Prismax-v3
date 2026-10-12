@@ -29,6 +29,9 @@
 [ext_resource type="PackedScene" path="res://world/barco.tscn" id="26_barco"]
 [ext_resource type="PackedScene" path="res://world/muelle.tscn" id="27_muelle"]
 [ext_resource type="Script" path="res://world/camara_captura.gd" id="28_captura"]
+[ext_resource type="Script" path="res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd" id="29_combat"]
+[ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="30_config"]
+[ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -98,6 +101,13 @@ ciclo = NodePath("../CicloDiaNoche")
 [node name="CamaraAerea" type="Camera3D" parent="."]
 current = false
 script = ExtResource("28_captura")
+
+[node name="CombatManager" type="Node" parent="."]
+script = ExtResource("29_combat")
+config = ExtResource("30_config")
+
+[node name="EnemigosPrueba" type="Node3D" parent="."]
+script = ExtResource("31_gerente")
 
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
