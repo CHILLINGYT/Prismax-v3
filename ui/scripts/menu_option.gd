@@ -8,10 +8,13 @@ extends MarginContainer
 
 ## Valores nuevos se añaden SIEMPRE al final para no cambiar el numero de las
 ## acciones ya existentes (las escenas guardan el valor entero de 'action').
-## CONFIG: abre la pantalla de configuracion (solo en el menu de pausa).
-## CATEGORY: categoria de configuracion aun sin opciones (solo seleccionable).
-## BACK: vuelve del submenu de configuracion a la lista de pausa.
-enum Action { CONTINUE, NEW_GAME, QUIT, CONFIG, CATEGORY, BACK }
+## CONFIG: abre la pantalla de configuracion (menu de pausa y menu principal).
+## CATEGORY: seccion de configuracion (abre y cierra su panel de contenido).
+## BACK: vuelve del submenu de configuracion a la lista principal.
+## CALIDAD: cicla el perfil grafico (BAJA -> MEDIA -> ALTA) usando el sistema
+##          AjustesGraficos ya existente; no duplica su logica.
+enum Action { CONTINUE, NEW_GAME, QUIT, CONFIG, CATEGORY, BACK, CALIDAD,
+		OPTIMIZACION, DIST_CARGA, DIST_PRECARGA, DIAGNOSTICO }
 
 @export var action: Action = Action.CONTINUE
 @export_multiline var description: String = ""

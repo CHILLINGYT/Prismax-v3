@@ -1,7 +1,9 @@
 class_name HUDCircular
 extends CanvasLayer
 
-## HUD circular de vida, resistencia y transformación (esquina inferior derecha).
+## HUD circular de vida, resistencia y transformación (esquina inferior derecha)
+## más la BARRA DE ESTAMINA, fija a la IZQUIERDA de la pantalla, con el color del
+## personaje activo (tabla central `CostosEstamina`).
 ##
 ## Es una CAPA VISUAL: no crea ni duplica sistemas de daño, ataque, movimiento
 ## o transformación. Se limita a:
@@ -65,6 +67,17 @@ var _vineta_pulso: float = 0.0      # pico del último golpe (se desvanece solo)
 var _vineta_estado: float = 0.0     # intensidad sostenida actual
 var _vineta_estado_obj: float = 0.0 # objetivo del estado sostenido (escudo roto)
 
+# --- Barra de ESTAMINA (izquierda de la pantalla, fija) ---
+# Sólo LEE el sistema compartido (EstadisticasJugador + tabla de colores de
+# CostosEstamina): no duplica estado ni lógica de juego.
+var _est_raiz: Control
+var _est_fondo: ColorRect
+var _est_relleno: ColorRect
+var _est_marco: Panel
+var _est_estilo: StyleBoxFlat
+var _est_objetivo: float = 1.0
+var _est_mostrado: float = 1.0
+
 # ---------------------------------------------------------------------------
 # AVISO CONTEXTUAL ("Presioná E para subir al barco")
 # ---------------------------------------------------------------------------
@@ -87,6 +100,7 @@ func _ready() -> void:
 	_configurar_anillos()
 	_construir_aviso()
 	_configurar_vineta()
+	_construir_estamina()
 
 	# El HUD viaja dentro de la escena del jugador, así que su padre es el
 	# ControladorLeo y `Estadisticas` es su hermano.
@@ -100,15 +114,20 @@ func _ready() -> void:
 		_stats.regenerando_cambiado.connect(_on_regenerando_cambiado)
 		# La viñeta de daño se alimenta del estado REAL del escudo y del golpe.
 		_stats.danio_recibido.connect(_on_danio_recibido)
+		# Estamina: misma regla que vida/escudo (señal del personaje activo).
+		_stats.stamina_cambiada.connect(_on_stamina_cambiada)
 		# Estado inicial inmediato (por si la señal diferida aún no llegó).
 		_on_vida_cambiada(_stats.vida, _stats.vida_max)
 		_on_resistencia_cambiada(_stats.resistencia, _stats.resistencia_max)
+		_on_stamina_cambiada(_stats.stamina, _stats.stamina_max)
 
 	if _jugador != null:
 		_jugador.forma_cambiada.connect(_on_forma_cambiada)
 		_actualizar_icono(_jugador.id_forma())
+		_actualizar_color_estamina(_jugador.id_forma())
 	else:
 		_actualizar_icono(&"humano")
+		_actualizar_color_estamina(&"humano")
 
 # ---------------------------------------------------------------------------
 # Aviso contextual: se construye en código y se coloca a mano (centrado abajo),
@@ -156,6 +175,14 @@ func _process(delta: float) -> void:
 		_vineta_estado = move_toward(_vineta_estado, _vineta_estado_obj, VINETA_VEL_ESTADO * delta)
 		_mat_vineta.set_shader_parameter("intensidad",
 				clampf(_vineta_estado + _vineta_pulso, 0.0, 1.0))
+	# --- Barra de estamina: transición suave hacia el valor real ---
+	if _est_relleno != null:
+		_est_mostrado = lerpf(_est_mostrado, _est_objetivo, 1.0 - exp(-CostosEstamina.EST_SUAVIZADO * delta))
+		if absf(_est_mostrado - _est_objetivo) < 0.0005:
+			_est_mostrado = _est_objetivo
+		_est_relleno.size.x = maxf(0.0,
+				(CostosEstamina.EST_ANCHO - 2.0 * CostosEstamina.EST_BORDE) * _est_mostrado)
+
 	# --- Aviso contextual ---
 	var texto: String = _jugador.texto_interaccion() if _jugador != null else ""
 	if texto.is_empty():
@@ -225,11 +252,84 @@ func _on_regenerando_cambiado(regenerando: bool) -> void:
 
 func _on_forma_cambiada(id: StringName) -> void:
 	_actualizar_icono(id)
+	# Cambiar de personaje cambia el COLOR de la barra de estamina; nada más del
+	# HUD se toca.
+	_actualizar_color_estamina(id)
 
 func _actualizar_icono(id: StringName) -> void:
 	var ruta: String = ICONOS.get(id, ICONOS[&"humano"])
 	if ResourceLoader.exists(ruta):
 		_icono.texture = load(ruta)
+
+
+# =============================================================== Barra de estamina
+## Se construye en código (como el resto del diseño del HUD), fija a la IZQUIERDA
+## de la pantalla, y sólo refleja el sistema compartido: ni estado propio ni
+## lógica de juego.
+func _construir_estamina() -> void:
+	_est_raiz = Control.new()
+	_est_raiz.name = "BarraEstamina"
+	_est_raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_est_raiz.set_anchors_preset(Control.PRESET_TOP_LEFT)
+
+	_est_fondo = ColorRect.new()
+	_est_fondo.name = "Fondo"
+	_est_fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_est_fondo.color = CostosEstamina.EST_COLOR_FONDO
+	_est_fondo.position = Vector2.ZERO
+	_est_fondo.size = Vector2(CostosEstamina.EST_ANCHO, CostosEstamina.EST_ALTO)
+	_est_raiz.add_child(_est_fondo)
+
+	_est_relleno = ColorRect.new()
+	_est_relleno.name = "Relleno"
+	_est_relleno.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_est_relleno.position = Vector2(CostosEstamina.EST_BORDE, CostosEstamina.EST_BORDE)
+	_est_relleno.size = Vector2(
+			CostosEstamina.EST_ANCHO - 2.0 * CostosEstamina.EST_BORDE,
+			CostosEstamina.EST_ALTO - 2.0 * CostosEstamina.EST_BORDE)
+	_est_raiz.add_child(_est_relleno)
+
+	_est_estilo = StyleBoxFlat.new()
+	_est_estilo.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	_est_estilo.set_border_width_all(int(CostosEstamina.EST_BORDE))
+	_est_estilo.set_corner_radius_all(4)
+	_est_marco = Panel.new()
+	_est_marco.name = "Marco"
+	_est_marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_est_marco.add_theme_stylebox_override("panel", _est_estilo)
+	_est_marco.position = Vector2.ZERO
+	_est_marco.size = Vector2(CostosEstamina.EST_ANCHO, CostosEstamina.EST_ALTO)
+	_est_raiz.add_child(_est_marco)
+
+	$Raiz.add_child(_est_raiz)
+	_colocar_estamina()
+	if not get_viewport().size_changed.is_connected(_colocar_estamina):
+		get_viewport().size_changed.connect(_colocar_estamina)
+
+
+## Barra fija a la izquierda de la pantalla (el HUD circular vive abajo a la
+## derecha): margen izquierdo + centro vertical. Se recoloca al cambiar de tamaño.
+func _colocar_estamina() -> void:
+	if _est_raiz == null:
+		return
+	var vista := get_viewport().get_visible_rect().size
+	_est_raiz.position = Vector2(
+			CostosEstamina.EST_MARGEN_X,
+			vista.y * 0.5 - CostosEstamina.EST_ALTO * 0.5)
+
+
+func _on_stamina_cambiada(actual: float, maxima: float) -> void:
+	_est_objetivo = clampf(actual / maxima, 0.0, 1.0) if maxima > 0.0 else 0.0
+
+
+## El color es del PERSONAJE: relleno por forma y borde de contraste cuando el
+## relleno es oscuro (combate → borde claro; águila → borde oscuro general).
+func _actualizar_color_estamina(id: StringName) -> void:
+	if _est_relleno == null:
+		return
+	_est_relleno.color = CostosEstamina.color_de(id)
+	if _est_estilo != null:
+		_est_estilo.border_color = CostosEstamina.borde_de(id)
 
 
 # =============================================================== Viñeta de daño

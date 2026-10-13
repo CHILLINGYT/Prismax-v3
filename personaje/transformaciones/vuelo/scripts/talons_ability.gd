@@ -108,6 +108,10 @@ func _intentar_agarrar() -> void:
 	if objetivo == null:
 		_avisar("cerca", "[Garras] Nada agarrable a %.1f m volando (grupo '%s')." % [radio_agarre, grupo_agarrables])
 		return
+	# ESTAMINA: agarrar una presa se paga al consumarse el agarre; con la presa
+	# ya a la vista, si no alcanza la estamina, el agarre no ocurre.
+	if not CostosEstamina.activar_habilidad(_body, &"garras"):
+		return
 	_capa_respaldo = objetivo.collision_layer
 	objetivo.freeze = true
 	objetivo.collision_layer = 0  # no choca con el portador mientras cuelga

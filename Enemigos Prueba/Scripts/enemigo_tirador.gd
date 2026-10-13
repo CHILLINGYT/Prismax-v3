@@ -47,6 +47,9 @@ var _disparo_hecho: bool = false
 var _t_resto: float = 0.0
 ## Lado hacia el que se desplaza para buscar línea de visión (-1/1).
 var _lado_lateral: float = 1.0
+## Marcador "BocaArma" del arma anclada a la mano derecha (si la lleva).
+var _boca_marcador: Node3D = null
+var _boca_buscada: bool = false
 
 func _ready() -> void:
 	super()
@@ -147,7 +150,7 @@ func _disparar(jugador: Node3D) -> void:
 	var padre := get_parent()
 	if padre == null:
 		return
-	var boca := global_position + Vector3.UP * altura_boca + (-global_transform.basis.z) * 0.5
+	var boca := _boca_del_arma()
 	var objetivo := jugador.global_position + Vector3.UP * 1.0
 	var dir := objetivo - boca
 	if dir.length_squared() < 0.0001:
@@ -174,3 +177,14 @@ func _disparar(jugador: Node3D) -> void:
 		p.call("lanzar", boca, dir, self, velocidad_proyectil, dano_proyectil)
 	else:
 		p.queue_free()
+
+## Origen real del disparo: la boca del cañón (Marker3D "BocaArma" del arma
+## anclada a la mano derecha) si el tirador lleva arma; si no, el origen de
+## siempre sobre el pecho. Se busca una sola vez y se recuerda.
+func _boca_del_arma() -> Vector3:
+	if not _boca_buscada:
+		_boca_buscada = true
+		_boca_marcador = find_child("BocaArma", true, false) as Node3D
+	if _boca_marcador != null and is_instance_valid(_boca_marcador):
+		return _boca_marcador.global_position
+	return global_position + Vector3.UP * altura_boca + (-global_transform.basis.z) * 0.5

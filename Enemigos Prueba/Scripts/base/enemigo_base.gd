@@ -34,7 +34,9 @@ const GRUPO_DANIO := &"damageable"
 
 @export_group("Vida")
 ## Vida máxima configurable por instancia (el gerente la fija al aparecer).
-@export var vida_max: float = 60.0
+## Valor de reserva ya con el +25 % de diseño (60 -> 75): sólo se usa si se
+## instancia la escena SIN gerente; en el juego manda el valor del gerente.
+@export var vida_max: float = 75.0
 
 @export_group("Ataque")
 ## Daño base de un golpe/proyectil (el del módulo es enemy_damage = 10).

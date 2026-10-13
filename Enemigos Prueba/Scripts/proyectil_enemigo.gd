@@ -96,11 +96,23 @@ func _physics_process(delta: float) -> void:
 		return
 	var choque := desde + paso * fracciones[0]
 	global_position = choque
-	# ¿Con quién chocó realmente? Se pregunta en el punto de impacto.
-	_consulta.transform = Transform3D(Basis(), choque)
+	# ¿Con quién chocó realmente? OJO: el barrido deja la esfera parada JUSTO en
+	# contacto (sin solape), así que preguntar con intersect_shape en el punto de
+	# parada SEGURA no encuentra a nadie y el impacto se perdía (el proyectil se
+	# destruía sin dañar al jugador). Se pregunta en la fracción INSEGURA —donde
+	# ya hay solape— y, si aun así no devuelve nada, se respalda con un RAYO por
+	# el mismo segmento. Así el cuerpo golpeado (jugador, pared, suelo...) se
+	# identifica siempre y el daño va al objetivo real, nunca a través de muros.
+	_consulta.transform = Transform3D(Basis(), desde + paso * fracciones[1])
 	_consulta.motion = Vector3.ZERO
 	var res := espacio.intersect_shape(_consulta, 1)
-	_impactar(res[0].get("collider") if not res.is_empty() else null)
+	var golpeado: Variant = res[0].get("collider") if not res.is_empty() else null
+	if golpeado == null:
+		var rayo := PhysicsRayQueryParameters3D.create(desde, desde + paso, mascara, _exclusiones())
+		var impacto := espacio.intersect_ray(rayo)
+		if not impacto.is_empty():
+			golpeado = impacto.get("collider")
+	_impactar(golpeado)
 
 ## Quién NO debe ser golpeado: quien lo lanzó y cualquier enemigo (grupo
 ## "damageable"). Así no hay fuego amigo entre enemigos ni auto-daño.
@@ -114,6 +126,9 @@ func _exclusiones() -> Array[RID]:
 	return excluir
 
 func _impactar(collider: Variant) -> void:
+	# Se marca inactivo ANTES de nada: aunque el free sea diferido, ningún
+	# fotograma posterior puede volver a entrar aquí y duplicar el daño.
+	_activo = false
 	var stats := _buscar_estadisticas(collider)
 	if stats != null and not stats.muerto:
 		stats.recibir_danio(dano)

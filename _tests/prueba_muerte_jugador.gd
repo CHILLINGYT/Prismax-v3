@@ -112,6 +112,84 @@ func _fbx(ruta: String) -> Dictionary:
 	return out
 
 
+## Posa un esqueleto con las pistas de un clip en el instante t (evaluación a
+## mano: los AnimationPlayer fuera del árbol no aplican poses con seek).
+func _posar_clip(sk: Skeleton3D, clip: Animation, t: float) -> void:
+	for i in sk.get_bone_count():
+		sk.reset_bone_pose(i)
+	for p in clip.get_track_count():
+		var partes := String(clip.track_get_path(p)).split(":")
+		if partes.size() < 2:
+			continue
+		var hueso := partes[partes.size() - 1]
+		var bi := sk.find_bone(hueso)
+		if bi < 0:
+			continue
+		match clip.track_get_type(p):
+			Animation.TYPE_ROTATION_3D:
+				sk.set_bone_pose_rotation(bi, clip.rotation_track_interpolate(p, t, false))
+			Animation.TYPE_POSITION_3D:
+				sk.set_bone_pose_position(bi, clip.position_track_interpolate(p, t, false))
+			Animation.TYPE_SCALE_3D:
+				sk.set_bone_pose_scale(bi, clip.scale_track_interpolate(p, t, false))
+
+
+## Dirección (eje +Y) de cada hueso en espacio de modelo del esqueleto posado.
+func _direcciones(sk: Skeleton3D) -> Dictionary:
+	var d: Dictionary = {}
+	for i in sk.get_bone_count():
+		var g := sk.get_bone_global_pose(i)
+		d[sk.get_bone_name(i)] = (g.basis.orthonormalized() * Vector3.UP).normalized()
+	return d
+
+
+## Retargetea el clip de muerte al reproductor de una forma y compara la pose
+## resultante (al final del clip) con la del esqueleto del FBX original,
+## hueso a hueso por DIRECCIÓN. Devuelve [casó(0/1), huesos comparados, desvío máxº].
+func _verificar_muerte_forma(nodo: Node3D, player: AnimationPlayer) -> Array:
+	if nodo == null or player == null:
+		return [0, 0, 999.0]
+	var sk := _esqueleto_de(nodo)
+	if sk == null:
+		return [0, 0, 999.0]
+	var m_o := _fbx(ESC_MUERTE)
+	var sk_o: Skeleton3D = m_o.get("skel")
+	var an_o: AnimationPlayer = m_o.get("anim")
+	var casaron := 0
+	if _jug._retarget_clip(_jug._clip_de_fbx(ESC_MUERTE), player, sk, &"muerte_verif",
+			false, ESC_MUERTE):
+		casaron = 1
+	var huesos := 0
+	var desvio := 999.0
+	var lib := player.get_animation_library(&"")
+	if casaron == 1 and lib != null and lib.has_animation(&"muerte_verif") \
+			and sk_o != null and an_o != null:
+		desvio = 0.0
+		var clip_o: Animation = an_o.get_animation(an_o.get_animation_list()[0])
+		var clip_d: Animation = lib.get_animation(&"muerte_verif")
+		# Sólo los huesos que el clip ANIMA (los demás quedan en el reposo de
+		# cada rig, que es distinto por diseño).
+		var huesos_clip: Dictionary = {}
+		for p in clip_o.get_track_count():
+			var partes := String(clip_o.track_get_path(p)).split(":")
+			if partes.size() >= 2 and clip_o.track_get_type(p) == Animation.TYPE_ROTATION_3D:
+				huesos_clip[partes[partes.size() - 1]] = true
+		var t_fin: float = minf(clip_o.length, clip_d.length) - 0.02
+		_posar_clip(sk_o, clip_o, t_fin)
+		_posar_clip(sk, clip_d, t_fin)
+		var dirs_o := _direcciones(sk_o)
+		var dirs_d := _direcciones(sk)
+		for bn in dirs_o:
+			if huesos_clip.has(bn) and dirs_d.has(bn):
+				huesos += 1
+				desvio = maxf(desvio, rad_to_deg((dirs_o[bn] as Vector3).angle_to(dirs_d[bn] as Vector3)))
+	if lib != null and lib.has_animation(&"muerte_verif"):
+		lib.remove_animation(&"muerte_verif")
+	if m_o.get("raiz") != null:
+		(m_o.get("raiz") as Node).free()
+	return [casaron, huesos, desvio]
+
+
 func _ready() -> void:
 	call_deferred("_correr")
 
@@ -229,22 +307,22 @@ func _correr() -> void:
 			and anim_act.current_animation_position < 1.0,
 			"clip=%s pos=%.2f" % [str(anim_act.current_animation) if anim_act != null else "",
 					anim_act.current_animation_position if anim_act != null else -1.0])
-	# Otros esqueletos de formas disponibles: el retarget casa por nombre de hueso.
-	var aqu := _jug.get_node_or_null("Acuatico") as Node3D
-	var an_aq: AnimationPlayer = _jug.anim_acuatico
-	var sk_aq := _esqueleto_de(aqu)
-	var casaron := 0
-	if an_aq != null and sk_aq != null:
-		if an_aq.has_animation("muerte"):
-			casaron += 1
-		elif _jug._retarget_clip(_jug._clip_de_fbx(ESC_MUERTE), an_aq, sk_aq, &"muerte", false,
-				_jug._factor_unidades_fbx(ESC_MUERTE, sk_aq)):
-			casaron += 1
-			var lib := an_aq.get_animation_library(&"")
-			if lib != null and lib.has_animation(&"muerte"):
-				lib.remove_animation(&"muerte")
-	_check("4. El mismo clip de muerte encaja en el esqueleto de la forma acuática",
-			casaron == 1, "huesos=%d" % [sk_aq.get_bone_count() if sk_aq != null else -1])
+	# Otros esqueletos de formas disponibles: el retarget real (cambio de base por
+	# reposos con direcciones alineadas) casa por nombre de hueso y ADEMÁS la pose
+	# resultante es la del clip original — se comprueba hueso a hueso contra el
+	# propio esqueleto del FBX. Los reposos del acuático y de fuerza difieren del
+	# Mixamo hasta 180° (brazos, dedos): copiar los cuaterniones crudos retorcía
+	# el cadáver (el caso reportado).
+	for caso: Array in [
+			["forma acuática", _jug.get_node_or_null("Acuatico") as Node3D, _jug.anim_acuatico],
+			["forma de fuerza", _jug.get_node_or_null("Fuerza") as Node3D, _jug.anim_fuerza]]:
+		var etiqueta := String(caso[0])
+		var resultado := _verificar_muerte_forma(caso[1], caso[2])
+		_check("4. El mismo clip de muerte encaja en el esqueleto de la %s" % etiqueta,
+				int(resultado[0]) == 1, "casó=%d" % int(resultado[0]))
+		_check("4. La pose retargeteada de la %s coincide con la del FBX original al final de `muerte`" % etiqueta,
+				int(resultado[1]) >= 40 and float(resultado[2]) < 6.0,
+				"huesos comparados=%d desvío máximo=%.2f°" % [int(resultado[1]), float(resultado[2])])
 
 	# ------------------------------------------------- 5. Bloqueo de controles
 	var pos0: Vector3 = _jug.global_position

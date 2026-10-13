@@ -79,13 +79,27 @@ func set_player(p: Node3D) -> void:
 
 func get_player() -> Node3D:
 	if _player != null and is_instance_valid(_player):
-		return _player
+		return _cuerpo_activo(_player)
 	if not player_path.is_empty():
 		_player = get_node_or_null(player_path) as Node3D
 	if _player == null:
 		# Last resort only, and cached from then on.
 		_player = get_tree().get_first_node_in_group("player") as Node3D
-	return _player
+	return _cuerpo_activo(_player)
+
+
+## El jugador puede estar "montado" en un cuerpo hijo (p. ej. el nodo Vuelo
+## del águila: la raíz queda como ancla inmóvil y el cuerpo que se mueve es el
+## hijo). El ControladorLeo expone cuerpo_activo(); el combate (formación,
+## distancias, amenazas) debe centrarse en ese cuerpo REAL, no en el ancla.
+func _cuerpo_activo(p: Node3D) -> Node3D:
+	if p == null or not is_instance_valid(p):
+		return null
+	if p.has_method("cuerpo_activo"):
+		var activo := p.call("cuerpo_activo") as Node3D
+		if activo != null:
+			return activo
+	return p
 
 
 func combo_count() -> int:
