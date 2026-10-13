@@ -26,6 +26,9 @@ extends Node3D
 ##    PRISMAX_AUDIT_NOCHE=1  -> el mundo arranca de noche (fase_inicial 0.9).
 ##    PRISMAX_AUDIT_MEDIR=<s> -> segundos de cada ventana de medida (por defecto 4).
 ##    PRISMAX_AUDIT_SOLO=<a,b,..> -> limita las fases ejecutadas (por nombre).
+##  Fases de diagnóstico P4 (apagan y RESTAURAN en memoria; no persisten):
+##    terreno_off -> oculta el nodo Terreno  |  cielo_off -> oculta Cielo3D y quita
+##    el `sky` del entorno  |  niebla_off -> apaga `fog_enabled` del entorno.
 ## =============================================================================
 
 const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
@@ -49,6 +52,13 @@ var _cam: Camera3D
 var _medir_s := 4.0
 var _noche := false
 var _ciclo: Node = null
+# --- Diagnóstico P4: estado ORIGINAL guardado para restaurar tras cada fase ---
+var _diag_terreno_visible := true
+var _diag_cielo_visible := true
+var _diag_env: Environment = null
+var _diag_sky: Sky = null
+var _diag_fog := false
+var _diag_fog_dens := 0.0
 ## Fase del ciclo forzada en modo noche (medianoche).
 const FASE_NOCHE := 0.9
 
@@ -200,6 +210,60 @@ func _ready() -> void:
 					c.set_physics_process(true))
 
 	# --- Prueba 8: agua (océano oculto desde el horizonte) ---
+	# --- Diagnóstico P4: terreno, cielo y niebla (se restauran tras cada fase) ---
+	if fases_ejecutadas.is_empty() or "terreno_off" in fases_ejecutadas:
+		await _medir("terreno_off", true, func() -> void:
+			var terreno := _mundo.get_node_or_null("Terreno") as Node3D
+			if terreno != null:
+				_diag_terreno_visible = terreno.visible
+				terreno.visible = false
+				print("AUDIT|diag|terreno_off|encontrado=%s|visible_original=%s" % [terreno.get_path(), str(_diag_terreno_visible)])
+			else:
+				print("AUDIT|diag|terreno_off|NO_ENCONTRADO")
+		, func() -> void:
+			var terreno := _mundo.get_node_or_null("Terreno") as Node3D
+			if terreno != null:
+				terreno.visible = _diag_terreno_visible
+		)
+
+	if fases_ejecutadas.is_empty() or "cielo_off" in fases_ejecutadas:
+		await _medir("cielo_off", true, func() -> void:
+			var cielo := _mundo.get_node_or_null("Cielo3D") as Node3D
+			if cielo != null:
+				_diag_cielo_visible = cielo.visible
+				cielo.visible = false
+			var ent := _mundo.get_node_or_null("Entorno") as WorldEnvironment
+			_diag_env = ent.environment if ent != null else null
+			_diag_sky = _diag_env.sky if _diag_env != null else null
+			if _diag_env != null:
+				_diag_env.sky = null
+			print("AUDIT|diag|cielo_off|nodo_cielo=%s|entorno=%s|sky_original=%s" % [str(cielo != null), str(_diag_env != null), str(_diag_sky != null)])
+		, func() -> void:
+			var cielo := _mundo.get_node_or_null("Cielo3D") as Node3D
+			if cielo != null:
+				cielo.visible = _diag_cielo_visible
+			if _diag_env != null:
+				_diag_env.sky = _diag_sky
+		)
+
+	if fases_ejecutadas.is_empty() or "niebla_off" in fases_ejecutadas:
+		await _medir("niebla_off", true, func() -> void:
+			var ent := _mundo.get_node_or_null("Entorno") as WorldEnvironment
+			var env := ent.environment if ent != null else null
+			if env != null:
+				_diag_env = env
+				_diag_fog = env.fog_enabled
+				_diag_fog_dens = env.fog_density
+				env.fog_enabled = false
+				print("AUDIT|diag|niebla_off|fog_original=%s|densidad_original=%.5f" % [str(_diag_fog), _diag_fog_dens])
+			else:
+				print("AUDIT|diag|niebla_off|SIN_ENTORNO")
+		, func() -> void:
+			if _diag_env != null:
+				_diag_env.fog_enabled = _diag_fog
+				_diag_env.fog_density = _diag_fog_dens
+		)
+
 	if (fases_ejecutadas.is_empty() or "agua_off" in fases_ejecutadas) and oceano != null:
 		await _medir("agua_off", true, func() -> void:
 				_pose(POS_HORIZONTE, MIRA_HORIZONTE, FAR_HORIZONTE).call()

@@ -23,6 +23,10 @@ const FRACCION_IMPACTO := [0.44, 0.44, 0.32]
 @export var alcance_golpe: float = 2.8
 ## Arco frontal mínimo (dot) para que el golpe conecte.
 @export var arco_golpe: float = 0.2
+## Alcance VERTICAL (m, entre orígenes): si el jugador está más alto que esto
+## (p. ej. volando con el águila), este enemigo terrestre no arranca el combo
+## ni conecta el impacto. Antes, con el jugador justo encima, golpeaba el aire.
+@export var alcance_vertical: float = 2.2
 ## Pausa (s) entre un golpe del combo y el siguiente.
 @export var pausa_entre_golpes: float = 0.16
 ## Recuperación (s) tras el tercer golpe, antes de volver a perseguir.
@@ -60,12 +64,19 @@ func _fase_cerco(delta: float, jugador: Node3D, jugador_vivo: bool) -> void:
 	# pared tapa al jugador, sigue moviéndose para rodearla en vez de golpear aire).
 	var distancia := _distancia_plana(jugador)
 	if jugador_vivo and distancia <= alcance_golpe and _en_arco(jugador, arco_golpe) \
+			and _en_alcance_vertical(jugador) \
 			and _espera <= 0.0 and _con_linea_de_vision(jugador, altura_pecho):
 		if _pedir_turno():
 			_iniciar_golpe(0)
 	elif _tiene_turno():
 		# Ya no puede o no quiere atacar: suelta el turno para no bloquear la cola.
 		_soltar_turno()
+
+## ¿El jugador está dentro del alcance VERTICAL del enemigo? Los dos orígenes
+## están a la altura de los pies de cada cuerpo: si el jugador vuela por encima
+## (parte delantera = más alto que alcance_vertical), este enemigo no ataca.
+func _en_alcance_vertical(jugador: Node3D) -> bool:
+	return absf(jugador.global_position.y - global_position.y) <= alcance_vertical
 
 # =============================================================== Combo
 func _iniciar_golpe(indice: int) -> void:
@@ -94,6 +105,7 @@ func _fase_atacar(delta: float, jugador: Node3D, stats: EstadisticasJugador, jug
 		if jugador_vivo and stats != null \
 				and _distancia_plana(jugador) <= alcance_golpe + 0.35 \
 				and _en_arco(jugador, -0.1) \
+				and _en_alcance_vertical(jugador) \
 				and _con_linea_de_vision(jugador, altura_pecho):
 			var dano := danio_base * randf_range(1.0 - varianza_dano, 1.0 + varianza_dano)
 			stats.recibir_danio(dano)

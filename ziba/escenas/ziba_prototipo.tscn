@@ -113,6 +113,14 @@ config = ExtResource("30_config")
 [node name="EnemigosPrueba" type="Node3D" parent="."]
 script = ExtResource("31_gerente")
 
+[node name="DirectorEventos" type="Node3D" parent="."]
+script = ExtResource("44_eventos")
+
+[node name="StreamingMundo" type="Node" parent="."]
+script = ExtResource("45_streaming")
+activo = false
+modo_diagnostico = false
+
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
 collision_mask = 3

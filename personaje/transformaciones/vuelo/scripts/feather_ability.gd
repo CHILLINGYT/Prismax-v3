@@ -103,6 +103,10 @@ func _physics_process(delta: float) -> void:
 ## Dispara una pluma y reproduce el clip de brazos correspondiente en el overlay.
 ## La animación base (Idle/Walk/Jump) sigue reproduciéndose en el resto del cuerpo.
 func _disparo_con_clip() -> void:
+	# ESTAMINA: cada pluma se cobra al DISPARARSE (la ráfaga paga por pluma);
+	# sin energía no sale el proyectil ni se reproduce el clip del brazo.
+	if not CostosEstamina.activar_ataque(get_parent(), &"pluma"):
+		return
 	var clip: String = (
 		CLIP_ATAQUE_IZQ if _next_left_spawn else CLIP_ATAQUE_DER
 	)

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://_tests/auditoria_rendimiento/arnes_cielo.gd" id="1_cielo"]
+
+[node name="ArnesCielo" type="Node3D"]
+script = ExtResource("1_cielo")

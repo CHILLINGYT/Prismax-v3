@@ -34,7 +34,7 @@ const ANCHO_BARRA := 0.9
 
 @export_group("Vida")
 ## Vida máxima configurable por instancia (el gerente la fija al aparecer).
-@export var vida_max: float = 60.0
+@export var vida_max: float = 75.0
 
 @export_group("Ataque")
 ## Daño base de un golpe (el del módulo de referencia es enemy_damage = 10).
