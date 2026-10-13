@@ -2,10 +2,10 @@ extends Node3D
 
 # Suite A del SISTEMA DE ESTAMINA sobre el jugador REAL (parte 1: HUD, movimiento
 # del humano y del velocista):
-#   1.  La barra existe UNA sola vez, a la IZQUIERDA de la pantalla y centrada.
+#   1.  La barra existe UNA sola vez, VERTICAL y a la DERECHA del dial de vida.
 #   2.  Colores por personaje (6 formas) + una sola barra tras 6 transformaciones.
 #   3.  El relleno se mueve SUAVE (nunca salta de golpe al valor real).
-#   4.  Caminar consume poco y correr más (tasas de la tabla); quieto no gasta nada.
+#   4.  Caminar NO consume (y deja regenerar); correr con Shift sí; quieto no gasta.
 #   5.  Sin estamina: correr bloqueado (velocidad de paseo) pero caminar SIEMPRE vivo.
 #   6.  Transformarse NO restaura (cada personaje conserva SU estamina).
 #   7.  Velocista: esprinta y consume al ritmo del esprint (la tasa más alta).
@@ -153,10 +153,11 @@ func _correr() -> void:
 	var vista := get_viewport().get_visible_rect().size
 	var pos: Vector2 = (barra as Control).position if barra != null else Vector2.ZERO
 	_check("1. La barra de estamina existe en el HUD", barra != null)
-	_check("1. A la IZQUIERDA de la pantalla (margen %.0f) y centrada en vertical" % CostosEstamina.EST_MARGEN_X,
-			barra != null and is_equal_approx(pos.x, CostosEstamina.EST_MARGEN_X) \
-				and pos.x < vista.x * 0.5 \
-				and absf(pos.y - (vista.y * 0.5 - CostosEstamina.EST_ALTO * 0.5)) < 3.0,
+	# VERTICAL a la DERECHA de la vida: x en la mitad derecha y fondo más alto que ancho.
+	var derecha := pos.x > vista.x * 0.5
+	var vertical := _hud._est_fondo.size.y > _hud._est_fondo.size.x
+	_check("1. A la DERECHA de la vida y VERTICAL (fondo %s)" % str(_hud._est_fondo.size),
+			barra != null and derecha and vertical,
 			"pos=%s vista=%s" % [pos, vista])
 	_check("1. La estamina arranca al máximo",
 			is_equal_approx(_stats.stamina, _stats.stamina_max),
@@ -209,18 +210,23 @@ func _correr() -> void:
 			"mostrado=%.2f" % _hud._est_mostrado)
 
 	# ------------------------------------------------ 4. Caminar / correr / quieto
+	# CAMINAR ya NO consume estamina (y por eso deja regenerar).
 	_poner(&"humano", 100.0)
 	var m_cam := await _medir_movimiento([&"mover_adelante"], 1.2)
-	var esp_cam := _tasa(&"caminar") * 1.2
-	_check("4. Caminar consume poco (%.1f/s)" % _tasa(&"caminar"),
-			m_cam["gastado"] >= esp_cam * 0.7 and m_cam["gastado"] <= esp_cam * 1.3,
-			"gastado=%.1f (esperado≈%.1f) v_max=%.1f" % [m_cam["gastado"], esp_cam, m_cam["v_max"]])
+	_check("4. Caminar NO consume estamina",
+			is_zero_approx(m_cam["gastado"]),
+			"gastado=%.3f v_max=%.1f" % [m_cam["gastado"], m_cam["v_max"]])
+	# Caminando, la estamina SE REGENERA tras la espera (ya no se queda clavada).
+	_poner(&"humano", 30.0)
+	await _medir_movimiento([&"mover_adelante"], 3.2)
+	_check("4. Caminando la estamina SE REGENERA (tras la espera)",
+			_leer(&"humano") > 30.0 + 2.0, "estamina=%.1f" % _leer(&"humano"))
+	# CORRER con Shift SÍ consume, a su tasa.
 	_poner(&"humano", 100.0)
 	var m_cor := await _medir_movimiento([&"mover_adelante", &"correr"], 1.2)
 	var esp_cor := _tasa(&"correr") * 1.2
-	_check("4. Correr consume MÁS que caminar (%.1f/s > %.1f/s)" % [_tasa(&"correr"), _tasa(&"caminar")],
-			m_cor["gastado"] > m_cam["gastado"] * 1.6 \
-				and m_cor["gastado"] >= esp_cor * 0.7 and m_cor["gastado"] <= esp_cor * 1.3,
+	_check("4. Correr con Shift SÍ consume (%.1f/s)" % _tasa(&"correr"),
+			m_cor["gastado"] >= esp_cor * 0.7 and m_cor["gastado"] <= esp_cor * 1.3,
 			"gastado=%.1f (esperado≈%.1f) v_max=%.1f" % [m_cor["gastado"], esp_cor, m_cor["v_max"]])
 	await _esperar_seg(0.4)  # que el cuerpo quede del todo quieto
 	_poner(&"humano", 60.0)
