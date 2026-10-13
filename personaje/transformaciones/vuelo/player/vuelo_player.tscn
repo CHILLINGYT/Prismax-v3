@@ -16,6 +16,12 @@
 [ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/efectos_camaras.gd" id="14_ugbui"]
 [ext_resource type="ArrayMesh" path="res://personaje/transformaciones/vuelo/models/aguila_skinned_mesh.res" id="17_mesh"]
 [ext_resource type="Skin" path="res://personaje/transformaciones/vuelo/models/aguila_skin.res" id="18_skin"]
+[ext_resource type="Script" path="res://personaje/transformaciones/vuelo/scripts/sonidos_vuelo.gd" id="19_sonidos"]
+[ext_resource type="AudioStream" path="res://personaje/transformaciones/vuelo/Sonido personaje vuelo/Sonido de personaje de vuelo (mp3cut.net).wav" id="20_aleteo"]
+[ext_resource type="AudioStream" path="res://personaje/transformaciones/vuelo/Sonido personaje vuelo/Sonido de personaje de vuelo 2.1 (mp3cut.net) (1).wav" id="21_aire"]
+[ext_resource type="AudioStream" path="res://personaje/transformaciones/vuelo/Sonido personaje vuelo/Sonido de personaje de vuelo 2.2 (mp3cut.net).wav" id="22_despegue"]
+[ext_resource type="AudioStream" path="res://personaje/transformaciones/vuelo/Sonido personaje vuelo/Sonido de personaje de vuelo 3 (mp3cut.net).wav" id="23_golpe3"]
+[ext_resource type="AudioStream" path="res://personaje/transformaciones/vuelo/Sonido personaje vuelo/Sonido de personaje de vuelo 4 (mp3cut.net).wav" id="24_golpe4"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_uq0sl"]
 radius = 0.4
@@ -106,5 +112,32 @@ script = ExtResource("14_ugbui")
 
 [node name="Mannequin" parent="VisualRoot/AnimationLibrary_Godot_Standard/Rig/GeneralSkeleton" index="0"]
 visible = false
+
+[node name="SonidosVuelo" type="Node" parent="."]
+script = ExtResource("19_sonidos")
+
+[node name="Aleteo_A" type="AudioStreamPlayer" parent="SonidosVuelo"]
+bus = &"Efectos"
+stream = ExtResource("20_aleteo")
+
+[node name="Aleteo_B" type="AudioStreamPlayer" parent="SonidosVuelo"]
+bus = &"Efectos"
+stream = ExtResource("20_aleteo")
+
+[node name="Despegue" type="AudioStreamPlayer" parent="SonidosVuelo"]
+bus = &"Efectos"
+stream = ExtResource("22_despegue")
+
+[node name="AireRetomar" type="AudioStreamPlayer" parent="SonidosVuelo"]
+bus = &"Efectos"
+stream = ExtResource("21_aire")
+
+[node name="Golpe3" type="AudioStreamPlayer" parent="SonidosVuelo"]
+bus = &"Efectos"
+stream = ExtResource("23_golpe3")
+
+[node name="Golpe4" type="AudioStreamPlayer" parent="SonidosVuelo"]
+bus = &"Efectos"
+stream = ExtResource("24_golpe4")
 
 [editable path="VisualRoot/AnimationLibrary_Godot_Standard"]

@@ -9,6 +9,14 @@ extends Node
 ##    Golpear despeja la guardia. Soltar vuelve a Idle/Walk solo.
 ## Requiere acciones: "melee_light" (LMB / Square), "guard" (Q / R1)
 ## y "aim" (RMB / L2): mientras se apunta, no sale melee.
+##
+## INTEGRACIÓN FREEFLOW: no hay sistema paralelo — el golpe usa el MISMO módulo
+## de combate del proyecto (transformacion ataque): selección contextual de
+## objetivo (CombatTargeting + la config del gestor de encuentro), seguimiento
+## del enemigo elegido (giro y avance hacia él), ventana de impacto por progreso
+## REAL del clip, daño por el contrato compartido (VueloDano → take_hit) y
+## sonido del golpe SÓLO con daño confirmado. La guardia, el buffer de combo y
+## la recuperación son los de siempre.
 
 @export var animation_player_path: NodePath = NodePath()
 @export var animation_controller_path: NodePath = NodePath()
@@ -35,6 +43,21 @@ const GUARDIA_FALLBACKS: Array[StringName] = [
 	&"GuardiaAlas", &"Idle_Shield", &"Sword_Block",
 ]
 
+## Módulo FreeFlow del proyecto: la MISMA selección contextual de objetivo que
+## usa la forma Combate, y la config por defecto cuando la partida no tiene un
+## gestor de encuentro (espejo del controlador principal).
+const CombatTargeting := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_targeting.gd")
+const CONFIG_ATAQUE := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
+
+## Alcance REAL del puño (m, en horizontal): la esfera mide 1.4 y va centrada
+## 1.2 delante. Con el objetivo elegido por el FreeFlow, el empuje del enemigo ya
+## no lo salva de quedar fuera de la esfera fija.
+@export_range(1.5, 4.0, 0.1) var alcance_objetivo: float = 2.6
+## Diferencia vertical (m) tolerada entre el cuerpo y el objetivo.
+@export_range(0.5, 4.0, 0.1) var tolerancia_vertical: float = 1.8
+## Selección contextual de objetivo (compartida con la forma Combate).
+@export var usar_objetivo_freeflow: bool = true
+
 var _anim: AnimationPlayer
 var _visual: Node3D
 var _body: CharacterBody3D
@@ -49,6 +72,10 @@ var _impacto_indice: int = 0
 var _guardia := false
 var _aviso_guardia := false
 var _avisos_clip := {}
+## Objetivo FreeFlow del combo actual (seguimiento entre eslabones).
+var _objetivo: Node3D = null
+## Sonidos del personaje (hermano "SonidosVuelo"): golpes 3 y 4.
+var _sonidos: Node = null
 
 func _ready() -> void:
 	_body = get_parent() as CharacterBody3D
@@ -56,6 +83,7 @@ func _ready() -> void:
 	_visual = get_parent().get_node_or_null("VisualRoot") as Node3D
 	_controller = _resolver(animation_controller_path, "AnimationController")
 	_feathers = _resolver(feather_ability_path, "FeatherAbility")
+	_sonidos = get_parent().get_node_or_null("SonidosVuelo")
 	if _anim == null or _controller == null:
 		printerr("[GroundCombat] Faltan piezas: anim=", _anim, " controller=", _controller)
 		return
@@ -135,12 +163,14 @@ func _avanzar_combo(delta: float) -> void:
 		_terminar()
 		return
 
-	_encarar_camara(delta)
+	_encarar(delta)
 
 	# Avance: empuja al principio del golpe, frena después (peso coreográfico).
+	# Con objetivo FUERA de alcance se sigue avanzando hacia él durante todo el
+	# gesto (acercamiento del módulo FreeFlow): el siguiente eslabón ya conecta.
 	var objetivo := Vector3.ZERO
-	if progreso <= avance_ratio:
-		objetivo = _frente_camara() * impulso_avance
+	if progreso <= avance_ratio or _objetivo_fuera_de_alcance():
+		objetivo = _frente_objetivo() * impulso_avance
 	_body.velocity.x = move_toward(_body.velocity.x, objetivo.x, 40.0 * delta)
 	_body.velocity.z = move_toward(_body.velocity.z, objetivo.z, 40.0 * delta)
 
@@ -160,7 +190,11 @@ func _lanzar(indice: int) -> void:
 	if _guardia:  # un golpe despeja la guardia
 		_guardia = false
 		_set_feathers(true)
-	_encarar_camara(1.0)
+	# FREEFLOW: objetivo contextual del golpe (la MISMA selección que usa la
+	# forma Combate). Se re-elige en cada eslabón conservando el anterior si sigue
+	# siendo buena elección; un objetivo muerto o liberado se suelta solo.
+	_objetivo = _elegir_objetivo(_objetivo)
+	_encarar(1.0)
 	# Diagnóstico (una vez por clip): si dice "0 pistas", ese clip cargó vacío.
 	if not _avisos_clip.has(clip):
 		_avisos_clip[clip] = true
@@ -173,20 +207,33 @@ func _lanzar(indice: int) -> void:
 	_impacto_t = _anim.get_animation(clip).length / maxf(velocidad_golpes, 0.1) * 0.4
 	_impacto_indice = indice
 
-## Detección de impacto del melee: esfera delante del jugador; si hay un
-## maniquí de práctica, le pasa daño creciente por eslabón de la cadena.
+## Detección de impacto del melee. Dos caminos, el mismo contrato de daño:
+##  1. OBJETIVO del sistema FreeFlow: si está vivo y dentro del alcance REAL del
+##     golpe, conecta con él (seguimiento) — el empuje del enemigo ya no lo salva.
+##  2. Respaldo por consulta espacial: maniquíes de práctica y cualquier otro
+##     cuerpo válido (grupos "maniqui" / "damageable") delante del puño.
+## El sonido del golpe (3/4) sale SÓLO cuando el daño quedó confirmado.
 func _impacto_melee(indice: int) -> void:
 	if _indice == -1:
 		return  # el golpe se cortó (aire, guardia, etc.)
+	var visual := _body.get_node_or_null("VisualRoot") as Node3D
+	var adelante := Vector3.FORWARD
+	if visual != null:
+		adelante = -visual.global_transform.basis.z
+	var danio := 8 + indice * 4
+	# 1) Objetivo del FreeFlow.
+	var objetivo := _objetivo_valido()
+	if objetivo != null and _en_alcance(objetivo):
+		if VueloDano.aplicar(objetivo, danio, adelante, 4.5):
+			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", objetivo.name)
+			_sonar_golpe(indice)
+			return
+	# 2) Respaldo espacial.
 	var espacio := _body.get_world_3d().direct_space_state
 	var forma := SphereShape3D.new()
 	forma.radius = 1.4
 	var consulta := PhysicsShapeQueryParameters3D.new()
 	consulta.shape = forma
-	var visual := _body.get_node_or_null("VisualRoot") as Node3D
-	var adelante := Vector3.FORWARD
-	if visual != null:
-		adelante = -visual.global_transform.basis.z
 	consulta.transform = Transform3D(
 		Basis.IDENTITY,
 		_body.global_position + adelante * 1.2 + Vector3.UP * 0.9
@@ -206,15 +253,18 @@ func _impacto_melee(indice: int) -> void:
 		# ("damageable"). El jugador no está en ninguno de esos grupos.
 		if not (nodo.is_in_group("maniqui") or nodo.is_in_group("damageable")):
 			continue
-		var danio := 8 + indice * 4
 		if VueloDano.aplicar(cuerpo, danio, adelante, 4.5):
 			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", nodo.name)
+			_sonar_golpe(indice)
 			return
 
 func _terminar() -> void:
 	_indice = -1
 	_buffer = false
 	_clip_actual = ""
+	# Nada de impactos pendientes tras cortar el gesto: un golpe que ya no existe
+	# no puede dañar ni sonar (el impacto se dispara desde el ciclo de física).
+	_impacto_t = -1.0
 	_anim.speed_scale = 1.0
 	# El AnimationController retoma Idle/Walk solo al terminar el clip.
 
@@ -295,6 +345,125 @@ func _frente_camara() -> Vector3:
 	frente.y = 0.0
 	return frente.normalized() if frente.length_squared() > 0.0001 else Vector3.ZERO
 
+# --- FreeFlow: objetivo, alcance y dirección de ataque ---
+
+## Gestor del encuentro de la partida (grupo "combat_manager"), el MISMO que usan
+## las demás formas: aporta config, amenazas y enemigos activos. Null si no hay.
+func _gestor_encuentro() -> Node:
+	return get_tree().get_first_node_in_group("combat_manager")
+
+## Enemigos válidos para elegir objetivo: los del gestor si la partida lo tiene;
+## si no, los del grupo "damageable" (los MISMOS cuerpos que daña el golpe).
+func _enemigos_disponibles() -> Array:
+	var gestor := _gestor_encuentro()
+	var bruto: Array = []
+	if gestor != null and gestor.has_method("get_active_enemies"):
+		bruto = gestor.call("get_active_enemies")
+	else:
+		bruto = get_tree().get_nodes_in_group("damageable")
+	var salida: Array = []
+	for e in bruto:
+		if not is_instance_valid(e) or not (e is Node3D):
+			continue
+		if e.has_method("is_alive") and not bool(e.call("is_alive")):
+			continue
+		salida.append(e)
+	return salida
+
+## Objetivo del golpe: la selección contextual del MISMO módulo FreeFlow que usa
+## la forma Combate (intención = mando + cámara + orientación, con histéresis).
+func _elegir_objetivo(previo: Node3D) -> Node3D:
+	if not usar_objetivo_freeflow:
+		return null
+	var enemigos := _enemigos_disponibles()
+	if enemigos.is_empty():
+		return null
+	var cfg: Variant = CONFIG_ATAQUE
+	var amenazas: Variant = null
+	var gestor := _gestor_encuentro()
+	if gestor != null:
+		var cfg_gestor: Variant = gestor.get("config")
+		if cfg_gestor != null:
+			cfg = cfg_gestor
+		amenazas = gestor.get("threats")
+	return CombatTargeting.select_target(
+		_body, _direccion_movimiento(), _frente_camara(), enemigos, cfg, previo, amenazas
+	) as Node3D
+
+## Dirección de intención del jugador (misma base que el módulo): el mando WASD
+## proyectado sobre la cámara; sin mando, la cámara sola decide.
+func _direccion_movimiento() -> Vector3:
+	var camara := get_viewport().get_camera_3d()
+	if camara == null:
+		return Vector3.ZERO
+	var m := Input.get_vector("mover_izquierda", "mover_derecha", "mover_adelante", "mover_atras")
+	if m.length_squared() < 0.01:
+		return Vector3.ZERO
+	var derecha := camara.global_transform.basis.x
+	derecha.y = 0.0
+	var frente := -camara.global_transform.basis.z
+	frente.y = 0.0
+	var dir := derecha.normalized() * m.x - frente.normalized() * m.y
+	dir.y = 0.0
+	return dir.normalized() if dir.length_squared() > 0.001 else Vector3.ZERO
+
+## Objetivo actual si sigue existiendo y vivo (sin mirar la distancia: también
+## sirve para orientarse y avanzar hacia él).
+func _objetivo_valido() -> Node3D:
+	if _objetivo == null or not is_instance_valid(_objetivo):
+		_objetivo = null
+		return null
+	if _objetivo.has_method("is_alive") and not bool(_objetivo.call("is_alive")):
+		_objetivo = null
+		return null
+	return _objetivo
+
+## ¿Está el objetivo dentro del alcance REAL del puño (plano + tolerancia)?
+func _en_alcance(nodo: Node3D) -> bool:
+	var d := nodo.global_position - _body.global_position
+	return Vector2(d.x, d.z).length() <= alcance_objetivo and absf(d.y) <= tolerancia_vertical
+
+## Objetivo vivo pero todavía lejos: el gesto sigue avanzando hacia él.
+func _objetivo_fuera_de_alcance() -> bool:
+	var objetivo := _objetivo_valido()
+	return objetivo != null and not _en_alcance(objetivo)
+
+## Orientación durante el ataque: al objetivo si hay uno (seguimiento real del
+## enemigo elegido), a la cámara si no (el comportamiento de siempre).
+func _encarar(delta: float) -> void:
+	var objetivo := _objetivo_valido()
+	if objetivo != null:
+		_mirar_hacia(objetivo.global_position, giro_al_atacar, delta)
+		return
+	_encarar_camara(delta)
+
+func _mirar_hacia(destino: Vector3, velocidad: float, delta: float) -> void:
+	if _visual == null:
+		return
+	var adelante := destino - _body.global_position
+	adelante.y = 0.0
+	if adelante.length_squared() < 0.0001:
+		return
+	var angulo := atan2(-adelante.x, -adelante.z)
+	_visual.rotation.y = lerp_angle(_visual.rotation.y, angulo, clampf(velocidad * delta, 0.0, 1.0))
+
+## Dirección del impulso de avance: hacia el objetivo si lo hay; si no, hacia
+## donde mira la cámara (lo de siempre).
+func _frente_objetivo() -> Vector3:
+	var objetivo := _objetivo_valido()
+	if objetivo != null:
+		var dir := objetivo.global_position - _body.global_position
+		dir.y = 0.0
+		if dir.length_squared() > 0.0001:
+			return dir.normalized()
+	return _frente_camara()
+
+## Sonido del golpe SÓLO con daño confirmado: Golpe 1 y 3 = sonido 3;
+## Golpe 2 y 4 = sonido 4 (la asignación pedida, adaptada a la cadena real).
+func _sonar_golpe(indice: int) -> void:
+	if _sonidos != null and _sonidos.has_method("golpe"):
+		_sonidos.call("golpe", indice)
+
 ## Encuentra un clip por nombre exacto o por sufijo "/nombre" (cualquier biblioteca).
 func _resolver_clip(nombre: String) -> String:
 	if _anim.has_animation(nombre):
@@ -333,6 +502,7 @@ func _garras_ocupadas() -> bool:
 ## Cancela guardia y combo (al SALIR de la transformación): la guardia no puede
 ## quedar activa al cambiar de forma ni tras perder el estado de entrada.
 func cancelar_todo() -> void:
+	_objetivo = null
 	if _anim == null:
 		_indice = -1
 		_buffer = false
