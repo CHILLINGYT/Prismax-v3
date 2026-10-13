@@ -21,8 +21,9 @@ extends RefCounted
 ##     al confirmar el impacto.
 ##   · Los gastos sostenidos nunca bloquean (no hay energía negativa): consumen
 ##     lo que quede y la regeneración se apaga mientras consuman.
-##   · El caminar es siempre posible: si la estamina llega a cero se bloquea el
-##     correr/esprintar/turbo, nunca el movimiento básico ni aterrizar.
+##   · El caminar es siempre posible y NO cuesta estamina (sólo el correr/esprint
+##     con SHIFT, el turbo y el vuelo consumen al moverse). Si la estamina llega
+##     a cero se bloquea el correr/esprintar/turbo, nunca el movimiento básico.
 ##
 ## La estamina VIVE en `EstadisticasJugador` (una por personaje, igual que la vida
 ## y la resistencia). Este archivo sólo dice CUÁNTO cuesta cada cosa y cómo pintar
@@ -37,10 +38,14 @@ const UMBRAL_AGOTADA := 0.5
 ## o contra una pared no gasta.
 const UMBRAL_MOVIMIENTO := 0.3
 
-## Aspecto de la barra (se construye en código en el HUD, como el resto del diseño).
-const EST_ANCHO := 300.0
-const EST_ALTO := 20.0
-const EST_MARGEN_X := 36.0
+## Aspecto de la barra de estamina, VERTICAL y a la DERECHA del dial de vida (se
+## construye en código en el HUD, como el resto del diseño). EST_ANCHO = grosor
+## (horizontal); EST_ALTO = longitud (vertical).
+const EST_ANCHO := 20.0
+const EST_ALTO := 150.0
+## Separación (px) entre el borde derecho del dial (aro de vida) y la barra, que
+## queda INMEDIATAMENTE a la derecha de la vida.
+const EST_SEPARACION := 6.0
 const EST_BORDE := 2.0
 ## Suavizado del relleno (1/s): mayor = más rápido. Nunca salta de golpe.
 const EST_SUAVIZADO := 7.0
@@ -65,13 +70,15 @@ const BORDES := {
 }
 
 ## MOVIMIENTO: puntos por SEGUNDO de cada acción sostenida, por forma.
+## CAMINAR NO APARECE: caminar no cuesta estamina en ninguna forma (así el reloj
+## de gasto no se reinicia y la estamina puede regenerarse mientras se anda).
 const MOVIMIENTO := {
-	&"humano": {&"caminar": 2.0, &"correr": 6.0},
-	&"velocista": {&"caminar": 4.0, &"esprintar": 9.0, &"supervelocidad": 14.0},
-	&"pes": {&"caminar": 2.0, &"correr": 5.0, &"nadar": 3.5, &"nadar_rapido": 7.5, &"turbo": 16.0},
-	&"tanque": {&"caminar": 1.5, &"correr": 4.0},
-	&"combate": {&"caminar": 2.5, &"correr": 7.0},
-	&"aguila": {&"caminar": 2.0, &"correr": 5.5, &"volar": 5.5, &"volar_boost": 11.0, &"volar_picada": 7.5},
+	&"humano": {&"correr": 6.0},
+	&"velocista": {&"esprintar": 9.0, &"supervelocidad": 14.0},
+	&"pes": {&"correr": 5.0, &"nadar": 3.5, &"nadar_rapido": 7.5, &"turbo": 16.0},
+	&"tanque": {&"correr": 4.0},
+	&"combate": {&"correr": 7.0},
+	&"aguila": {&"correr": 5.5, &"volar": 5.5, &"volar_boost": 11.0, &"volar_picada": 7.5},
 }
 
 ## ATAQUES: puntos por EJECUCIÓN (golpe que arranca de verdad).

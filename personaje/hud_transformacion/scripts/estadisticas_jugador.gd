@@ -96,7 +96,7 @@ const UMBRAL_AGOTADA := 0.5
 ## inactivos usan esta misma tasa multiplicada por `factor_inactivo`).
 @export var velocidad_regen_estamina: float = 20.0
 ## Segundos sin gastar NADA antes de empezar a regenerar estamina. Cada gasto
-## (ataque, habilidad, caminar...) reinicia este reloj; mientras una acción
+## (ataque, habilidad, correr...) reinicia este reloj; mientras una acción
 ## sostenida siga consumiendo, la regeneración queda apagada.
 @export var espera_regen_estamina: float = 1.6
 
@@ -235,7 +235,7 @@ func probar_gasto(costo: float, motivo: StringName = &"") -> bool:
 	stamina_cambiada.emit(stamina, stamina_max)
 	return true
 
-## Gasto SOSTENIDO (caminar/correr, nado, vuelo, turbo): descuenta lo que haya
+## Gasto SOSTENIDO (correr/esprint, nado, vuelo, turbo): descuenta lo que haya
 ## SIN bloquear nunca (jamás deja la estamina en negativo), reinicia el reloj de
 ## regeneración mientras consuma y no hace nada con el personaje muerto.
 func gastar_continuo(cantidad: float) -> void:

@@ -45,6 +45,12 @@ const ACCIONES_INTERFAZ: Array[StringName] = [
 ## Acciones de diagnostico que no se exponen en el panel.
 const ACCIONES_OCULTAS: Array[StringName] = [&"dano_prueba"]
 
+## Acciones de TECLA FIJA: se muestran en CONTROLES (para que el jugador vea su
+## tecla) pero NO se pueden reasignar. CORRER con SHIFT vive aquí. Ni el panel, ni
+## `asignar()`/`intercambiar()` ni un archivo guardado pueden cambiarla: `_cargar`
+## la fuerza SIEMPRE a su valor de fábrica.
+const ACCIONES_FIJAS: Array[StringName] = [&"correr"]
+
 ## Catalogo de acciones reasignables del juego.
 ## Cada entrada: accion, contexto (formas donde aplica) y etiqueta legible.
 ## El ORDEN de esta lista es el orden en que aparecen las filas del panel.
@@ -347,6 +353,11 @@ func acciones_para(forma: StringName) -> Array:
 			salida.append(entrada["accion"])
 	return salida
 
+## ¿La accion tiene tecla FIJA (no reasignable)? El panel la muestra pero bloquea
+## su reasignacion; `asignar`/`intercambiar` la rechazan y `_cargar` la fuerza.
+func es_fija(accion: StringName) -> bool:
+	return ACCIONES_FIJAS.has(accion)
+
 # ---------------------------------------------------------------- conflictos
 ## ¿Las dos acciones pueden estar activas a la vez? Comparten forma si una es
 ## comun (sin lista) o si sus listas se cruzan.
@@ -468,6 +479,8 @@ func asignar(accion: StringName, ev: InputEvent) -> Dictionary:
 		return _respuesta(false, &"", "Entrada no válida.")
 	if esta_reservado(ev):
 		return _respuesta(false, &"", "ESC está reservado para pausar y cancelar.")
+	if es_fija(accion):
+		return _respuesta(false, &"", "Ese control es fijo y no se puede reasignar.")
 
 	var otro := conflicto_para(accion, ev)
 	if otro != &"":
@@ -489,6 +502,8 @@ func asignar(accion: StringName, ev: InputEvent) -> Dictionary:
 func intercambiar(a: StringName, b: StringName) -> Dictionary:
 	if not (_eventos.has(a) and _eventos.has(b)):
 		return _respuesta(false, &"", "No se pudo intercambiar.")
+	if es_fija(a) or es_fija(b):
+		return _respuesta(false, &"", "Ese control es fijo y no se puede reasignar.")
 	var ea: InputEvent = _eventos[a]
 	var eb: InputEvent = _eventos[b]
 	_eventos[a] = eb
@@ -635,6 +650,12 @@ func _cargar() -> void:
 		var ev := _deserializar(cf.get_value(SECCION, accion, null))
 		if ev != null:
 			_eventos[clave] = ev
+	# Las acciones de TECLA FIJA ignoran SIEMPRE el archivo: se quedan con su valor
+	# de fábrica (SHIFT para correr). Así ni una configuración guardada antigua
+	# puede cambiar la asignación fija.
+	for accion_fija: StringName in ACCIONES_FIJAS:
+		if _originales.has(accion_fija):
+			_eventos[accion_fija] = duplicar_evento(_originales[accion_fija])
 
 # ---------------------------------------------------------------- acciones de VUELO
 ## Acciones cuyo nombre NO existe todavía en el proyecto y que usa la forma VUELO

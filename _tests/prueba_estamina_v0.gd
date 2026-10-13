@@ -172,15 +172,14 @@ func _correr() -> void:
 	_check("jugador, estadísticas y HUD listos", true)
 	await _esperar_seg(0.4)
 
-	# ------------------------------------------------ 1. Barra única, a la izquierda
+	# ------------------------------------------------ 1. Barra única, a la derecha
 	var barra: Node = _hud.get_node_or_null("Raiz/BarraEstamina")
 	var vista := get_viewport().get_visible_rect().size
 	var pos := (barra as Control) .position if barra != null else Vector2.ZERO
 	_check("1. La barra de estamina existe en el HUD", barra != null)
-	_check("1. Está a la IZQUIERDA de la pantalla (margen %.0f, centro vertical)" % CostosEstamina.EST_MARGEN_X,
-			barra != null and is_equal_approx(pos.x, CostosEstamina.EST_MARGEN_X) \
-				and pos.x < vista.x * 0.5 \
-				and absf(pos.y - (vista.y * 0.5 - CostosEstamina.EST_ALTO * 0.5)) < 3.0,
+	_check("1. VERTICAL a la DERECHA de la vida (fondo %s)" % str(_hud._est_fondo.size),
+			barra != null and pos.x > vista.x * 0.5 \
+				and _hud._est_fondo.size.y > _hud._est_fondo.size.x,
 			"pos=%s vista=%s" % [pos, vista])
 	_check("1. La estamina arranca al máximo",
 			is_equal_approx(_stats.stamina, _stats.stamina_max),
@@ -243,16 +242,13 @@ func _correr() -> void:
 	# ------------------------------------------------ 4. Caminar / correr / quieto
 	_poner(&"humano", 100.0)
 	var g_caminar := await _medir_movimiento([&"mover_adelante"], 1.2)
-	var esperado_caminar := _tasa(&"caminar") * 1.2
-	_check("4. Caminar consume poco (%.1f/s)" % _tasa(&"caminar"),
-			g_caminar >= esperado_caminar * 0.7 and g_caminar <= esperado_caminar * 1.3,
-			"gastado=%.1f (esperado≈%.1f)" % [g_caminar, esperado_caminar])
+	_check("4. Caminar NO consume estamina", is_zero_approx(g_caminar),
+			"gastado=%.3f" % g_caminar)
 	_poner(&"humano", 100.0)
 	var g_correr := await _medir_movimiento([&"mover_adelante", &"correr"], 1.2)
 	var esperado_correr := _tasa(&"correr") * 1.2
-	_check("4. Correr consume MÁS que caminar (%.1f/s > %.1f/s)" % [_tasa(&"correr"), _tasa(&"caminar")],
-			g_correr > g_caminar * 1.6 \
-				and g_correr >= esperado_correr * 0.7 and g_correr <= esperado_correr * 1.3,
+	_check("4. Correr con Shift SÍ consume (%.1f/s)" % _tasa(&"correr"),
+			g_correr >= esperado_correr * 0.7 and g_correr <= esperado_correr * 1.3,
 			"gastado=%.1f (esperado≈%.1f)" % [g_correr, esperado_correr])
 	_poner(&"humano", 60.0)
 	await _esperar_seg(1.0)

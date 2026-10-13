@@ -252,10 +252,12 @@ func _probar_conflictos() -> void:
 			and InputMap.event_is_action(_tecla(KEY_E), &"fuerza_slam"))
 	AjustesControles.restablecer(&"emote")
 
-	# A (mover_izquierda, común) frente a correr (Humano/Acuático/Fuerza): chocan.
+	# CORRER es de TECLA FIJA (SHIFT): no se puede reasignar (ni con conflicto).
 	var res3: Dictionary = AjustesControles.asignar(&"correr", _tecla(KEY_A))
-	_check("conflicto al pedir A para correr",
-			not bool(res3["ok"]) and StringName(res3["conflicto"]) == &"mover_izquierda")
+	_check("correr es fijo: pedir otra tecla se rechaza",
+			not bool(res3["ok"]) and StringName(res3["conflicto"]) == &"")
+	_check("correr sigue en SHIFT tras el intento",
+			InputMap.event_is_action(_tecla(KEY_SHIFT), &"correr"))
 	await get_tree().process_frame
 
 # ---------------------------------------------------------------- 5. reservado
@@ -353,6 +355,21 @@ func _probar_panel() -> void:
 		if forma == AjustesControlesService.HUMANO:
 			_check("Humano NO muestra Dash", not textos.has("Dash"))
 			_check("Humano muestra Agacharse", textos.has("Agacharse"))
+			# CORRER es de tecla FIJA: se muestra con SHIFT y no se puede reasignar.
+			var filas_h: Array = panel.get("_filas")
+			var idx_correr := -1
+			for k in filas_h.size():
+				if filas_h[k]["accion"] == &"correr":
+					idx_correr = k
+			var fila_correr: Dictionary = filas_h[idx_correr] if idx_correr >= 0 else {}
+			_check("la fila de correr es FIJA y muestra SHIFT",
+					not fila_correr.is_empty() and not bool(fila_correr["editable"]) \
+						and String(fila_correr["etiqueta_tecla"].text) == "SHIFT",
+					"idx=%d" % idx_correr)
+			if idx_correr >= 0:
+				panel.set("_seleccion", idx_correr)
+				panel.confirmar()
+				_check("la fila de correr NO entra en captura", not panel.esta_capturando())
 		if forma == AjustesControlesService.FUERZA:
 			_check("Fuerza muestra Embestida, Pisotón y Levantar roca",
 					textos.has("Embestida") and textos.has("Pisotón") and textos.has("Levantar roca"))
