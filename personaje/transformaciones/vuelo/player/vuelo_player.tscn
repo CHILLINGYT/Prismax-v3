@@ -78,6 +78,8 @@ spring_length = 4.5
 
 [node name="AnimationController" type="Node" parent="." unique_id=526442996]
 script = ExtResource("4_lvxji")
+walk_animation = &"vuelo_walk"
+sprint_animation = &"vuelo_walk"
 
 [node name="FeatherAbility" type="Node" parent="." unique_id=1731253624]
 script = ExtResource("7_0owmy")

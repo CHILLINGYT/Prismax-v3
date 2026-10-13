@@ -230,14 +230,20 @@ const ESCENA_MUERTE_PANTALLA := preload("res://ui/scenes/DeathScreen.tscn")
 # siguen el progreso REAL de la animación (altura de la cadera del esqueleto
 # activo) y, en el VUELO, el aterrizaje físico del cadáver: nunca temporizadores.
 # `morido` y vida=0 no los repiten.
-const VOLUMEN_MUERTE1_DB := 0.0
+const VOLUMEN_MUERTE1_DB := -6.0
 const VOLUMEN_MUERTE2_DB := -8.0
 const VOLUMEN_MUERTE3_DB := 0.0
 const VOLUMEN_MUERTE4_DB := 0.0
-## Altura de la cadera (m sobre los pies del cuerpo activo) que marca las dos
-## posturas del clip real de muerte.
-const MUERTE_CADERA_ARRODILLA := 0.55
-const MUERTE_CADERA_SUELO := 0.30
+## Medida REAL de la muerte: extensión de la PIERNA (cadera menos el pie/toe más
+## bajo del propio esqueleto), en metros y DENTRO del esqueleto: inmune a que el
+## origen del modelo no esté en los pies (el velocista mide su cadera en
+## negativo, y con alturas absolutas ni el 4 ni el 3 llegaban a dispararse).
+## Los umbrales son FRACCIONES de la extensión máxima vista durante la muerte
+## (la postura de pie de ESE modelo): cada transformación tiene su escala.
+const MUERTE_PIERNA_ARRODILLA_FRAC := 0.55
+const MUERTE_PIERNA_SUELO_FRAC := 0.28
+## Extensión mínima (m) que debe haberse visto para dar por válida la referencia.
+const MUERTE_PIERNA_REF_MIN := 0.5
 ## Caída (m/s) mínima para que el aterrizaje del cadáver del VUELO cuente como
 ## golpe contra el suelo (morir ya de pie no lo dispara).
 const MUERTE_CAIDA_IMPACTO := 2.0
@@ -245,6 +251,9 @@ const MUERTE_CAIDA_IMPACTO := 2.0
 var _snd_muerte_inicio := false
 var _snd_muerte_arrodillado := false
 var _snd_muerte_impacto := false
+## Referencia VIVA de la muerte en curso: extensión máxima de pierna vista
+## (la postura de pie de ese modelo). Se rearma en `_al_morir`.
+var _muerte_pierna_max := 0.0
 
 # --- SONIDOS de la forma acuática (mismo bus "Efectos" que el resto) -----------
 # Volumen de las dos capas del golpe: el físico aporta la contundencia y el acuático
@@ -5584,14 +5593,20 @@ func _procesar_sonidos_muerte(_delta: float) -> void:
 		return
 	if _snd_muerte_arrodillado and _snd_muerte_impacto:
 		return
-	var altura := _altura_cadera_muerte()
-	if altura >= 0.0:
-		if not _snd_muerte_arrodillado and altura <= MUERTE_CADERA_ARRODILLA:
-			_snd_muerte_arrodillado = true
-			_sonar_muerte("AudioMuerte4", VOLUMEN_MUERTE4_DB)
-		if not _snd_muerte_impacto and altura <= MUERTE_CADERA_SUELO:
-			_snd_muerte_impacto = true
-			_sonar_muerte("AudioMuerte3", VOLUMEN_MUERTE3_DB)
+	var pierna := _altura_cadera_muerte()
+	if pierna >= 0.0:
+		_muerte_pierna_max = maxf(_muerte_pierna_max, pierna)
+		# Con la referencia ya formada (el modelo estuvo de pie), las fracciones
+		# valen para CUALQUIER escala y cualquier origen de modelo.
+		if _muerte_pierna_max >= MUERTE_PIERNA_REF_MIN:
+			if not _snd_muerte_arrodillado \
+					and pierna <= MUERTE_PIERNA_ARRODILLA_FRAC * _muerte_pierna_max:
+				_snd_muerte_arrodillado = true
+				_sonar_muerte("AudioMuerte4", VOLUMEN_MUERTE4_DB)
+			if not _snd_muerte_impacto \
+					and pierna <= MUERTE_PIERNA_SUELO_FRAC * _muerte_pierna_max:
+				_snd_muerte_impacto = true
+				_sonar_muerte("AudioMuerte3", VOLUMEN_MUERTE3_DB)
 	# Aterrizaje real del cadáver del VUELO (si murió en el aire): ese golpe
 	# contra el suelo ES el del sonido 3, aunque la pose aún no haya bajado la
 	# cadera al piso.
@@ -5601,8 +5616,10 @@ func _procesar_sonidos_muerte(_delta: float) -> void:
 		_sonar_muerte("AudioMuerte3", VOLUMEN_MUERTE3_DB)
 
 
-## Altura REAL de la cadera (m sobre los pies del cuerpo activo) según el
-## esqueleto que está animando la muerte. -1 si no se puede medir (no se inventa).
+## Extensión REAL de la PIERNA del cadáver (m): distancia vertical entre la cadera
+## y el hueso de pie/toe más bajo, medida DENTRO del propio esqueleto — vale para
+## todos los modelos aunque su origen no esté a los pies (el velocista da valores
+## negativos con una altura absoluta). -1 si no se puede medir (no se inventa).
 func _altura_cadera_muerte() -> float:
 	var skel := _esqueleto_de(_nodo_forma_actual())
 	if skel == null:
@@ -5619,10 +5636,20 @@ func _altura_cadera_muerte() -> float:
 				break
 	if indice == -1:
 		return -1.0
-	var mundo := skel.global_transform * skel.get_bone_global_pose(indice).origin
-	var cuerpo := cuerpo_activo()
-	var base := cuerpo.global_position.y if cuerpo != null else global_position.y
-	return mundo.y - base
+	var y_cadera := (skel.global_transform * skel.get_bone_global_pose(indice).origin).y
+	var y_pies := y_cadera
+	var vistos := 0
+	for nombre in ["mixamorig_LeftToeBase", "mixamorig_RightToeBase",
+			"mixamorig_LeftFoot", "mixamorig_RightFoot",
+			"LeftToes", "RightToes", "LeftFoot", "RightFoot"]:
+		var i := skel.find_bone(StringName(nombre))
+		if i < 0:
+			continue
+		vistos += 1
+		y_pies = minf(y_pies, (skel.global_transform * skel.get_bone_global_pose(i).origin).y)
+	if vistos == 0:
+		return -1.0
+	return y_cadera - y_pies
 
 
 ## Reproduce un audio de la muerte con su volumen (el reproductor vive en la raíz
@@ -5680,6 +5707,7 @@ func _al_morir() -> void:
 	_snd_muerte_inicio = false
 	_snd_muerte_arrodillado = false
 	_snd_muerte_impacto = false
+	_muerte_pierna_max = 0.0
 	_detener_sonidos_muerte()
 	# 2) Los menús no siguen funcionando sobre un cadáver: el radial (F) se cierra y
 	#    deja de leer la tecla; la pausa no puede abrirse encima de la secuencia.

@@ -222,6 +222,7 @@ stream = ExtResource("55_golpe_combate")
 [node name="AudioMuerte1" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"
 stream = ExtResource("56_aud_muerte1")
+volume_db = -6.0
 
 [node name="AudioMuerte2" type="AudioStreamPlayer" parent="."]
 bus = &"Efectos"

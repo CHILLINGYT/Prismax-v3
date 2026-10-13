@@ -104,10 +104,16 @@ func esta_peleando() -> bool:
 func _physics_process(delta: float) -> void:
 	if _anim == null or _controller == null or _body == null:
 		return
-	# Impacto del golpe pendiente (cuenta regresiva en física).
+	# Ventana del golpe pendiente (cuenta regresiva en física).
 	if _impacto_t >= 0.0:
 		_impacto_t -= delta
 		if _impacto_t < 0.0:
+			# EJECUCIÓN del golpe (el puño/las garras llegan a su extensión): el
+			# sonido sale SIEMPRE que el gesto llegue a este punto, con enemigo o
+			# al aire; si el gesto se cancela antes, `_terminar` ya limpió el
+			# impacto pendiente y no suena nada. El DAÑO va aparte y sólo si
+			# conecta: ejecución e impacto válido son dos eventos distintos.
+			_sonar_golpe(_impacto_indice)
 			_impacto_melee(_impacto_indice)
 
 	# En el aire o volando: nada de combate terrestre.
@@ -212,7 +218,8 @@ func _lanzar(indice: int) -> void:
 ##     golpe, conecta con él (seguimiento) — el empuje del enemigo ya no lo salva.
 ##  2. Respaldo por consulta espacial: maniquíes de práctica y cualquier otro
 ##     cuerpo válido (grupos "maniqui" / "damageable") delante del puño.
-## El sonido del golpe (3/4) sale SÓLO cuando el daño quedó confirmado.
+## El SONIDO del golpe NO sale de acá: es el evento de EJECUCIÓN (suena siempre
+## que el gesto llega a la extensión, acierte o no). Acá sólo se aplica daño.
 func _impacto_melee(indice: int) -> void:
 	if _indice == -1:
 		return  # el golpe se cortó (aire, guardia, etc.)
@@ -226,7 +233,6 @@ func _impacto_melee(indice: int) -> void:
 	if objetivo != null and _en_alcance(objetivo):
 		if VueloDano.aplicar(objetivo, danio, adelante, 4.5):
 			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", objetivo.name)
-			_sonar_golpe(indice)
 			return
 	# 2) Respaldo espacial.
 	var espacio := _body.get_world_3d().direct_space_state
@@ -255,7 +261,6 @@ func _impacto_melee(indice: int) -> void:
 			continue
 		if VueloDano.aplicar(cuerpo, danio, adelante, 4.5):
 			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", nodo.name)
-			_sonar_golpe(indice)
 			return
 
 func _terminar() -> void:
@@ -458,8 +463,8 @@ func _frente_objetivo() -> Vector3:
 			return dir.normalized()
 	return _frente_camara()
 
-## Sonido del golpe SÓLO con daño confirmado: Golpe 1 y 3 = sonido 3;
-## Golpe 2 y 4 = sonido 4 (la asignación pedida, adaptada a la cadena real).
+## Sonido de EJECUCIÓN del golpe (asignación pedida: Golpe 1 y 3 = sonido 3;
+## Golpe 2 y 4 = sonido 4). Lo llama la ventana del gesto, no el daño.
 func _sonar_golpe(indice: int) -> void:
 	if _sonidos != null and _sonidos.has_method("golpe"):
 		_sonidos.call("golpe", indice)

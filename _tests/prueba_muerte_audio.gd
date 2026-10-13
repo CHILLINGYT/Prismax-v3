@@ -32,9 +32,11 @@ func _ready() -> void:
 		if p == null:
 			_fallos.append("Falta el reproductor " + n)
 	print("[MUERTE-AUDIO] reproductores 1=", _p[0] != null, " 2=", _p[1] != null, " 3=", _p[2] != null, " 4=", _p[3] != null)
-	if _p[0] != null and _p[1] != null:
-		print("[MUERTE-AUDIO] volúmenes: 1=%.1f dB  2=%.1f dB" % [_p[0].volume_db, _p[1].volume_db])
+	if _p[0] != null and _p[1] != null and _p[2] != null and _p[3] != null:
+		print("[MUERTE-AUDIO] volúmenes: 1=%.1f dB  2=%.1f dB  3=%.1f dB  4=%.1f dB" % [_p[0].volume_db, _p[1].volume_db, _p[2].volume_db, _p[3].volume_db])
+		_comprobar(_p[0].volume_db <= -5.0 and _p[0].volume_db >= -8.5, "el sonido 1 quedó dentro del rango pedido (%.1f dB)" % _p[0].volume_db)
 		_comprobar(_p[1].volume_db < _p[0].volume_db, "el 2 es capa de fondo: volumen propio más bajo que el 1")
+		_comprobar(is_equal_approx(_p[2].volume_db, 0.0) and is_equal_approx(_p[3].volume_db, 0.0), "los volúmenes de 3 y 4 NO se tocaron (%.1f y %.1f dB)" % [_p[2].volume_db, _p[3].volume_db])
 
 func _physics_process(delta: float) -> void:
 	_t += delta
@@ -100,8 +102,8 @@ func _final() -> void:
 	_comprobar(int(_veces["AudioMuerte3"]) == 1, "el 3 (golpe contra el suelo) suena UNA vez")
 	if int(_veces["AudioMuerte4"]) == 1 and int(_veces["AudioMuerte3"]) == 1:
 		_comprobar(float(_t_arranque["AudioMuerte4"]) <= float(_t_arranque["AudioMuerte3"]) + 0.01, "orden real: primero el rodillazo (4) y después el suelo (3)")
-	_comprobar(float(_altura_arranque["AudioMuerte4"]) <= 0.58, "el 4 sale con la cadera ya bajando (%.3f m)" % float(_altura_arranque["AudioMuerte4"]))
-	_comprobar(float(_altura_arranque["AudioMuerte3"]) <= 0.35, "el 3 sale con la cadera en el piso (%.3f m)" % float(_altura_arranque["AudioMuerte3"]))
+	_comprobar(float(_altura_arranque["AudioMuerte4"]) <= 0.62, "el 4 sale con la pierna ya encogida (medida cadera−pies: %.3f m)" % float(_altura_arranque["AudioMuerte4"]))
+	_comprobar(float(_altura_arranque["AudioMuerte3"]) <= 0.40, "el 3 sale con la pierna casi extendida en el piso (%.3f m)" % float(_altura_arranque["AudioMuerte3"]))
 	_comprobar(int(_veces["AudioMuerte1"]) == 1 and int(_veces["AudioMuerte2"]) == 1, "en `morido` NO se repiten el 1 ni el 2")
 	_comprobar(not _sonaba["AudioMuerte1"] and not _sonaba["AudioMuerte2"], "1 y 2 ya terminaron antes del fundido de `morido`")
 	_comprobar(int(_r.get("_muerte_estado")) == 2, "estado final: MORIDO")
