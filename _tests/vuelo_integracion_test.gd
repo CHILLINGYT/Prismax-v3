@@ -54,12 +54,25 @@ func _ready() -> void:
 	_chk("colisión del jugador ACTIVA al inicio", not col_leo.disabled)
 	_chk("id_forma inicial = humano", _j.id_forma() == &"humano")
 
-	# --- Menú: Águila desbloqueada ---
+	# --- Menú: Águila BLOQUEADA hasta completar la misión ---
 	_j.menu_transf.abrir()
 	await get_tree().process_frame
 	var entrada = _j.menu_transf._entradas.get(&"aguila", null)
-	_chk("Águila aparece DESBLOQUEADA en el menú",
-		entrada != null and not entrada["bloqueada"])
+	_chk("Águila aparece BLOQUEADA en el menú (misión sin completar)",
+		entrada != null and entrada["bloqueada"])
+	var candado: CanvasItem = entrada.get("candado", null) if entrada != null else null
+	_chk("el candado rojo de Vuelo está VISIBLE mientras la misión no está completa",
+		candado != null and candado.visible)
+	# Hover sobre Vuelo bloqueado: mensaje EXACTO de dos líneas en la zona central.
+	_j.menu_transf._on_icono_entra(&"aguila")
+	await get_tree().process_frame
+	_chk("el mensaje de bloqueo aparece al pasar el cursor sobre Vuelo",
+		_j.menu_transf._detalle.text == "requiere completar\nla mision",
+		"texto=%s" % _j.menu_transf._detalle.text)
+	_j.menu_transf._on_icono_sale(&"aguila")
+	await get_tree().process_frame
+	_chk("el mensaje desaparece al retirar el cursor de Vuelo",
+		_j.menu_transf._detalle.text == "")
 	# Marca DEMO: escala de grises + etiqueta roja, SÓLO en Águila.
 	var ic_aguila: TextureRect = entrada["tex"] if entrada != null else null
 	var demo_lbl: Label = (
@@ -86,6 +99,20 @@ func _ready() -> void:
 			otras_limpias = false
 	_chk("las demás transformaciones conservan su aspecto (sin gris ni DEMO)",
 		otras_limpias)
+	# Candado FUNCIONAL: con la misión incompleta, Vuelo no se activa ni aunque se
+	# emita la señal de elección directamente (el ControladorLeo lo rechaza).
+	_j.menu_transf.transformacion_elegida.emit(&"aguila")
+	await _esperar(0.5)
+	_chk("con la misión incompleta, Vuelo NO se activa (candado funcional)",
+		_j.forma == _j.Forma.HUMANO and _j.id_forma() == &"humano",
+		"forma=%d" % _j.forma)
+	# Al completar la misión, Vuelo se DESBLOQUEA sin cerrar ni reabrir el menú.
+	Misiones.marcar_completada(Misiones.MISION_PROFUGOS)
+	await get_tree().process_frame
+	_chk("al completar la misión, Águila queda DESBLOQUEADA en el menú",
+		entrada != null and not entrada["bloqueada"])
+	_chk("el candado rojo desaparece al completar la misión",
+		candado != null and not candado.visible)
 	_j.menu_transf.cerrar()
 	await get_tree().process_frame
 
