@@ -332,9 +332,7 @@ grow_horizontal = 2
 mouse_filter = 2
 color = Color(0.45, 0.47, 0.52, 0.8)
 
-[node name="ConfigContent" type="VBoxContainer" parent="Root/ConfigPanel" unique_id=88005884]
-unique_name_in_owner = true
-visible = false
+[node name="ConfigScroll" type="ScrollContainer" parent="Root/ConfigPanel" unique_id=88005885]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -345,22 +343,30 @@ offset_right = -35.0
 offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="ConfigContent" type="VBoxContainer" parent="Root/ConfigPanel/ConfigScroll" unique_id=88005884]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="CalidadFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent" unique_id=734612901]
+[node name="CalidadFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent" unique_id=734612901]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/CalidadFila" unique_id=1983420771]
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/CalidadFila" unique_id=1983420771]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 18
 text = "CALIDAD GRÁFICA"
 vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="CalidadIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/CalidadFila" unique_id=1439206854]
+[node name="CalidadIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/CalidadFila" unique_id=1439206854]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -372,9 +378,9 @@ theme_override_font_sizes/font_size = 22
 text = "<"
 flat = true
 
-[node name="CalidadValor" type="Label" parent="Root/ConfigPanel/ConfigContent/CalidadFila" unique_id=1029384756]
+[node name="CalidadValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/CalidadFila" unique_id=1029384756]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
+custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 18
@@ -382,7 +388,7 @@ text = "ALTA"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CalidadDer" type="Button" parent="Root/ConfigPanel/ConfigContent/CalidadFila" unique_id=1847562930]
+[node name="CalidadDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/CalidadFila" unique_id=1847562930]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -394,19 +400,20 @@ theme_override_font_sizes/font_size = 22
 text = ">"
 flat = true
 
-[node name="ModoFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent" unique_id=632476702]
+[node name="ModoFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent" unique_id=632476702]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/ModoFila" unique_id=713124267]
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ModoFila" unique_id=713124267]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 18
 text = "MODO DE PANTALLA"
 vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="ModoIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/ModoFila" unique_id=1161217560]
+[node name="ModoIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ModoFila" unique_id=1161217560]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -418,9 +425,9 @@ theme_override_font_sizes/font_size = 22
 text = "<"
 flat = true
 
-[node name="ModoValor" type="Label" parent="Root/ConfigPanel/ConfigContent/ModoFila" unique_id=813647855]
+[node name="ModoValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ModoFila" unique_id=813647855]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
+custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 18
@@ -428,7 +435,7 @@ text = "VENTANA"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ModoDer" type="Button" parent="Root/ConfigPanel/ConfigContent/ModoFila" unique_id=734706968]
+[node name="ModoDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ModoFila" unique_id=734706968]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -440,19 +447,20 @@ theme_override_font_sizes/font_size = 22
 text = ">"
 flat = true
 
-[node name="ResolucionFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent" unique_id=1500457706]
+[node name="ResolucionFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent" unique_id=1500457706]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/ResolucionFila" unique_id=1550674884]
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ResolucionFila" unique_id=1550674884]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 18
 text = "RESOLUCIÓN"
 vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="ResolucionIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/ResolucionFila" unique_id=1108061567]
+[node name="ResolucionIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ResolucionFila" unique_id=1108061567]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -464,9 +472,9 @@ theme_override_font_sizes/font_size = 22
 text = "<"
 flat = true
 
-[node name="ResolucionValor" type="Label" parent="Root/ConfigPanel/ConfigContent/ResolucionFila" unique_id=482466116]
+[node name="ResolucionValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ResolucionFila" unique_id=482466116]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
+custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 18
@@ -474,7 +482,7 @@ text = "1280 x 720"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ResolucionDer" type="Button" parent="Root/ConfigPanel/ConfigContent/ResolucionFila" unique_id=1344014588]
+[node name="ResolucionDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/ResolucionFila" unique_id=1344014588]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -486,19 +494,20 @@ theme_override_font_sizes/font_size = 22
 text = ">"
 flat = true
 
-[node name="FpsFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent" unique_id=556857776]
+[node name="FpsFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent" unique_id=556857776]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/FpsFila" unique_id=2061516141]
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/FpsFila" unique_id=2061516141]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 18
 text = "MOSTRAR FPS"
 vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="FpsIzq" type="Button" parent="Root/ConfigPanel/ConfigContent/FpsFila" unique_id=1214811692]
+[node name="FpsIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/FpsFila" unique_id=1214811692]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -510,7 +519,7 @@ theme_override_font_sizes/font_size = 22
 text = "<"
 flat = true
 
-[node name="FpsValor" type="Label" parent="Root/ConfigPanel/ConfigContent/FpsFila" unique_id=2014662602]
+[node name="FpsValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/FpsFila" unique_id=2014662602]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
@@ -520,7 +529,7 @@ text = "NO"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="FpsDer" type="Button" parent="Root/ConfigPanel/ConfigContent/FpsFila" unique_id=359260528]
+[node name="FpsDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/FpsFila" unique_id=359260528]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -532,26 +541,27 @@ theme_override_font_sizes/font_size = 22
 text = ">"
 flat = true
 
-[node name="DistanciaFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigContent" unique_id=935965412]
+[node name="DistanciaFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent" unique_id=935965412]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigContent/DistanciaFila" unique_id=1023179994]
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/DistanciaFila" unique_id=1023179994]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 18
 text = "DISTANCIA DE VISIÓN"
 vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="DistanciaBarra" type="Control" parent="Root/ConfigPanel/ConfigContent/DistanciaFila" unique_id=860339641]
+[node name="DistanciaBarra" type="Control" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/DistanciaFila" unique_id=860339641]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(200, 26)
+custom_minimum_size = Vector2(130, 26)
 layout_mode = 2
 size_flags_vertical = 4
 script = ExtResource("5_barra")
 
-[node name="DistanciaValor" type="Label" parent="Root/ConfigPanel/ConfigContent/DistanciaFila" unique_id=1865399659]
+[node name="DistanciaValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/DistanciaFila" unique_id=1865399659]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
@@ -560,6 +570,170 @@ theme_override_font_sizes/font_size = 18
 text = "5"
 horizontal_alignment = 2
 vertical_alignment = 1
+
+[node name="OptimizacionFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "OPTIMIZACIÓN AGRESIVA DEL MUNDO"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="OptimizacionIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+flat = true
+
+[node name="OptimizacionValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="OptimizacionDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+flat = true
+
+[node name="OptimizacionDependientes" type="VBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="CargaFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/CargaFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "DISTANCIA DE CARGA"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="CargaBarra" type="Control" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/CargaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 26)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("5_barra")
+
+[node name="CargaValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/CargaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "276 m"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="PrecargaFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/PrecargaFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "DISTANCIA DE PRECARGA"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="PrecargaBarra" type="Control" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/PrecargaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 26)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("5_barra")
+
+[node name="PrecargaValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/PrecargaFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "104 m"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="DiagnosticoFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/DiagnosticoFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "MODO DE DIAGNÓSTICO"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="DiagnosticoIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/DiagnosticoFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+flat = true
+
+[node name="DiagnosticoValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/DiagnosticoFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "NO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DiagnosticoDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/OptimizacionDependientes/DiagnosticoFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+flat = true
 
 [node name="JugabilidadContent" type="VBoxContainer" parent="Root/ConfigPanel" unique_id=755279355]
 unique_name_in_owner = true
