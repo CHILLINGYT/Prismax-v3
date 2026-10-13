@@ -44,6 +44,12 @@ extends Node3D
 ## coronilla) para que señale al personaje sin atravesarlo. Material sin sombreado
 ## (shading_mode = 0, UNSHADED): no depende de la luz ni del ciclo día/noche.
 
+## Señal de OBJETIVO: avisa de que la conversación con el obrero EMPIEZA de verdad
+## (el globo de diálogo llegó a abrirse). La usa el cartel de objetivo del HUD para
+## darse por completado. Sólo se emite con la interacción real dentro del rango: ni al
+## acercarse, ni al mirar al NPC, ni al pulsar E fuera de distancia.
+signal dialogo_iniciado
+
 ## Modelo del obrero: el del pack de Mixamo que trae casco, chaleco reflectante,
 ## botas y pantalón de trabajo (verificado en sus piezas y en su atlas de texturas).
 const MODELO := "res://modelos 3d npcs/Ch17_nonPBR.fbx"
@@ -324,6 +330,9 @@ func _abrir_dialogo() -> void:
 	_globo = (Engine.get_singleton("DialogueManager") as Node).show_dialogue_balloon(_dialogo, CUE_INICIO, [self])
 	if _globo != null and _globo.has_signal("cerrado"):
 		_globo.cerrado.connect(_al_cerrar_dialogo)
+	if _globo != null:
+		# La conversación empezó de verdad: aquí el objetivo del cartel queda cumplido.
+		dialogo_iniciado.emit()
 	if _capa_indicador != null:
 		_capa_indicador.visible = false
 
