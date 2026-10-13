@@ -20,11 +20,20 @@ AjustesJugabilidad="*res://ui/scripts/ajustes_jugabilidad.gd"
 AjustesControles="*res://ui/scripts/ajustes_controles.gd"
 AjustesAudio="*res://ui/scripts/ajustes_audio.gd"
 SonidoUI="*res://ui/scripts/sonido_ui.gd"
+DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
+
+[dialogue_manager]
+
+runtime/balloon_path="res://ui/scenes/DialogueBalloon.tscn"
 
 [display]
 
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/dialogue_manager/plugin.gd")
 
 [input]
 

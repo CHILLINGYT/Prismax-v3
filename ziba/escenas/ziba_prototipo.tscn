@@ -33,8 +33,7 @@
 [ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="30_config"]
 [ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
 [ext_resource type="Script" uid="uid://dfm5npml16np4" path="res://world/ambiente_dinamico.gd" id="43_ambiente"]
-[ext_resource type="Script" path="res://eventos/director_eventos.gd" id="44_eventos"]
-[ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://world/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
+[ext_resource type="PackedScene" path="res://NPCs/Scenes/NPC_Estatico_Obrero.tscn" id="44_obrero"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -95,6 +94,8 @@ script = ExtResource("16_ciudad")
 crear_camara_y_luz = false
 generar_en_editor = false
 camara_libre = false
+
+[node name="NPC_Estatico_Obrero" parent="." instance=ExtResource("44_obrero")]
 
 [node name="Farolas" type="Node3D" parent="." node_paths=PackedStringArray("ciudad", "ciclo")]
 script = ExtResource("25_farolas")
