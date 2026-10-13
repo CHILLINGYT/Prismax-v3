@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://NPCs/Scripts/npc_estatico_obrero.gd" id="1_obrero"]
+
+[sub_resource type="StandardMaterial3D" id="Material_flecha_amarilla"]
+shading_mode = 0
+albedo_color = Color(1, 0.84, 0.05, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_cuerpo"]
+radius = 0.3
+height = 1.78
+
+[sub_resource type="CylinderMesh" id="Mesh_punta_flecha"]
+top_radius = 0.12
+bottom_radius = 0.0
+height = 0.24
+radial_segments = 20
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_vastago_flecha"]
+top_radius = 0.045
+bottom_radius = 0.045
+height = 0.3
+radial_segments = 12
+rings = 1
+
+[node name="NPC_Estatico_Obrero" type="Node3D"]
+script = ExtResource("1_obrero")
+
+[node name="Colision" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 1
+
+[node name="Forma" type="CollisionShape3D" parent="Colision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.89, 0)
+shape = SubResource("CapsuleShape3D_cuerpo")
+
+[node name="IndicadorAmarillo" type="Node3D" parent="."]
+
+[node name="Flecha" type="Node3D" parent="IndicadorAmarillo"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+
+[node name="Punta" type="MeshInstance3D" parent="IndicadorAmarillo/Flecha"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0)
+mesh = SubResource("Mesh_punta_flecha")
+material_override = SubResource("Material_flecha_amarilla")
+
+[node name="Vastago" type="MeshInstance3D" parent="IndicadorAmarillo/Flecha"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.39, 0)
+mesh = SubResource("Mesh_vastago_flecha")
+material_override = SubResource("Material_flecha_amarilla")
