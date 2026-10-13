@@ -37,6 +37,7 @@
 [ext_resource type="Script" uid="uid://b6iih6r15h7hi" path="res://eventos/director_eventos.gd" id="44_eventos"]
 [ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://world/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
 [ext_resource type="PackedScene" path="res://ui/scenes/PanelMision.tscn" id="46_mision"]
+[ext_resource type="Script" uid="uid://dumpmnjjb6o4s" path="res://ui/scripts/cartel_objetivo.gd" id="46_cartel"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
