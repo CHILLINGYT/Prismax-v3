@@ -1,0 +1,12 @@
+compilación del .dialogue: 0 error(es) []
+cues: ["inicio"] | primer cue: 0 | personajes: ["Iván"]
+mensaje 1: "Hola, me llamo Iván. Veo que eres nuevo por aquí..." | nombre "Iván"
+mensaje 2: "Llegan en un mal momento. La ciudad se ha vuelto muy peligrosa últimamente" | botón visible false
+mensaje 3: "hay 20 prófugos de la justicia sueltos por ahí." | botón visible false
+mensaje 4: "Se rumorea que un superhéroe camina entre nosotros para protegernos, pero nadie conoce su verdadera identidad. Ten mucho cuidado." | botón visible true
+rect botón   [P: (732.0, 538.0), S: (172.0, 52.0)] -> centro (818.0, 564.0)
+rect etiqueta [P: (248.0, 410.0), S: (656.0, 120.0)] (contiene el centro del botón: false)
+rect marco   [P: (220.0, 348.0), S: (712.0, 260.0)] | tamaño de ventana (1920, 1080) | tamaño del viewport (1152.0, 648.0)
+modo 1: señal pressed = false | globo sigue = true
+modo 2: señal pressed = false | globo sigue = true
+modo 3: señal pressed = true | globo sigue = false

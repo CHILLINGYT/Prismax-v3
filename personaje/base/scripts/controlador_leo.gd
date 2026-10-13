@@ -614,6 +614,10 @@ var estado: int = Estado.NORMAL
 var _transformando: bool = false
 # Verdadero mientras el menú radial de transformaciones (F) está abierto.
 var _menu_abierto: bool = false
+# Verdadero mientras hay una conversación abierta (NPC obrero): el clic izquierdo
+# pertenece al diálogo, así que NO debe iniciar ataques. No bloquea nada más: el
+# movimiento, la cámara, el salto y el resto de acciones quedan exactamente igual.
+var _dialogo_abierto: bool = false
 
 # --- MUERTE del jugador -------------------------------------------------------
 ## Estados de la secuencia: VIVO (juego normal) -> MURIENDO (clip `muerte`) ->
@@ -1035,7 +1039,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and not _dialogo_abierto:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
@@ -1972,6 +1976,35 @@ func _direccion_entrada() -> Vector3:
 	v = v.normalized()
 	return (adelante * (-v.y) + derecha * v.x).normalized()
 
+# ------------------------------------------------------------------ diálogo con NPC
+# El globo de diálogo del proyecto avisa por aquí. Ésta es la ÚNICA puerta que abre y
+# cierra el bloqueo: no se toca el mapa de entrada ni ninguna otra acción, así que los
+# controles, la cámara y el resto del combate quedan exactamente como estaban.
+
+## Verdadero si el clic izquierdo puede iniciar un ataque ahora mismo. Con una
+## conversación abierta el clic pertenece al diálogo y devuelve falso.
+func _clic_ataca() -> bool:
+	return not _dialogo_abierto and Input.is_action_just_pressed("atacar")
+
+## Aviso del globo de diálogo: bloquea (true) o libera (false) los ataques del jugador.
+func bloquear_ataques_por_dialogo(bloquear: bool) -> void:
+	if bloquear:
+		_dialogo_abierto = true
+	else:
+		_soltar_bloqueo_dialogo()
+
+## Al liberar se esperan dos fotogramas de física: el clic que cierra la conversación
+## (o el que pulsa «Entendido») llega en el mismo fotograma, y con el bloqueo ya
+## levantado se colaría como ataque.
+func _soltar_bloqueo_dialogo() -> void:
+	var arbol := get_tree()
+	if arbol == null:
+		return
+	await arbol.physics_frame
+	await arbol.physics_frame
+	if is_inside_tree():
+		_dialogo_abierto = false
+
 func _procesar_humano(delta: float) -> void:
 	if h_salto_aire and is_on_floor():
 		h_salto_aire = false
@@ -2421,7 +2454,7 @@ func _procesar_ataque_acuatico(delta: float) -> void:
 	# El clic se atiende SIEMPRE, también MIENTRAS corre un golpe: es justo lo que
 	# deja el cruzado encolado para cuando el jab termine (la regla del personaje de
 	# Fuerza). Sin golpe en curso, este mismo clic decide qué golpe arranca.
-	if Input.is_action_just_pressed("atacar") and _puede_golpear_acuatico():
+	if _clic_ataca() and _puede_golpear_acuatico():
 		_golpe_acuatico()
 
 
@@ -3323,7 +3356,7 @@ func _procesar_fuerza(delta: float) -> void:
 		# Modo apuntado: con la mole ya arriba, el crosshair marca el centro de
 		# la pantalla y el lanzamiento sale hacia ese punto objetivo.
 		_actualizar_mira_roca(f_roca_lista)
-		if f_roca_lista and is_on_floor() and Input.is_action_just_pressed("atacar"):
+		if f_roca_lista and is_on_floor() and _clic_ataca():
 			_lanzar_roca_fuerza()
 		return
 	if f_ataque or f_recuperacion > 0.0:
@@ -3333,7 +3366,7 @@ func _procesar_fuerza(delta: float) -> void:
 	# por el jugador ni se dispara sola más tarde.
 	# Regla aérea común: los golpes sólo se INICIAN con los pies en el suelo
 	# (el pisotón E y el supersalto siguen siendo acciones aéreas legítimas).
-	if is_on_floor() and Input.is_action_just_pressed("atacar"):
+	if is_on_floor() and _clic_ataca():
 		if f_super_cargando:
 			_cancelar_super()
 		_golpe_fuerza(false)
@@ -4148,7 +4181,7 @@ func _procesar_combate(delta: float) -> void:
 			# Sin gestor en la escena, el buffer es el propio y lo avanza este
 			# controlador (el gestor, si existe, lo actualiza él mismo).
 			combo.update(delta)
-		if is_on_floor() and Input.is_action_just_pressed("atacar"):
+		if is_on_floor() and _clic_ataca():
 			combo.push_input("attack", dir, 10)
 	match c_estado:
 		C_E.ACERCARSE:
@@ -4689,7 +4722,7 @@ func _procesar_normal(delta: float) -> void:
 		var retrocede := Input.is_action_pressed("mover_atras") and not Input.is_action_pressed("mover_adelante")
 		_orientar(delta, -dir if retrocede else dir)
 
-	if is_on_floor() and Input.is_action_just_pressed("atacar"):
+	if is_on_floor() and _clic_ataca():
 		combate.intentar_golpe()
 	if Input.is_action_just_pressed("emote"):
 		_intentar_emote()
