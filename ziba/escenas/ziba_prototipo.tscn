@@ -50,6 +50,17 @@ fog_light_color = Color(0.73, 0.76, 0.81, 1)
 fog_density = 0.00035
 fog_sky_affect = 0.0
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cartel"]
+bg_color = Color(0.11, 0.12, 0.14, 0.92)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+
 [node name="ZibaPrototipo" type="Node3D" unique_id=1645821614]
 
 [node name="Entorno" type="WorldEnvironment" parent="." unique_id=754659190]
@@ -188,6 +199,36 @@ libraries/saltar = ExtResource("9_kcr08")
 libraries/superduper_velocidad = ExtResource("9_luf5j")
 
 [node name="Pausa" parent="." unique_id=263530486 instance=ExtResource("15_pausa")]
+
+[node name="CartelObjetivo" type="CanvasLayer" parent="."]
+visible = false
+layer = 70
+script = ExtResource("46_cartel")
+
+[node name="Margen" type="MarginContainer" parent="CartelObjetivo"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 26
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Cartel" type="PanelContainer" parent="CartelObjetivo/Margen"]
+mouse_filter = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_cartel")
+
+[node name="Texto" type="Label" parent="CartelObjetivo/Margen/Cartel"]
+mouse_filter = 2
+text = "habla con el hombre en la plaza"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 18
 
 [node name="AmbienteDinamico" type="Node" parent="."]
 script = ExtResource("43_ambiente")
