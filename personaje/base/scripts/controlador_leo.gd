@@ -1212,8 +1212,9 @@ func _physics_process(delta: float) -> void:
 # =============================================================== ESTAMINA
 # El SISTEMA (valores, regeneración y bloqueo) vive en EstadisticasJugador; aquí
 # sólo se llama, con las claves centralizadas de CostosEstamina. Reglas:
-#   · El movimiento cobra el tramo que corresponda (caminar/correr/esprintar,
-#     nadar/nado rápido/turbo, volar/boost/picada) y sólo con desplazamiento real.
+#   · El movimiento cobra el tramo que corresponda (correr/esprintar, nadar/nado
+#     rápido/turbo, volar/boost/picada) y sólo con desplazamiento real; CAMINAR no
+#     cuesta estamina (por eso deja regenerar en marcha).
 #   · Nada cobra dos veces: cada ataque paga al ARRANCAR de verdad y cada
 #     habilidad al activarse (nunca al presionar ni al confirmar el impacto).
 #   · Sin estamina se bloquean acciones NUEVAS (ataques, habilidades, dash,
@@ -1249,18 +1250,20 @@ func _procesar_estamina_movimiento(delta: float) -> void:
 	elif not quieto:
 		_tramo_tierra_estamina(delta)
 
-## Tramo terrestre: esprintar/correr con SHIFT (sólo con estamina) o caminar.
-## El velocista usa su propia clave de esprint (su tabla no tiene "correr": su
-## máximo terrestre es el esprint, la tasa más alta de las formas terrestres).
+## Tramo terrestre: SÓLO el esprint/correr con SHIFT consume estamina (y sólo con
+## energía: agotado, el mismo SHIFT queda bloqueado y se camina). CAMINAR NO
+## CUESTA NADA: así el reloj de gasto no se reinicia y la estamina puede
+## regenerarse mientras se anda. El velocista usa su clave de esprint (su tabla no
+## tiene "correr": su máximo terrestre es el esprint, la tasa más alta de las
+## formas terrestres).
 func _tramo_tierra_estamina(delta: float) -> void:
-	var corriendo := Input.is_action_pressed("correr") and not _est_agotada()
-	var clave := &"caminar"
-	if corriendo:
-		clave = &"esprintar" if forma == Forma.VELOCISTA else &"correr"
+	if not (Input.is_action_pressed("correr") and not _est_agotada()):
+		return
+	var clave := &"esprintar" if forma == Forma.VELOCISTA else &"correr"
 	CostosEstamina.gastar_movimiento(self, clave, delta)
 
 ## Consumo del ÁGUILA: volar (con boost/picada) mientras vuela de verdad, y el
-## tramo terrestre cuando camina por el suelo. El cuerpo real es el nodo "Vuelo".
+## esprint terrestre con SHIFT al correr por el suelo. El cuerpo real es "Vuelo".
 func _procesar_estamina_vuelo(delta: float) -> void:
 	if estadisticas == null or not (vuelo is CharacterBody3D):
 		return

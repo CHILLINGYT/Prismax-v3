@@ -2,8 +2,8 @@ class_name HUDCircular
 extends CanvasLayer
 
 ## HUD circular de vida, resistencia y transformación (esquina inferior derecha)
-## más la BARRA DE ESTAMINA, fija a la IZQUIERDA de la pantalla, con el color del
-## personaje activo (tabla central `CostosEstamina`).
+## más la BARRA DE ESTAMINA, VERTICAL y a la DERECHA del dial de vida, con el color
+## del personaje activo (tabla central `CostosEstamina`).
 ##
 ## Es una CAPA VISUAL: no crea ni duplica sistemas de daño, ataque, movimiento
 ## o transformación. Se limita a:
@@ -67,7 +67,7 @@ var _vineta_pulso: float = 0.0      # pico del último golpe (se desvanece solo)
 var _vineta_estado: float = 0.0     # intensidad sostenida actual
 var _vineta_estado_obj: float = 0.0 # objetivo del estado sostenido (escudo roto)
 
-# --- Barra de ESTAMINA (izquierda de la pantalla, fija) ---
+# --- Barra de ESTAMINA (vertical, a la derecha del dial de vida) ---
 # Sólo LEE el sistema compartido (EstadisticasJugador + tabla de colores de
 # CostosEstamina): no duplica estado ni lógica de juego.
 var _est_raiz: Control
@@ -175,13 +175,16 @@ func _process(delta: float) -> void:
 		_vineta_estado = move_toward(_vineta_estado, _vineta_estado_obj, VINETA_VEL_ESTADO * delta)
 		_mat_vineta.set_shader_parameter("intensidad",
 				clampf(_vineta_estado + _vineta_pulso, 0.0, 1.0))
-	# --- Barra de estamina: transición suave hacia el valor real ---
+	# --- Barra de estamina (VERTICAL): transición suave hacia el valor real.
+	# Crece de ABAJO hacia arriba, así que se ajustan la ALTURA y la posición Y. ---
 	if _est_relleno != null:
 		_est_mostrado = lerpf(_est_mostrado, _est_objetivo, 1.0 - exp(-CostosEstamina.EST_SUAVIZADO * delta))
 		if absf(_est_mostrado - _est_objetivo) < 0.0005:
 			_est_mostrado = _est_objetivo
-		_est_relleno.size.x = maxf(0.0,
-				(CostosEstamina.EST_ANCHO - 2.0 * CostosEstamina.EST_BORDE) * _est_mostrado)
+		var largo := CostosEstamina.EST_ALTO - 2.0 * CostosEstamina.EST_BORDE
+		var relleno := maxf(0.0, largo * _est_mostrado)
+		_est_relleno.size.y = relleno
+		_est_relleno.position.y = CostosEstamina.EST_BORDE + (largo - relleno)
 
 	# --- Aviso contextual ---
 	var texto: String = _jugador.texto_interaccion() if _jugador != null else ""
@@ -263,9 +266,9 @@ func _actualizar_icono(id: StringName) -> void:
 
 
 # =============================================================== Barra de estamina
-## Se construye en código (como el resto del diseño del HUD), fija a la IZQUIERDA
-## de la pantalla, y sólo refleja el sistema compartido: ni estado propio ni
-## lógica de juego.
+## Se construye en código (como el resto del diseño del HUD), VERTICAL y a la
+## DERECHA del dial de vida, y sólo refleja el sistema compartido: ni estado
+## propio ni lógica de juego.
 func _construir_estamina() -> void:
 	_est_raiz = Control.new()
 	_est_raiz.name = "BarraEstamina"
@@ -305,17 +308,24 @@ func _construir_estamina() -> void:
 	_colocar_estamina()
 	if not get_viewport().size_changed.is_connected(_colocar_estamina):
 		get_viewport().size_changed.connect(_colocar_estamina)
+	# El dial puede no estar maquetado todavía en _ready: se recoloca en diferido.
+	_colocar_estamina.call_deferred()
 
 
-## Barra fija a la izquierda de la pantalla (el HUD circular vive abajo a la
-## derecha): margen izquierdo + centro vertical. Se recoloca al cambiar de tamaño.
+## Barra VERTICAL inmediatamente a la DERECHA del dial de vida (el HUD circular
+## vive abajo a la derecha). Se recoloca al cambiar el tamaño de la pantalla.
 func _colocar_estamina() -> void:
 	if _est_raiz == null:
 		return
-	var vista := get_viewport().get_visible_rect().size
+	var dial := get_node_or_null("Raiz/Dial") as Control
+	if dial == null:
+		return
+	var r := dial.get_rect()
+	if r.size.x <= 0.0:
+		return
 	_est_raiz.position = Vector2(
-			CostosEstamina.EST_MARGEN_X,
-			vista.y * 0.5 - CostosEstamina.EST_ALTO * 0.5)
+			r.end.x + CostosEstamina.EST_SEPARACION,
+			r.get_center().y - CostosEstamina.EST_ALTO * 0.5)
 
 
 func _on_stamina_cambiada(actual: float, maxima: float) -> void:

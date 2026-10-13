@@ -157,7 +157,10 @@ func _construir_filas(forma: StringName) -> void:
 	_filas.clear()
 
 	for accion in AjustesControles.acciones_para(forma):
-		_crear_fila_accion(accion, forma)
+		if AjustesControles.es_fija(accion):
+			_crear_fila_fija(accion, forma)
+		else:
+			_crear_fila_accion(accion, forma)
 	for extra in _extras_de(forma):
 		_crear_fila_info(String(extra["tecla"]), String(extra["texto"]), String(extra["nota"]))
 
@@ -191,6 +194,28 @@ func _crear_fila_accion(accion: StringName, forma: StringName) -> void:
 	}
 	_filas.append(datos)
 	_actualizar_fila(datos)
+	_conectar_fila(fila, datos)
+
+## Fila FIJA (no reasignable): MISMA presentación que una fila normal (tecla a la
+## izquierda, acción + nota a la derecha) para que se lea CLARAMENTE la tecla, pero
+## pulsarla NO entra en captura: avisa de que es fija. Se usa para CORRER (SHIFT).
+func _crear_fila_fija(accion: StringName, forma: StringName) -> void:
+	var fila := _base_fila()
+	var tecla := _crear_etiqueta_tecla()
+	tecla.text = AjustesControles.texto_de(accion)
+	var texto := _crear_etiqueta_accion(AjustesControles.etiqueta_de(accion, forma),
+			AjustesControles.nota_de(accion, forma))
+	_rellenar(fila, tecla, texto)
+
+	var datos := {
+		"accion": accion,
+		"editable": false,
+		"fondo": fila.get_node("Fondo"),
+		"etiqueta_tecla": tecla,
+		"etiqueta_accion": texto.get_node("Nombre"),
+		"nota": texto.get_node("Nota"),
+	}
+	_filas.append(datos)
 	_conectar_fila(fila, datos)
 
 ## Fila informativa (no editable): se muestra atenuada.
