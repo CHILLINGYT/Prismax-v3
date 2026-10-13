@@ -156,18 +156,36 @@ var _auditorias := 0
 ## cadenas del paseo y de la arena, bancos y reposeras reales. Monta la red,
 ## reparte ciudadanos y los engancha al ciclo día/noche del juego.
 func instalar(datos: Dictionary) -> void:
+	# Sub-temporizadores opcionales (PRISMAX_MEDIR_ETAPAS=1). Son 9 lecturas de
+	# reloj; sin la variable no imprimen nada y no cambian ningún comportamiento.
+	var medir := OS.get_environment("PRISMAX_MEDIR_ETAPAS") == "1"
+	var t0 := Time.get_ticks_usec()
 	_rng.randomize()
 	red = RedPeatonal.new()
 	red.construir(datos)
+	var t_red := Time.get_ticks_usec()          # 1. red peatonal
 	_preparar_asientos(datos)
 	_preparar_reposeras(datos)
+	var t_asientos := Time.get_ticks_usec()      # 2. asientos y reposeras
 	_preparar_obstaculos(datos)
+	var t_obst := Time.get_ticks_usec()          # 3. obstáculos (rejilla espacial)
 	_preparar_portales(datos)
+	var t_port := Time.get_ticks_usec()          # 4. portales (+ búsquedas en la red)
 	_preparar_sectores()
+	var t_sect := Time.get_ticks_usec()          # 5. reparto por sectores
 	_cargar_modelos()
+	var t_mod := Time.get_ticks_usec()           # 6. modelos de ciudadano
 	_buscar_ciclo()
+	var t_ciclo := Time.get_ticks_usec()         # 7. ciclo día/noche
 	_sembrar(datos)
+	var t_sem := Time.get_ticks_usec()           # 8. ciudadanos (reparto + creación)
 	_instalado = true
+	if medir:
+		var ms := func(a: int, b: int) -> float: return float(b - a) / 1000.0
+		print("[Peatones][ETAPAS] red=%.0f ms | asientos+reposeras=%.0f ms | obstaculos=%.0f ms | portales=%.0f ms | sectores=%.0f ms | modelos=%.0f ms | ciclo=%.0f ms | sembrar(ciudadanos)=%.0f ms | TOTAL instalar=%.0f ms" % [
+				ms.call(t0, t_red), ms.call(t_red, t_asientos), ms.call(t_asientos, t_obst),
+				ms.call(t_obst, t_port), ms.call(t_port, t_sect), ms.call(t_sect, t_mod),
+				ms.call(t_mod, t_ciclo), ms.call(t_ciclo, t_sem), ms.call(t0, t_sem)])
 	var res := red.resumen()
 	print("[Peatones] red: %d vértices %s | %d ciudadanos (playa %d) | bancos %d asientos libres %d | reposeras %d libres %d | obstáculos %d | puertas %d usables de %d" % [
 		res["nodos"], res["por_tipo"], peatones.size(), _cuantos_perfil("costa"),
@@ -478,6 +496,17 @@ const MIXAMO_SEXO := {
 }
 ## Sexo de cada modelo cargado, en el mismo orden que `_modelos` (para el sembrado).
 var _sexos: Array[String] = []
+
+
+## Rutas EXACTAS que cargará `_cargar_modelos()`. Permiten pedir los modelos por
+## adelantado en el hilo de ResourceLoader (el mismo mecanismo que usa la pantalla
+## de carga) sin duplicar trabajo: después, cada `load()` de `_cargar_modelos`
+## acierta en la caché de recursos. No depende del mundo ni del RNG.
+static func rutas_modelos() -> Array[String]:
+	var rutas: Array[String] = []
+	for f: String in MODELOS_MIXAMO:
+		rutas.append(DIR_MIXAMO + f)
+	return rutas
 
 
 func _cargar_modelos() -> void:

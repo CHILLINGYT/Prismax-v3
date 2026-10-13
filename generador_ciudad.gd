@@ -150,6 +150,21 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 @export_group("5. Rendimiento")
 ## Agrupa las piezas repetidas en MultiMeshInstance3D (recomendado).
 @export var usar_multimesh: bool = true
+## Agrupa por SECTOR en vez de por pieza: cada sector (bloque de la trama) aloja
+## sus propios MultiMeshInstance3D, de modo que cada zona se pueda activar,
+## dibujar o descargar por separado. Con false se vuelve al comportamiento
+## anterior (un único lote por pieza para toda la ciudad).
+@export var agrupar_por_sector: bool = true
+## Lado (m) de cada sector. Por defecto igual al paso de la trama (manzana +
+## calles), así que un sector es, en la práctica, una manzana.
+@export var lado_sector: float = 42.0
+## Caja envolvente del modelo: une las cajas de sus mallas (`Mesh.get_aabb()`
+## transformada) en vez de recorrer todos sus vértices. Validado en el flujo real
+## (semilla 20261011): `[HASH-CIUDAD]` idéntico con ambos métodos (4948 nodos y 19488
+## matrices MultiMesh), conteos idénticos y `aabb+arrays` 2700 ms → 16 ms (y 1166 → 24 ms
+## en el A/B anterior). El método original (`_aabb_vertices`) sigue en el archivo y se
+## puede seguir usando con PRISMAX_AABB_CAJAS=0.
+@export var usar_aabb_por_cajas: bool = true
 
 @export_group("6. Parques y vegetación")
 ## Manzanas que se convierten en parque (césped, senderos en cruz y árboles).
@@ -242,10 +257,35 @@ var _vista_editor := false   ## true mientras se genera sólo para el visor 3D
 var _carpeta := ""
 var _modelos := {}          ## nombre -> {escena: PackedScene, caja: AABB, categoria: String}
 var _categorias := {}       ## categoria -> PackedStringArray con los nombres encontrados
-var _lotes := {}            ## nombre -> Array[Transform3D] pendientes de MultiMesh
-var _lote_padre := {}       ## nombre -> Node3D que alojará su MultiMeshInstance3D
+var _lotes := {}            ## pieza -> {clave_sector -> {pistas: Array, padre: Node3D}}
+var _sector_padre := {}     ## clave_sector -> Node3D contenedor de ese sector
+var _cont_sectores: Node3D = null   ## contenedor raíz de los sectores (se crea al primer uso)
 var _mm_cache := {}         ## nombre -> bool (¿se puede agrupar en MultiMesh?)
+var _mm_datos := {}         ## PackedScene -> {mallas, sup, malla, local} (una sola instanciación por modelo)
 var _cont := {}             ## nombre -> Node3D contenedor
+# --- MEDICIÓN TEMPORAL DE ETAPAS (instrumentación; se puede borrar entera) ----
+var _medir_etapas := false   ## la activa PRISMAX_MEDIR_ETAPAS=1 (apagada no hace nada)
+var _etapas: Array = []      ## [{nombre, ms, est, delta}]
+var _etapa_nombre := ""
+var _etapa_t0 := 0
+var _sub_scan := {}          ## sub-tiempos del escaneo de modelos (ms por paso)
+var _sub_aabb := {"sup": 0, "verts": 0}   ## superficies y vértices leídos por la AABB
+## Valor EFECTIVO del método de AABB: el export `usar_aabb_por_cajas` (por defecto
+## `true`, unión de cajas de malla) o, sin tocar el archivo, PRISMAX_AABB_CAJAS:
+## 1 = cajas, 0 = método original de vértices. Aquí sólo se guarda el resultado.
+var _aabb_cajas := false
+## P2-C (ACTIVADO por defecto tras la validación P2-C/P2-D): obtener los datos de cada
+## modelo leyendo el estado del PackedScene en vez de instanciar y liberar el template.
+## Elimina `instantiate()`+`free()` (medido 2,1-3,9 s del escaneo en las referencias A/B)
+## dejando solo la lectura del estado (~70-120 ms para 153 modelos). Validado en 4 corridas
+## del arnés real: `[HASH-CIUDAD]` 2901108029 idéntico, 4948 nodos, 19488 matrices,
+## contadores idénticos, 153/153 por estado y 0 fallbacks. Con cualquier estructura no
+## soportada cae automáticamente al método actual (fallback contado y registrado).
+## Se puede volver a la ruta de referencia con PRISMAX_ESCANEO_ESTADO=0.
+@export var escanear_desde_estado: bool = true
+var _escanear_estado := false
+var _leidos_estado := 0      ## modelos resueltos leyendo el estado (diagnóstico)
+var _fallbacks_estado := 0   ## modelos que cayeron al método actual (diagnóstico)
 var _trazado := {}          ## parámetros calculados de la trama urbana
 var _est := {}              ## contadores para el informe
 
@@ -336,7 +376,37 @@ var prueba_esquinas: Array[Vector3] = []
 var prueba_esquinas_dir: Array[Vector3] = []
 
 
+## Recursos del sistema de peatones, pedidos por adelantado en segundo plano con el
+## hilo de ResourceLoader (el MISMO mecanismo que ya usa LoadingScreen). No dependen
+## de la ciudad, del mundo instanciado, del RNG ni de ningún ajuste: sólo se adelanta
+## su carga para que no bloquee el hilo principal al instalar el director, que sigue
+## llamando a `load()` como siempre y encuentra los recursos ya en caché.
+const DIRECTOR_PEATONES := preload("res://NPCs/Scripts/director_peatones.gd")
+const ESCENA_CIUDADANO := "res://NPCs/Scenes/NPC_Citizen.tscn"
+
+
+func _precargar_recursos_peatones() -> void:
+	var fallos := 0
+	for ruta: String in DIRECTOR_PEATONES.rutas_modelos():
+		if ResourceLoader.load_threaded_request(ruta) != OK:
+			fallos += 1
+	if ResourceLoader.load_threaded_request(ESCENA_CIUDADANO) != OK:
+		fallos += 1
+	if fallos > 0:
+		# No es fatal: el director los cargará de forma síncrona al instalar,
+		# como venía haciendo; sólo se pierde el adelanto.
+		push_warning("[GeneradorCiudad] no se pudieron adelantar %d recursos de peatón" % fallos)
+
+
 func _ready() -> void:
+	_medir_etapas = OS.get_environment("PRISMAX_MEDIR_ETAPAS") == "1"
+	_aabb_cajas = usar_aabb_por_cajas
+	var env_aabb := OS.get_environment("PRISMAX_AABB_CAJAS")
+	if env_aabb == "1":
+		_aabb_cajas = true
+	elif env_aabb == "0":
+		_aabb_cajas = false
+	_escanear_estado = escanear_desde_estado or OS.get_environment("PRISMAX_ESCANEO_ESTADO") == "1"
 	if Engine.is_editor_hint():
 		# Vista de trabajo en el editor: se genera la ciudad para poder verla en
 		# el visor 3D sin pulsar Play. Sin "owner" (no se guarda al salvar) y con
@@ -353,6 +423,9 @@ func _ready() -> void:
 	if cam_inicial != null:
 		cam_inicial.position = Vector3(168.0, 124.0, 168.0)
 		cam_inicial.rotation_degrees = Vector3(-27.5, 45.0, 0.0)
+	# Los recursos de los peatones se piden ya en segundo plano: no dependen de la
+	# ciudad y así su carga no bloquea el hilo principal al instalar el director.
+	_precargar_recursos_peatones()
 	if generar_al_iniciar:
 		generar_ciudad()
 
@@ -360,6 +433,112 @@ func _ready() -> void:
 # =============================================================================
 #  API pública
 # =============================================================================
+
+# =============================================================================
+#  MEDICIÓN DE ETAPAS (instrumentación temporal: borrar este bloque entero)
+# =============================================================================
+## Con PRISMAX_MEDIR_ETAPAS=1, cada generación imprime una tabla con el tiempo y
+## los elementos de cada etapa. Sin esa variable no hace NADA (ni marcadores ni
+## impresiones), así que no cambia el comportamiento normal.
+func _m(nombre: String) -> void:
+	if not _medir_etapas:
+		return
+	var ahora := Time.get_ticks_usec()
+	if _etapa_nombre != "":
+		_etapas.append({
+			"nombre": _etapa_nombre,
+			"ms": float(ahora - _etapa_t0) / 1000.0,
+			"est": _est.duplicate(),
+		})
+	_etapa_nombre = nombre
+	_etapa_t0 = ahora
+
+
+## Cierra la última etapa y escribe la tabla, de mayor a menor duración.
+func _m_fin() -> void:
+	if not _medir_etapas or _etapa_nombre == "":
+		return
+	_m("####")                     # cierra (guarda) la última etapa real
+	var prev := {}
+	var total := 0.0
+	for e in _etapas:
+		var d: Dictionary = e
+		d["delta"] = _delta_est(prev, d["est"])
+		prev = d["est"]
+		total += float(d["ms"])
+	print("[GeneradorCiudad][ETAPAS] ===== tabla de etapas: total %.0f ms =====" % total)
+	var orden := _etapas.duplicate()
+	orden.sort_custom(_mayor_ms)
+	for e in orden:
+		var d: Dictionary = e
+		var cola := String(d["delta"])
+		print("[GeneradorCiudad][ETAPAS] %7.1f ms | %-28s | %s" % [
+				float(d["ms"]), String(d["nombre"]), cola if cola != "" else "-"])
+	print("[GeneradorCiudad][ETAPAS] ===== fin de la tabla =====")
+	if not _sub_scan.is_empty():
+		print("[GeneradorCiudad][ESCANEO] load=%.0f ms | instantiate=%.0f ms | aabb+arrays=%.0f ms | decal=%.0f ms | datos_malla=%.0f ms (recorrido_arbol=%.0f + plantilla_free=%.0f)" % [
+				float(_sub_scan.get("load", 0.0)), float(_sub_scan.get("instantiate", 0.0)),
+				float(_sub_scan.get("aabb", 0.0)), float(_sub_scan.get("decal", 0.0)),
+				float(_sub_scan.get("datos_malla", 0.0)),
+				float(_sub_scan.get("recorrido_arbol", 0.0)), float(_sub_scan.get("plantilla_free", 0.0))])
+		var coste_estado := float(_sub_scan.get("escaneo_estado", 0.0))
+		_sub_scan.clear()
+		_sub_aabb = {"sup": 0, "verts": 0}
+		if _escanear_estado:
+			print("[GeneradorCiudad][ESCANEO-ESTADO] leidos=%d | fallbacks=%d | coste_estado=%.0f ms" % [
+					int(_leidos_estado), int(_fallbacks_estado), coste_estado])
+		_leidos_estado = 0
+		_fallbacks_estado = 0
+	_etapas.clear()
+	_etapa_nombre = ""
+
+
+## Acumula un sub-tiempo del escaneo (sólo con la medición activa).
+func _sumar_sub(nombre: String, desde: int, hasta: int) -> void:
+	_sub_scan[nombre] = float(_sub_scan.get(nombre, 0.0)) + float(hasta - desde) / 1000.0
+
+
+func _mayor_ms(a: Dictionary, b: Dictionary) -> bool:
+	return float(a["ms"]) > float(b["ms"])
+
+
+## Elementos generados durante una etapa (diferencia de los contadores del informe).
+func _delta_est(prev: Dictionary, ahora: Dictionary) -> String:
+	var partes: Array[String] = []
+	var claves: Array = ahora.keys()
+	claves.sort()
+	for k in claves:
+		var d := int(ahora[k]) - int(prev.get(k, 0))
+		if d != 0:
+			partes.append("%s +%d" % [String(k), d])
+	return " · ".join(partes)
+
+
+## La vía por etapas YA emite `progreso_generacion` al cerrar cada etapa: basta
+## engancharse a esa señal para medir el camino real que usa la pantalla de carga,
+## sin tocar su código, sus señales ni su comportamiento.
+func _etapa_emitida(_valor: float, etapa: String) -> void:
+	if not _medir_etapas:
+		return
+	_m(etapa)
+
+
+func _etapas_ini() -> void:
+	if not _medir_etapas:
+		return
+	_etapas.clear()
+	_etapa_nombre = ""
+	if not progreso_generacion.is_connected(_etapa_emitida):
+		progreso_generacion.connect(_etapa_emitida)
+
+
+func _etapas_fin() -> void:
+	if not _medir_etapas:
+		return
+	if progreso_generacion.is_connected(_etapa_emitida):
+		progreso_generacion.disconnect(_etapa_emitida)
+	_m_fin()
+
 
 ## Borra la ciudad anterior (si existe) y genera una nueva con la semilla actual.
 func generar_ciudad() -> void:
@@ -379,15 +558,19 @@ func generar_ciudad() -> void:
 	if _carpeta == "":
 		push_error("[GeneradorCiudad] No se encontró ninguna carpeta con modelos .gltf/.glb.")
 		return
+	_m("escaneo de modelos")
 	_escanear(_carpeta)
 	if _modelos.is_empty():
 		push_error("[GeneradorCiudad] La carpeta %s no contiene modelos utilizables." % _carpeta)
 		return
+	_m("listas y texturas")
 	_construir_listas()
 	_cargar_vegetacion_extra()
 
 	# 2) Trazado y contenedores --------------------------------------------
+	_m("trazado urbano")
 	_preparar_trazado()
+	_m("contenedores")
 	_crear_contenedores()
 	_est = {"prefabs": 0, "modulares": 0, "props": 0, "vegetacion": 0, "arboles": 0,
 			"parques": 0, "bancos": 0, "macetas": 0, "parcelas": 0, "plazas": 0,
@@ -396,20 +579,35 @@ func generar_ciudad() -> void:
 			"arbustos_costa": 0, "ventanas": 0, "ventanas_luz": 0}
 
 	# 3) Construcción de la ciudad -----------------------------------------
+	_m("configurar escena")
 	_configurar_escena()
+	_m("suelo")
 	_generar_suelo()
+	_m("calles y aceras")
 	_generar_calles()
+	_m("manzanas y edificios")
 	_generar_manzanas()
+	_m("paseo costero")
 	_generar_paseo_costero()
+	_m("playa")
 	_generar_playa()
+	_m("vegetación costera")
 	_vegetacion_costera()
+	_m("mobiliario")
 	_generar_mobiliario()
+	_m("volcado vegetación")
 	_volcar_vegetacion()
+	_m("volcado de lotes (multimesh)")
 	_volcar_lotes()
+	_m("macetas")
 	_volcar_macetas()
+	_m("volcado de playa")
 	_volcar_playa()
+	_m("ventanas")
 	_volcar_ventanas()
+	_m("colisiones de vegetación")
 	_construir_colisiones_vegetacion()
+	_m("peatones")
 	_generar_peatones()
 	# Marca de "ciudad cerrada": la usan las farolas (Farolas) para saber que ya pueden
 	# leer el mobiliario real de las aceras y plantar sus postes sin meterse en un árbol.
@@ -422,6 +620,7 @@ func generar_ciudad() -> void:
 		_enfocar_vista_editor()
 	var ms := Time.get_ticks_msec() - t0
 	_informe(ms)
+	_m_fin()
 
 
 ## Igual que generar_ciudad(), pero reparte el trabajo entre fotogramas para que
@@ -443,6 +642,7 @@ func generar_ciudad() -> void:
 ##   multimesh de piezas      0.93 - 1.00
 func generar_ciudad_por_etapas() -> bool:
 	var t0 := Time.get_ticks_msec()
+	_etapas_ini()
 	limpiar_ciudad()
 
 	_rng = RandomNumberGenerator.new()
@@ -574,7 +774,6 @@ func generar_ciudad_por_etapas() -> bool:
 			progreso_generacion.emit(0.93 + 0.07 * float(idx + 1) / float(maxi(total_lotes, 1)), "cerrando la ciudad")
 			await get_tree().process_frame
 	_lotes.clear()
-	_lote_padre.clear()
 	_volcar_macetas()
 	_volcar_playa()
 	_volcar_ventanas()
@@ -583,6 +782,7 @@ func generar_ciudad_por_etapas() -> bool:
 	_est["ciudad_lista"] = 1
 
 	_informe(Time.get_ticks_msec() - t0)
+	_etapas_fin()
 	progreso_generacion.emit(1.0, "listo")
 	return true
 
@@ -638,8 +838,10 @@ func limpiar_ciudad() -> void:
 	if anterior != null:
 		anterior.free()          # liberación inmediata: permite regenerar en el acto
 	_lotes.clear()
-	_lote_padre.clear()
+	_sector_padre.clear()
+	_cont_sectores = null
 	_mm_cache.clear()
+	_mm_datos.clear()
 	_cont.clear()
 	_con_decal.clear()
 	_mallas_limpias.clear()
@@ -803,17 +1005,57 @@ func _escanear(carpeta: String) -> void:
 ## escaneo, para poder repartirlo entre fotogramas en la carga por etapas.
 func _escanear_archivo(carpeta: String, archivo: String) -> void:
 	var ruta := carpeta.path_join(archivo)
+	var t_ini := Time.get_ticks_usec()
 	var recurso := ResourceLoader.load(ruta)
+	var t_load := Time.get_ticks_usec()
 	if not (recurso is PackedScene):
 		push_warning("[GeneradorCiudad] No se pudo cargar %s" % ruta)
 		return
 	var escena := recurso as PackedScene
-	var plantilla := escena.instantiate() as Node3D
-	if plantilla == null:
-		return
-	var caja := _aabb_vertices(plantilla)
-	var decal := _tiene_capa_decal(plantilla)
-	plantilla.free()
+	var caja := AABB()
+	var decal := false
+	var t_inst := t_load
+	var t_aabb := t_load
+	var t_decal := t_load
+	var t_rec := t_load
+	var desde_estado := false
+	if _escanear_estado:
+		var d := _datos_desde_estado(escena)
+		if d.is_empty():
+			_fallbacks_estado += 1      # estructura no soportada → método actual
+		else:
+			caja = d["caja"]
+			decal = d["decal"]
+			_mm_datos[escena] = {"mallas": d["mallas"], "sup": d["sup"], "malla": d["malla"], "local": d["local"]}
+			desde_estado = true
+			_leidos_estado += 1
+		t_rec = Time.get_ticks_usec()
+	if not desde_estado:
+		var plantilla := escena.instantiate() as Node3D
+		t_inst = Time.get_ticks_usec()
+		if plantilla == null:
+			return
+		caja = _aabb_modelo(plantilla)
+		t_aabb = Time.get_ticks_usec()
+		decal = _tiene_capa_decal(plantilla)
+		t_decal = Time.get_ticks_usec()
+		# Los datos de agrupación se leen de ESTA MISMA instancia: así el prefab no se
+		# vuelve a instanciar después (ni en _es_multimesh ni al volcar los lotes).
+		_datos_malla(escena, plantilla)
+		t_rec = Time.get_ticks_usec()
+		plantilla.free()
+	var t_fin := Time.get_ticks_usec()
+	if _medir_etapas:
+		_sumar_sub("load", t_ini, t_load)
+		if desde_estado:
+			_sumar_sub("escaneo_estado", t_load, t_rec)
+		else:
+			_sumar_sub("instantiate", t_load, t_inst)
+			_sumar_sub("aabb", t_inst, t_aabb)
+			_sumar_sub("decal", t_aabb, t_decal)
+			_sumar_sub("datos_malla", t_decal, t_fin)      # recorrido + liberación
+			_sumar_sub("recorrido_arbol", t_decal, t_rec)  # sólo el recorrido
+			_sumar_sub("plantilla_free", t_rec, t_fin)     # sólo plantilla.free()
 	var nombre := archivo.get_basename()
 	var categoria := _clasificar(nombre)
 	_modelos[nombre] = {"escena": escena, "caja": caja, "categoria": categoria}
@@ -1082,6 +1324,40 @@ func _medir_esquina_redondeada(caja: AABB, escena: PackedScene) -> Vector2i:
 # =============================================================================
 
 ## AABB exacta de un modelo, leyendo sus vértices (más fiable que get_aabb()).
+## AABB del modelo, en el espacio local de `nodo`. Por defecto usa la unión de las cajas
+## de malla (P1, activado); el método original por vértices sigue disponible con
+## `usar_aabb_por_cajas = false` o PRISMAX_AABB_CAJAS=0.
+func _aabb_modelo(nodo: Node) -> AABB:
+	if _aabb_cajas:
+		return _aabb_por_cajas(nodo)
+	return _aabb_vertices(nodo)
+
+
+## Método EXPERIMENTAL: caja envolvente uniendo las cajas de las mallas
+## (`Mesh.get_aabb()` transformada por la transformación RELATIVA de cada una
+## respecto a `nodo`, el mismo espacio que usa `_aabb_vertices`). No lee los
+## vértices, así que no copia arrays de superficie. No sustituye a `_aabb_vertices`.
+func _aabb_por_cajas(nodo: Node) -> AABB:
+	var pila: Array[Node] = [nodo]
+	var caja := AABB()
+	var primera := true
+	while not pila.is_empty():
+		var n: Node = pila.pop_back()
+		for c in n.get_children():
+			pila.append(c)
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh == null:
+				continue
+			var c2: AABB = _transform_relativo(nodo, mi) * mi.get_aabb()
+			if primera:
+				caja = c2
+				primera = false
+			else:
+				caja = caja.merge(c2)
+	return caja
+
+
 func _aabb_vertices(nodo: Node) -> AABB:
 	var verts := PackedVector3Array()
 	_vertices(nodo, verts)
@@ -1129,8 +1405,100 @@ func _transform_relativo(raiz: Node, nodo: Node) -> Transform3D:
 
 ## Devuelve {malla, local} si el modelo es un único MeshInstance3D (agrupable
 ## en MultiMesh, ya que los materiales viven en las superficies de la malla).
+##
+## Los datos se calculan UNA sola vez por PackedScene (caché `_mm_datos`): el
+## escaneo ya instancia el prefab, así que allí se reutiliza esa misma instancia
+## en vez de crear otra. El resultado es idéntico al de instanciar y mirar.
 func _malla_unica(escena: PackedScene, permitir_multi_superficie: bool = false) -> Dictionary:
-	var raiz := escena.instantiate()
+	var info: Dictionary = _mm_datos.get(escena, {})
+	if info.is_empty():
+		var raiz := escena.instantiate()
+		info = _datos_malla(escena, raiz)
+		raiz.free()
+	# Sólo es agrupable si tiene UNA malla y esa malla tiene UNA superficie (las
+	# mallas con varias capas — calzada + pintura — se instancian una a una),
+	# salvo que el llamante permita varias superficies (cada una con su material),
+	# como el cantero Sidewalk_Planter (cemento + tierra).
+	if int(info["mallas"]) == 1 and int(info["sup"]) >= 1 \
+			and (int(info["sup"]) == 1 or permitir_multi_superficie):
+		return {"malla": info["malla"], "local": info["local"]}
+	return {}
+
+
+## Mide las mallas de una instancia YA existente (nº de MeshInstance3D, superficies
+## de la única malla y su transformación relativa a la raíz) y lo cachea por
+## PackedScene. Guarda la MALLA (recurso compartido del PackedScene, que sigue vivo
+## en `_modelos`) y un Transform3D: nunca una referencia al nodo instanciado.
+## P2-C: obtiene del estado del PackedScene lo mismo que el método actual obtiene
+## instanciando el template. Mismo espacio de coordenadas que `_aabb_por_cajas` (une las
+## cajas de las mallas transformadas relativas a la raíz). Devuelve {} si algo no se puede
+## reconstruir con seguridad (sub-escena instanciada, malla ausente o transformación en la
+## raíz) para que el llamante caiga al método actual. No instancia nada.
+func _datos_desde_estado(escena: PackedScene) -> Dictionary:
+	var st := escena.get_state()
+	if st == null:
+		return {}
+	var trans := {}                 ## ruta -> Transform3D (identidad si no se guarda)
+	var caja := AABB()
+	var primera := true
+	var mallas := 0
+	var sup := 0
+	var malla: Mesh = null
+	var local := Transform3D()
+	var decal := false
+	for i in st.get_node_count():
+		var ruta := String(st.get_node_path(i))
+		if st.is_node_instance_placeholder(i):
+			return {}               ## sub-escena instanciada: no inspeccionable aquí
+		var tr := Transform3D.IDENTITY
+		for p in st.get_node_property_count(i):
+			if String(st.get_node_property_name(i, p)) == "transform":
+				tr = st.get_node_property_value(i, p) as Transform3D
+		trans[ruta] = tr
+		if String(st.get_node_type(i)) != "MeshInstance3D":
+			continue
+		## Transformación relativa: se compone por la ruta del nodo (la raíz se omite).
+		var rel := Transform3D.IDENTITY
+		var acum := ""
+		for parte in ruta.split("/"):
+			acum = parte if acum == "" else acum + "/" + parte
+			if trans.has(acum):
+				rel = (trans[acum] as Transform3D) * rel
+		var m: Mesh = null
+		for p in st.get_node_property_count(i):
+			if String(st.get_node_property_name(i, p)) == "mesh":
+				m = st.get_node_property_value(i, p) as Mesh
+		if m == null:
+			return {}               ## sin malla: no reproducible con seguridad
+		for s in m.get_surface_count():
+			var mat := m.surface_get_material(s)
+			if mat != null and _es_capa_decal(mat):
+				decal = true
+		var c2: AABB = rel * m.get_aabb()
+		if primera:
+			caja = c2
+			primera = false
+		else:
+			caja = caja.merge(c2)
+		mallas += 1
+		if mallas == 1:
+			malla = m
+			local = rel
+			sup = m.get_surface_count()
+	if primera:
+		return {}                   ## sin mallas: lo trata el método actual
+	if trans.has("") and (trans[""] as Transform3D) != Transform3D.IDENTITY:
+		return {}                   ## transformación en la raíz: la composición la ignora
+	if trans.has(".") and (trans["."] as Transform3D) != Transform3D.IDENTITY:
+		return {}
+	if mallas > 1:
+		malla = null
+		local = Transform3D()
+		sup = 0
+	return {"caja": caja, "decal": decal, "mallas": mallas, "sup": sup, "malla": malla, "local": local}
+
+
+func _datos_malla(escena: PackedScene, raiz: Node) -> Dictionary:
 	var mallas: Array[Node] = []
 	var pila: Array[Node] = [raiz]
 	while not pila.is_empty():
@@ -1139,22 +1507,27 @@ func _malla_unica(escena: PackedScene, permitir_multi_superficie: bool = false) 
 			pila.append(c)
 		if n is MeshInstance3D:
 			mallas.append(n)
-	var datos := {}
-	# Sólo es agrupable si tiene UNA malla de UN solo material (las mallas con
-	# varias capas — calzada + pintura — se instancian una a una). Con
-	# permitir_multi_superficie se aceptan mallas de varias superficies (cada
-	# una con su material), como el cantero Sidewalk_Planter (cemento + tierra).
+	var sup := 0
+	var malla: Mesh = null
+	var local := Transform3D()
 	if mallas.size() == 1:
 		var mi := mallas[0] as MeshInstance3D
-		if mi.mesh != null and (mi.mesh.get_surface_count() == 1 or permitir_multi_superficie):
-			datos = {"malla": mi.mesh, "local": _transform_relativo(raiz, mi)}
-	raiz.free()
+		if mi.mesh != null:
+			sup = mi.mesh.get_surface_count()
+			malla = mi.mesh
+			local = _transform_relativo(raiz, mi)
+	var datos := {"mallas": mallas.size(), "sup": sup, "malla": malla, "local": local}
+	_mm_datos[escena] = datos
 	return datos
 
 
 func _es_multimesh(nombre: String) -> bool:
 	if not _mm_cache.has(nombre):
-		var datos := _malla_unica(_modelos[nombre]["escena"])
+		# Se aceptan también las mallas de VARIAS superficies (cada una con su
+		# material): MultiMesh las dibuja igual que las de una sola, y así entran
+		# los muros modulares, suelos, calles, tejados y marcos de puerta, que son
+		# el grueso de las piezas de la ciudad.
+		var datos := _malla_unica(_modelos[nombre]["escena"], true)
 		_mm_cache[nombre] = not datos.is_empty()
 	return bool(_mm_cache[nombre])
 
@@ -1300,12 +1673,51 @@ func _colocar(pieza: String, xf: Transform3D, padre: Node3D, limpiar_decal: bool
 		return
 	var agrupable := usar_multimesh and not (limpiar_decal and bool(_con_decal.get(pieza, false)))
 	if agrupable and _es_multimesh(pieza):
+		# La pieza se guarda en el lote de SU sector (bloque). Un sector es la
+		# unidad que después se puede activar, dibujar o descargar por separado;
+		# con agrupar_por_sector apagado todas caen en "0_0" y el resultado es el
+		# de antes (un lote por pieza para toda la ciudad).
 		if not _lotes.has(pieza):
-			_lotes[pieza] = []
-			_lote_padre[pieza] = padre
-		(_lotes[pieza] as Array).append(xf)
+			_lotes[pieza] = {}
+		var por_sector: Dictionary = _lotes[pieza]
+		var clave := _clave_sector(xf.origin) if agrupar_por_sector else "0_0"
+		if not por_sector.has(clave):
+			por_sector[clave] = {
+				"pistas": [],
+				"padre": _padre_sector(clave) if agrupar_por_sector else padre,
+			}
+		var grupo: Dictionary = por_sector[clave]
+		(grupo["pistas"] as Array).append(xf)
 	else:
 		_instanciar_pieza(pieza, xf, padre, pieza, limpiar_decal)
+
+
+## Clave del sector (bloque) que contiene un punto del mundo.
+func _clave_sector(p: Vector3) -> String:
+	var lado := maxf(1.0, lado_sector)
+	return "%d_%d" % [int(floorf(p.x / lado)), int(floorf(p.z / lado))]
+
+
+## Contenedor de un sector, creado la primera vez que una pieza cae en él. Todos
+## los sectores viven bajo un único nodo "Sectores" colgado del nodo de ciudad,
+## de modo que activar o descargar una zona es operar sobre UN nodo.
+func _padre_sector(clave: String) -> Node3D:
+	if _sector_padre.has(clave):
+		return _sector_padre[clave] as Node3D
+	if _cont_sectores == null or not is_instance_valid(_cont_sectores):
+		_cont_sectores = Node3D.new()
+		_cont_sectores.name = "Sectores"
+		var raiz := get_node_or_null(NODO_CIUDAD)
+		if raiz != null:
+			raiz.add_child(_cont_sectores)
+		else:
+			add_child(_cont_sectores)
+		_marcar_owner(_cont_sectores)
+	var sector := Node3D.new()
+	sector.name = "S_%s" % clave
+	_cont_sectores.add_child(sector)
+	_sector_padre[clave] = sector
+	return sector
 
 
 func _instanciar_pieza(pieza: String, xf: Transform3D, padre: Node3D, nombre: String,
@@ -2764,7 +3176,6 @@ func _volcar_lotes() -> void:
 	for clave in _lotes.keys():
 		_volcar_lote(String(clave))
 	_lotes.clear()
-	_lote_padre.clear()
 
 
 ## Vuelca todas las macetas de árbol en UN único MultiMeshInstance3D (un solo
@@ -3339,29 +3750,37 @@ func _volcar_ventanas() -> void:
 
 ## Convierte UN lote en su MultiMeshInstance3D (unidad de trabajo del cierre).
 func _volcar_lote(pieza: String) -> void:
-	var lista: Array = _lotes.get(pieza, [])
-	if lista.is_empty():
+	var por_sector: Dictionary = _lotes.get(pieza, {})
+	if por_sector.is_empty():
 		return
-	var padre: Node3D = _lote_padre[pieza]
-	var datos := _malla_unica(_modelos[pieza]["escena"])
-	if datos.is_empty():
-		# No agrupable (varias mallas): se instancian una a una.
-		for xf in lista:
-			_instanciar_pieza(pieza, xf, padre, pieza)
-		return
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = datos["malla"]
-	mm.set_instance_count(lista.size())
-	var local: Transform3D = datos["local"]
-	for k in lista.size():
-		mm.set_instance_transform(k, (lista[k] as Transform3D) * local)
-	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "%s_x%d" % [pieza, lista.size()]
-	mmi.multimesh = mm
-	if _es_plancha_techo(pieza):
-		mmi.material_override = _material_techo(pieza)
-	padre.add_child(mmi)
+	# La malla del modelo se resuelve UNA vez por pieza (se reutiliza en todos
+	# los sectores) y se acepta multi-superficie, igual que al agrupar.
+	var datos := _malla_unica(_modelos[pieza]["escena"], true)
+	var techo := _es_plancha_techo(pieza)
+	for clave in por_sector.keys():
+		var grupo: Dictionary = por_sector[clave]
+		var lista: Array = grupo["pistas"]
+		if lista.is_empty():
+			continue
+		var padre: Node3D = grupo["padre"]
+		if datos.is_empty():
+			# No agrupable (varias mallas): se instancian una a una.
+			for xf in lista:
+				_instanciar_pieza(pieza, xf, padre, pieza)
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = datos["malla"]
+		mm.set_instance_count(lista.size())
+		var local: Transform3D = datos["local"]
+		for k in lista.size():
+			mm.set_instance_transform(k, (lista[k] as Transform3D) * local)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "%s_x%d" % [pieza, lista.size()]
+		mmi.multimesh = mm
+		if techo:
+			mmi.material_override = _material_techo(pieza)
+		padre.add_child(mmi)
 
 
 ## En el editor, marca la propiedad "owner" para que los nodos se guarden.
@@ -3376,6 +3795,48 @@ func _marcar_owner(nodo: Node) -> void:
 		nodo.owner = raiz
 	for c in nodo.get_children():
 		_marcar_owner(c)
+
+
+## Hash determinista de las transformaciones del árbol generado (origen, base de cada
+## Node3D y matrices de instancia de cada MultiMesh), para comparar dos configuraciones
+## con la MISMA semilla. Sólo se calcula con la medición activa.
+## Subárboles EXCLUIDOS del hash de ciudad estática, con su porqué. NO se excluye
+## ningún nodo de la ciudad generada: sólo lo que se crea de forma aleatoria o
+## escalonada en el tiempo y por tanto no es reproducible entre ejecuciones.
+##  - "Peatones": su director llama a `_rng.randomize()` (aleatorio por diseño, ya
+##    existente) y los ciudadanos nacen escalonados durante los fotogramas de la
+##    generación por etapas, así que su número y colocación cambian entre corridas.
+##    Se mide aparte con [HASH-PEATONES] para diagnosticar esa variación.
+const HASH_EXCLUIDOS: Array[String] = ["Peatones"]
+
+## Hash determinista de un árbol. Si `excluir` contiene NOMBRES de nodos, se saltan
+## esos subárboles enteros (se cuentan en `saltados`). Devuelve
+## [hash, nodos_incluidos, instancias_multimesh, subárboles_saltados].
+func _hash_transformaciones(raiz: Node, excluir: Array = []) -> Array:
+	var cuerpo := ""
+	var nodos := 0
+	var instancias := 0
+	var saltados := 0
+	var pila: Array[Node] = [raiz]
+	while not pila.is_empty():
+		var n: Node = pila.pop_back()
+		if excluir.has(String(n.name)):
+			saltados += 1
+			continue
+		if n is Node3D:
+			var tr := (n as Node3D).transform
+			cuerpo += "%s|%s|%s;" % [str(n.get_path()), str(tr.origin), str(tr.basis)]
+			nodos += 1
+		if n is MultiMeshInstance3D:
+			var mm := (n as MultiMeshInstance3D).multimesh
+			if mm != null:
+				cuerpo += "%s|mm%d;" % [str(n.get_path()), mm.instance_count]
+				for i in mm.instance_count:
+					cuerpo += str(mm.get_instance_transform(i))
+				instancias += mm.instance_count
+		for c in n.get_children():
+			pila.append(c)
+	return [hash(cuerpo), nodos, instancias, saltados]
 
 
 func _informe(ms: int) -> void:
@@ -3434,6 +3895,17 @@ func _informe(ms: int) -> void:
 		sueltos = conteo[1]
 	print("[GeneradorCiudad] MultiMeshInstance3D: %d | nodos instanciados: %d | tiempo: %.2f s"
 			% [multi, sueltos, float(ms) / 1000.0])
+	if _medir_etapas and raiz != null:
+		var hc := _hash_transformaciones(raiz, HASH_EXCLUIDOS)
+		print("[GeneradorCiudad][HASH-CIUDAD] %d | nodos=%d | instancias_multimesh=%d | saltados=%d | aabb_cajas=%s"
+				% [hc[0], hc[1], hc[2], hc[3], str(_aabb_cajas)])
+		var peat := raiz.get_node_or_null("Peatones")
+		if peat != null:
+			var hpe := _hash_transformaciones(peat, [])
+			print("[GeneradorCiudad][HASH-PEATONES] %d | nodos=%d (subárbol excluido del hash de ciudad)"
+					% [hpe[0], hpe[1]])
+		else:
+			print("[GeneradorCiudad][HASH-PEATONES] ausente en este momento (0 nodos)")
 	print("[GeneradorCiudad] Contenedores en nodo '%s'." % NODO_CIUDAD)
 	if director_peatones != null:
 		var rp: Dictionary = director_peatones.call("resumen")

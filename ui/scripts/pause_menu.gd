@@ -57,6 +57,18 @@ signal resumed
 @onready var _fps_valor: Label = %FpsValor
 @onready var _dist_barra: BarraValor = %DistanciaBarra
 @onready var _dist_valor: Label = %DistanciaValor
+# P10-B: streaming dinámico del mundo (opción OPCIONAL del jugador).
+@onready var _opt_valor: Label = %OptimizacionValor
+@onready var _opt_izq: Button = %OptimizacionIzq
+@onready var _opt_der: Button = %OptimizacionDer
+@onready var _opt_dependientes: VBoxContainer = %OptimizacionDependientes
+@onready var _carga_barra: BarraValor = %CargaBarra
+@onready var _carga_valor: Label = %CargaValor
+@onready var _precarga_barra: BarraValor = %PrecargaBarra
+@onready var _precarga_valor: Label = %PrecargaValor
+@onready var _diag_valor: Label = %DiagnosticoValor
+@onready var _diag_izq: Button = %DiagnosticoIzq
+@onready var _diag_der: Button = %DiagnosticoDer
 # Contenido de la categoría JUGABILIDAD (mismo panel derecho, sin duplicarlo).
 @onready var _jugabilidad_content: VBoxContainer = %JugabilidadContent
 @onready var _sens_barra: BarraValor = %SensibilidadBarra
@@ -394,6 +406,13 @@ func _conectar_opciones_graficos() -> void:
 	_fps_der.pressed.connect(_on_fps_paso)
 	# Barra de DISTANCIA: es un slider, NO reproduce ningún sonido de interfaz.
 	_dist_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia)
+	# P10-B: optimización agresiva del mundo (toggle) y sus barras dependientes.
+	_opt_izq.pressed.connect(_on_optimizacion_paso)
+	_opt_der.pressed.connect(_on_optimizacion_paso)
+	_carga_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia_carga)
+	_precarga_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia_precarga)
+	_diag_izq.pressed.connect(_on_diagnostico_paso)
+	_diag_der.pressed.connect(_on_diagnostico_paso)
 
 ## Selectores de GRÁFICOS: sonido `siyno` UNA vez por cambio EFECTIVO de valor.
 ## Si la flecha no consigue cambiar el valor (p. ej. resolución en pantalla
@@ -421,6 +440,17 @@ func _on_fps_paso() -> void:
 	if AjustesGraficos.mostrar_fps != antes:
 		SonidoUI.reproducir_siyno()
 
+## P10-B: enciende/apaga la optimización agresiva del mundo. Al apagarla, el gestor
+## restaura de forma segura todos los sectores descargados.
+func _on_optimizacion_paso() -> void:
+	AjustesGraficos.alternar_optimizacion_agresiva()
+	SonidoUI.reproducir_siyno()
+
+## P10-B: interruptor del modo de diagnóstico (sólo para pruebas).
+func _on_diagnostico_paso() -> void:
+	AjustesGraficos.alternar_diagnostico_stream()
+	SonidoUI.reproducir_siyno()
+
 ## Refleja en la interfaz el estado REAL que vive en AjustesGraficos.
 func _actualizar_opciones_graficos() -> void:
 	_calidad_valor.text = AjustesGraficos.texto_calidad()
@@ -429,6 +459,14 @@ func _actualizar_opciones_graficos() -> void:
 	_fps_valor.text = "SÍ" if AjustesGraficos.mostrar_fps else "NO"
 	_dist_barra.poner_valor(AjustesGraficos.distancia)
 	_dist_valor.text = str(AjustesGraficos.distancia)
+	# P10-B: opción de streaming + controles dependientes (sólo visibles si está ON).
+	_opt_valor.text = AjustesGraficos.texto_optimizacion()
+	_opt_dependientes.visible = AjustesGraficos.optimizacion_agresiva
+	_carga_barra.poner_valor(AjustesGraficos.distancia_carga)
+	_carga_valor.text = AjustesGraficos.texto_carga()
+	_precarga_barra.poner_valor(AjustesGraficos.distancia_precarga)
+	_precarga_valor.text = AjustesGraficos.texto_precarga()
+	_diag_valor.text = AjustesGraficos.texto_diagnostico_stream()
 
 ## Muestra el contenido de GRÁFICOS o JUGABILIDAD solo cuando ESA categoría está
 ## abierta; las demás categorías mantienen su área vacía. Siempre son los MISMOS

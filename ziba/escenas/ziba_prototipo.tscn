@@ -34,6 +34,7 @@
 [ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
 [ext_resource type="Script" uid="uid://dfm5npml16np4" path="res://world/ambiente_dinamico.gd" id="43_ambiente"]
 [ext_resource type="Script" path="res://eventos/director_eventos.gd" id="44_eventos"]
+[ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://world/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -113,6 +114,11 @@ script = ExtResource("31_gerente")
 
 [node name="DirectorEventos" type="Node3D" parent="."]
 script = ExtResource("44_eventos")
+
+[node name="StreamingMundo" type="Node" parent="."]
+script = ExtResource("45_streaming")
+activo = false
+modo_diagnostico = false
 
 [node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
