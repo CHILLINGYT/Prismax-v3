@@ -32,13 +32,17 @@ signal menu_cerrado
 #   nombre     : texto que se muestra.
 #   icono      : ruta del PNG (los originales del proyecto).
 #   desbloqueada: true = seleccionable; false = bloqueada ("PRÓXIMAMENTE").
+#   requiere_mision: true = ADEMÁS está bloqueada hasta completar la misión
+#                      (el estado se deriva del gestor `Misiones`, no se fija aquí).
 #   angulo     : posición en el anillo, en grados (-90 = arriba; sentido horario).
 const TRANSFORMACIONES := [
 	{"id": &"combate",   "nombre": "Combate",   "icono": "res://personaje/ui_transformacion/iconos/combate.png",   "desbloqueada": true,  "angulo": -90.0},
 	{"id": &"velocista", "nombre": "Velocidad", "icono": "res://personaje/ui_transformacion/iconos/velocista.png", "desbloqueada": true,  "angulo": -18.0},
 	{"id": &"pes",       "nombre": "Acuático",       "icono": "res://personaje/ui_transformacion/iconos/pes.png",       "desbloqueada": true,  "angulo": 54.0},
 	{"id": &"tanque",    "nombre": "Fuerza",    "icono": "res://personaje/ui_transformacion/iconos/tanque.png",    "desbloqueada": true,  "angulo": 126.0},
-	{"id": &"aguila",    "nombre": "Vuelo",    "icono": "res://personaje/ui_transformacion/iconos/aguila.png",    "desbloqueada": true,  "angulo": 198.0, "demo": true},
+	# Vuelo: seleccionable EN PRINCIPIO, pero BLOQUEADO mientras la misión de Iván
+	# no esté completada (`requiere_mision`). Conserva la marca DEMO.
+	{"id": &"aguila",    "nombre": "Vuelo",    "icono": "res://personaje/ui_transformacion/iconos/aguila.png",    "desbloqueada": true,  "angulo": 198.0, "demo": true, "requiere_mision": true},
 ]
 
 # ------------------------------------------------------------------ Aspecto
@@ -52,6 +56,21 @@ const ESCALA_HOVER := 1.15
 # Tinte del icono bloqueado (desaturado/oscurecido).
 const MOD_BLOQUEADA := Color(0.5, 0.5, 0.55, 0.85)
 const MOD_BLOQUEADA_HOVER := Color(0.62, 0.62, 0.68, 0.95)
+
+## Candado rojo que se superpone a la etiqueta "DEMO" de la transformación demo.
+## Reutiliza la silueta (blanca, con transparencia) del candado del menú principal
+## `lock_story.png`, teñida en rojo con `modulate`: no se crea ni se modifica el
+## recurso original (el menú principal lo sigue usando igual, en gris).
+const RUTA_CANDADO := "res://assets/generated/lock_story.png"
+const COLOR_CANDADO := Color(0.93, 0.06, 0.06, 1.0)
+
+## Forma que permanece BLOQUEADA hasta completar la misión de Iván (Vuelo/Águila).
+## Su estado NO es fijo: se deriva en CADA momento del gestor de misiones `Misiones`,
+## que es la ÚNICA fuente de verdad. El menú no lleva su propio contador.
+const ID_VUELO := &"aguila"
+## Texto EXACTO que se muestra en la zona central al pasar el cursor sobre Vuelo
+## bloqueado (dos líneas). Sólo aparece mientras el cursor está encima del icono.
+const TEXTO_BLOQUEO_VUELO := "requiere completar\nla mision"
 
 @onready var _fondo: ColorRect = $Fondo
 @onready var _centro: Control = $Centro
@@ -68,6 +87,10 @@ func _ready() -> void:
 	visible = false
 	_construir_iconos()
 	_iconos.resized.connect(_recolocar)
+	# El desbloqueo de Vuelo es DINÁMICO: si la misión se completa con el menú
+	# abierto (o cerrado), el candado y el estado se refrescan solos, sin tener que
+	# cerrar ni reabrir el menú. Fuente única de verdad: el gestor `Misiones`.
+	Misiones.mision_completada.connect(_on_mision_completada)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# F: interruptor (abrir/cerrar). Igual que el patrón de PauseMenu.
@@ -90,6 +113,7 @@ func abrir() -> void:
 		return
 	_abierto = true
 	_seleccionando = false
+	_refrescar_bloqueo()
 	_restaurar_visual()
 	_recolocar.call_deferred()
 	visible = true
@@ -117,7 +141,12 @@ func cerrar() -> void:
 func _construir_iconos() -> void:
 	for datos in TRANSFORMACIONES:
 		var id: StringName = datos["id"]
+		var por_mision: bool = bool(datos.get("requiere_mision", false))
 		var bloqueada: bool = not bool(datos["desbloqueada"])
+		# Vuelo: además depende del estado REAL de la misión (misma consulta que el
+		# candado funcional del ControladorLeo).
+		if por_mision and not _vuelo_desbloqueado():
+			bloqueada = true
 
 		var control := Control.new()
 		control.name = String(id)
@@ -159,14 +188,39 @@ func _construir_iconos() -> void:
 		control.add_child(tex)
 		tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+		# Nodo del candado: SÓLO la tarjeta demo lo crea. Se guarda para poder
+		# mostrarlo/ocultarlo cuando cambie el estado de la misión.
+		var candado_nodo: TextureRect = null
+
 		# Marca DEMO (SÓLO para esta transformación): el retrato se muestra en
 		# escala de grises mediante un ShaderMaterial propio (no se toca el PNG
-		# original ni se afecta a otras tarjetas) y se superpone la etiqueta
-		# "DEMO" en rojo intenso. La transformación sigue siendo seleccionable.
+		# original ni se afecta a otras tarjetas) y se superponen un CANDADO rojo
+		# y la etiqueta "DEMO" en rojo intenso, uno inmediatamente encima del otro.
 		if bool(datos.get("demo", false)):
 			var mat := ShaderMaterial.new()
 			mat.shader = load("res://personaje/ui_transformacion/shaders/escala_grises.gdshader")
 			tex.material = mat
+
+			# Candado rojo JUSTO ENCIMA de "DEMO". Se ancla a la parte ancha de la
+			# tarjeta (PRESET_TOP_WIDE) y se centra con KEEP_ASPECT_CENTERED, así
+			# que queda centrado y con la misma proporción cambie la resolución que
+			# cambie. Queda por DEBAJO de los ojos del emblema para no tapar el
+			# símbolo principal de Vuelo.
+			var candado := TextureRect.new()
+			candado.name = "Candado"
+			candado.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			candado.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			candado.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			if ResourceLoader.exists(RUTA_CANDADO):
+				candado.texture = load(RUTA_CANDADO)
+			candado.modulate = COLOR_CANDADO
+			control.add_child(candado)
+			candado.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+			candado.offset_top = TAM * 0.48
+			candado.offset_bottom = TAM * 0.80
+			# El candado representa el BLOQUEO: sólo se ve mientras lo esté.
+			candado.visible = bloqueada
+			candado_nodo = candado
 
 			var demo := Label.new()
 			demo.name = "Demo"
@@ -187,8 +241,8 @@ func _construir_iconos() -> void:
 			demo.add_theme_constant_override("shadow_offset_y", 3)
 			control.add_child(demo)
 			demo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			# Ligeramente abajo y dentro de la tarjeta (no se recorta).
-			demo.offset_top = TAM * 0.55
+			# Debajo del candado y dentro de la tarjeta (no se recorta).
+			demo.offset_top = TAM * 0.80
 
 		# Nombre bajo el icono.
 		var nombre := Label.new()
@@ -202,7 +256,9 @@ func _construir_iconos() -> void:
 		nombre.offset_top = TAM + 6.0
 		nombre.offset_bottom = TAM + 32.0
 
-		# Etiqueta "PRÓXIMAMENTE" (sólo iconos bloqueados, al pasar el ratón).
+		# Etiqueta "PRÓXIMAMENTE" (sólo iconos bloqueados de forma FIJA, al pasar el
+		# ratón). Vuelo no la usa: su bloqueo es por misión y muestra su propio aviso
+		# en la zona central (ver `TEXTO_BLOQUEO_VUELO`).
 		var pronto := Label.new()
 		pronto.name = "Pronto"
 		pronto.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -231,7 +287,8 @@ func _construir_iconos() -> void:
 		_entradas[id] = {
 			"control": control, "tex": tex, "marco": marco,
 			"nombre": nombre, "pronto": pronto,
-			"bloqueada": bloqueada, "tween": null,
+			"bloqueada": bloqueada, "bloqueada_base": not bool(datos["desbloqueada"]),
+			"por_mision": por_mision, "candado": candado_nodo, "tween": null,
 		}
 
 # =============================================================== Colocación radial
@@ -257,12 +314,15 @@ func _on_icono_entra(id: StringName) -> void:
 		return
 	var e: Dictionary = _entradas[id]
 	if e["bloqueada"]:
-		e["pronto"].visible = true
 		_animar_icono(id, 1.0, MOD_BLOQUEADA_HOVER, 0.0)
-		_fijar_detalle("%s — PRÓXIMAMENTE" % _nombre_de(id), Color(0.8, 0.62, 0.6))
+		# Vuelo bloqueado: aviso propio en la ZONA CENTRAL (dos líneas, blanco). Los
+		# iconos bloqueados de forma fija conservan su "PRÓXIMAMENTE".
+		if bool(e.get("por_mision", false)):
+			_fijar_detalle(TEXTO_BLOQUEO_VUELO, Color(1, 1, 1, 1))
+		else:
+			e["pronto"].visible = true
 	else:
 		_animar_icono(id, ESCALA_HOVER, Color(1.18, 1.18, 1.18, 1.0), 1.0)
-		_fijar_detalle("%s — lista" % _nombre_de(id), COLOR_ACCENTO)
 
 func _on_icono_sale(id: StringName) -> void:
 	if _seleccionando:
@@ -273,8 +333,8 @@ func _on_icono_sale(id: StringName) -> void:
 		_animar_icono(id, 1.0, MOD_BLOQUEADA, 0.0)
 	else:
 		_animar_icono(id, 1.0, Color(1, 1, 1, 1), 0.0)
-	if _detalle.text.begins_with(_nombre_de(id)):
-		_detalle.text = ""
+	# La zona central vuelve a quedar limpia al retirar el cursor.
+	_detalle.text = ""
 
 func _on_icono_gui_input(event: InputEvent, id: StringName) -> void:
 	if not _abierto or _seleccionando:
@@ -303,7 +363,6 @@ func _seleccionar(id: StringName) -> void:
 		return
 	_seleccionando = true
 	var e: Dictionary = _entradas[id]
-	_fijar_detalle("%s — ¡TRANSFORMACIÓN!" % _nombre_de(id), COLOR_ACCENTO)
 
 	var tw := create_tween().set_parallel(true)
 	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -325,6 +384,38 @@ func _seleccionar(id: StringName) -> void:
 	_restaurar_visual()
 	cerrar()
 	transformacion_elegida.emit(id)
+
+# =============================================================== Bloqueo por misión
+## Vuelo sólo se puede elegir cuando la misión de Iván está COMPLETADA. La respuesta
+## sale SIEMPRE del gestor `Misiones` (única fuente de verdad), la misma que usa el
+## candado funcional del ControladorLeo.
+func _vuelo_desbloqueado() -> bool:
+	return Misiones.esta_completada(Misiones.MISION_PROFUGOS)
+
+func _on_mision_completada(_id: StringName) -> void:
+	_refrescar_bloqueo()
+
+## Recalcula el estado de bloqueo dependiente de la misión y lo vuelca en la tarjeta
+## (candado visible/oculto, tinte y color del nombre). No toca las transformaciones
+## cuyo bloqueo es fijo.
+func _refrescar_bloqueo() -> void:
+	for id in _entradas.keys():
+		var e: Dictionary = _entradas[id]
+		if not bool(e.get("por_mision", false)):
+			continue
+		var bloqueada: bool = bool(e["bloqueada_base"]) or not _vuelo_desbloqueado()
+		e["bloqueada"] = bloqueada
+		var candado: CanvasItem = e.get("candado", null)
+		if candado != null:
+			candado.visible = bloqueada
+		e["pronto"].visible = false
+		if bloqueada:
+			e["tex"].modulate = MOD_BLOQUEADA
+			e["nombre"].modulate = Color(0.62, 0.62, 0.68, 1)
+		else:
+			e["tex"].modulate = Color(1, 1, 1, 1)
+			e["nombre"].modulate = Color(1, 1, 1, 1)
+	_detalle.text = ""
 
 # =============================================================== Utilidades
 func _animar_icono(id: StringName, escala: float, mod_tex: Color, borde_a: float) -> void:

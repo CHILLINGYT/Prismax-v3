@@ -172,6 +172,9 @@ func _correr() -> void:
 			"%.3f" % _leer(&"humano"))
 
 	# ------------------------------------------------ 1/2. Águila: vuelo
+	# Vuelo está BLOQUEADO hasta completar la misión de Iván: se completa para
+	# poder probar la estamina del águila (el bloqueo en sí no se prueba aquí).
+	Misiones.marcar_completada(Misiones.MISION_PROFUGOS)
 	var ok_a := await _cambiar_forma(&"aguila", F_VUELO)
 	_check("1. Transformado al águila (vuelo)", ok_a, "forma=%d" % int(_jug.forma))
 	await _esperar_seg(0.6)

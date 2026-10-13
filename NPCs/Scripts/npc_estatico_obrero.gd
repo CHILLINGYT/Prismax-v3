@@ -329,6 +329,11 @@ func _abrir_dialogo() -> void:
 
 func _al_cerrar_dialogo() -> void:
 	_globo = null
+	# La conversación ha terminado (el jugador pulsó «Entendido»): arranca la misión
+	# de Iván. `activar_mision` es idempotente, así que volver a hablar con él NO
+	# reinicia el progreso ni duplica el panel. No se activa mientras el diálogo
+	# sigue abierto: sólo se llega aquí cuando se cierra.
+	Misiones.activar_mision(Misiones.MISION_PROFUGOS)
 
 ## Carga el .dialogue. Lo normal es que Dialogue Manager ya lo haya importado (su
 ## importador del editor compila el texto a un DialogueResource): entonces basta `load`.

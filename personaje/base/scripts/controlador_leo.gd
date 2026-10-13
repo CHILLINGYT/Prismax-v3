@@ -1648,7 +1648,21 @@ func _cambiar_forma_con_efecto(destino: int) -> void:
 		return
 	if forma == destino:
 		destino = Forma.HUMANO
+	# VUELO está BLOQUEADO hasta completar la misión de Iván. La comprobación vive
+	# AQUÍ, en el punto ÚNICO por el que pasa toda transformación (menú, atajo o
+	# llamada directa), para que NINGUNA ruta pueda activarlo antes de tiempo. La
+	# condición de desbloqueo sale del gestor de misiones (`Misiones`), la MISMA
+	# fuente de verdad que pintan el panel de misión y el candado del menú.
+	if destino == Forma.VUELO and not _vuelo_desbloqueado():
+		print("[Leo] Vuelo bloqueado: derrota a los criminales para desbloquearlo.")
+		return
 	_transicionar(destino)
+
+## Vuelo se desbloquea SÓLO al completar la misión de Iván. Consulta el gestor
+## `Misiones` (única fuente de verdad: el mismo estado que muestra el panel de
+## misión y el candado del menú de transformaciones).
+func _vuelo_desbloqueado() -> bool:
+	return Misiones.esta_completada(Misiones.MISION_PROFUGOS)
 
 func _entrar_velocista() -> void:
 	forma = Forma.VELOCISTA

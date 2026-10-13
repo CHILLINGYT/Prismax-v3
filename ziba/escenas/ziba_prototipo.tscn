@@ -36,6 +36,7 @@
 [ext_resource type="PackedScene" path="res://NPCs/Scenes/NPC_Estatico_Obrero.tscn" id="44_obrero"]
 [ext_resource type="Script" uid="uid://b6iih6r15h7hi" path="res://eventos/director_eventos.gd" id="44_eventos"]
 [ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://world/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
+[ext_resource type="PackedScene" path="res://ui/scenes/PanelMision.tscn" id="46_mision"]
 
 [sub_resource type="Environment" id="Environment_ciudad"]
 background_mode = 2
@@ -98,6 +99,8 @@ generar_en_editor = false
 camara_libre = false
 
 [node name="NPC_Estatico_Obrero" parent="." instance=ExtResource("44_obrero")]
+
+[node name="PanelMision" parent="." instance=ExtResource("46_mision")]
 
 [node name="Farolas" type="Node3D" parent="." node_paths=PackedStringArray("ciudad", "ciclo")]
 script = ExtResource("25_farolas")
