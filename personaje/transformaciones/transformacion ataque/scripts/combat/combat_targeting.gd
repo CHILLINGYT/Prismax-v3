@@ -47,19 +47,42 @@ static func select_target(player: Node3D, move_dir: Vector3, camera_dir: Vector3
 	var current_score: float = -INF
 	var current_valid: bool = false
 
+	# Cache space state once for occlusion checks (perf)
+	var space_state: PhysicsDirectSpaceState3D = null
+	if player.get_world_3d() != null:
+		space_state = player.get_world_3d().direct_space_state
+
 	for e in enemies:
 		if not is_instance_valid(e):
 			continue
 		if e.has_method("is_alive") and not e.is_alive():
 			continue
-		var to: Vector3 = (e as Node3D).global_position - origin
-		to.y = 0.0
-		var dist: float = to.length()
+		var enemy_node := e as Node3D
+		var to_full: Vector3 = enemy_node.global_position - origin
+		# --- MEJORA #1: Distancia 3D con peso Y=0.4 (como FuerzaCombat) ---
+		# Permite targetear enemigos en barco/muelle sin que altura domine
+		var to_flat := to_full
+		to_flat.y *= 0.4
+		var dist: float = to_flat.length()
 		if dist > config.target_radius or dist < 0.001:
 			continue
-		var align: float = intent.dot(to / dist)
+		
+		# Para alignment usamos flat (intención horizontal del jugador)
+		var to_dir_flat := to_full
+		to_dir_flat.y = 0.0
+		if to_dir_flat.length() < 0.001:
+			continue
+		to_dir_flat = to_dir_flat.normalized()
+		var align: float = intent.dot(to_dir_flat)
 		if align < cos_limit:
 			continue
+
+		# Altura: penalizar si diferencia > 2m (enemigo en techo, etc)
+		var height_diff := absf(to_full.y)
+		var height_penalty := 0.0
+		if height_diff > 2.0:
+			height_penalty = (height_diff - 2.0) * 0.15 # -0.15 por metro extra
+			height_penalty = minf(height_penalty, 0.5)
 
 		var threat: float = 0.0
 		if threats != null:
@@ -69,6 +92,14 @@ static func select_target(player: Node3D, move_dir: Vector3, camera_dir: Vector3
 		score += config.weight_alignment * ((align + 1.0) * 0.5)
 		score += config.weight_distance * (1.0 - dist / config.target_radius)
 		score += config.weight_threat * threat
+		score -= height_penalty
+		
+		# --- MEJORA #2: Oclusión - penalizar enemigos detrás de paredes ---
+		if space_state != null:
+			var occlusion := _check_occlusion(space_state, player, enemy_node, origin)
+			if occlusion > 0.0:
+				score *= (1.0 - occlusion) # 0.7 si hay pared = -70%
+		
 		if current != null and e == current:
 			score += config.current_target_bonus
 			current_score = score
@@ -79,8 +110,35 @@ static func select_target(player: Node3D, move_dir: Vector3, camera_dir: Vector3
 			best = e
 
 	# Hysteresis: hold the current target unless a challenger clearly wins.
-	# A real change of intent produces a large margin, so it still switches at
-	# once; only near-equal candidates are filtered out.
 	if current_valid and best != current and (best_score - current_score) < config.target_switch_threshold:
 		return current
 	return best
+
+## Raycast para detectar si hay pared entre jugador y enemigo
+## Devuelve 0.0 = sin oclusión, 0.7 = pared bloqueando
+static func _check_occlusion(space_state: PhysicsDirectSpaceState3D, player: Node3D, enemy: Node3D, origin: Vector3) -> float:
+	if space_state == null:
+		return 0.0
+	var from := origin + Vector3.UP * 1.2 # pecho del jugador
+	var to := enemy.global_position + Vector3.UP * 1.2 # pecho enemigo
+	
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.collision_mask = 1 # solo capa mundo (edificios, suelo)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [player.get_rid()]
+	if enemy is CollisionObject3D:
+		query.exclude.append((enemy as CollisionObject3D).get_rid())
+	
+	var result := space_state.intersect_ray(query)
+	if result.is_empty():
+		return 0.0
+	
+	# Hay algo en medio - verificar si está más cerca que el enemigo
+	var hit_pos: Vector3 = result.get("position", to)
+	var dist_to_hit := origin.distance_to(hit_pos)
+	var dist_to_enemy := origin.distance_to(enemy.global_position)
+	# Si el hit está a menos del 90% de la distancia al enemigo, es oclusión real
+	if dist_to_hit < dist_to_enemy * 0.9:
+		return 0.7 # penalización fuerte
+	return 0.0

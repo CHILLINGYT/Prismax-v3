@@ -40,27 +40,44 @@ func compute(enemies: Array, center: Vector3, config: CombatConfig) -> void:
 		_assign.clear()
 		return
 
-	# Deterministic order (angle, then instance id) so equal angles never swap.
 	entries.sort_custom(func(a, b):
 		if absf(a.angle - b.angle) > 0.0001:
 			return a.angle < b.angle
 		return a.id < b.id)
 
-	# Rotate the even ring to match the current spread, so no enemy is ever
-	# asked to travel across the player (which would push it into them).
 	var offset: float = 0.0
 	for i in n:
 		offset += wrapf(entries[i].angle - TAU * (float(i) / float(n)), -PI, PI)
 	offset /= float(n)
 
-	var base_angles: Array = []
-	for i in n:
-		base_angles.append(TAU * (float(i) / float(n)) + offset)
+	# --- MEJORA: Radio dinámico + doble anillo para muchos enemigos ---
+	var base_radius := config.formation_radius
+	var dynamic_radius := base_radius
+	if n > 4:
+		dynamic_radius = base_radius + float(n - 4) * 0.35 # +0.35m por enemigo extra
+		dynamic_radius = minf(dynamic_radius, base_radius + 2.5) # tope
+	
+	var inner_count := n
+	var outer_count := 0
+	var outer_radius := dynamic_radius + 1.8
+	if n > 6:
+		# Doble anillo: 4-5 cerca, resto lejos (evita amontonamiento)
+		inner_count = 4 + int((n - 4) * 0.4) # 40% cerca
+		outer_count = n - inner_count
+	
+	var base_angles_inner: Array = []
+	for i in inner_count:
+		base_angles_inner.append(TAU * (float(i) / float(inner_count)) + offset)
+	
+	var base_angles_outer: Array = []
+	if outer_count > 0:
+		for i in outer_count:
+			# Offset de medio paso para que no queden alineados con inner
+			base_angles_outer.append(TAU * (float(i) / float(outer_count)) + offset + PI / float(outer_count))
 
-	# Pass 1: keep the previous slot when it is still a sensible fit.
 	var taken: Dictionary = {}
 	var new_assign: Dictionary = {}
-	var half_step: float = PI / float(n)
+	var half_step: float = PI / float(maxi(n, 1))
 	for i in n:
 		var id: int = entries[i].id
 		if not _assign.has(id):
@@ -68,11 +85,15 @@ func compute(enemies: Array, center: Vector3, config: CombatConfig) -> void:
 		var idx: int = int(_assign[id])
 		if idx < 0 or idx >= n or taken.has(idx):
 			continue
-		if absf(wrapf(entries[i].angle - float(base_angles[idx]), -PI, PI)) <= half_step:
+		var expected_angle: float
+		if idx < inner_count:
+			expected_angle = float(base_angles_inner[idx])
+		else:
+			expected_angle = float(base_angles_outer[idx - inner_count])
+		if absf(wrapf(entries[i].angle - expected_angle, -PI, PI)) <= half_step:
 			taken[idx] = true
 			new_assign[id] = idx
 
-	# Pass 2: everyone else takes the nearest free slot.
 	for i in n:
 		var id: int = entries[i].id
 		if new_assign.has(id):
@@ -82,7 +103,12 @@ func compute(enemies: Array, center: Vector3, config: CombatConfig) -> void:
 		for idx in n:
 			if taken.has(idx):
 				continue
-			var err: float = absf(wrapf(entries[i].angle - float(base_angles[idx]), -PI, PI))
+			var expected: float
+			if idx < inner_count:
+				expected = float(base_angles_inner[idx])
+			else:
+				expected = float(base_angles_outer[idx - inner_count])
+			var err: float = absf(wrapf(entries[i].angle - expected, -PI, PI))
 			if err < best_err:
 				best_err = err
 				best_idx = idx
@@ -97,8 +123,16 @@ func compute(enemies: Array, center: Vector3, config: CombatConfig) -> void:
 		var id: int = entries[i].id
 		if not _assign.has(id):
 			continue
-		var angle: float = float(base_angles[int(_assign[id])])
-		_slots[id] = center + Vector3(cos(angle), 0.0, sin(angle)) * config.formation_radius
+		var idx: int = int(_assign[id])
+		var angle: float
+		var radius: float
+		if idx < inner_count:
+			angle = float(base_angles_inner[idx])
+			radius = dynamic_radius
+		else:
+			angle = float(base_angles_outer[idx - inner_count])
+			radius = outer_radius
+		_slots[id] = center + Vector3(cos(angle), 0.0, sin(angle)) * radius
 
 
 func get_slot(enemy: Node) -> Vector3:

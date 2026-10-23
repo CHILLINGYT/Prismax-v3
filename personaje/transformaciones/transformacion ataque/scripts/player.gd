@@ -23,26 +23,21 @@ const PlayerAnimator = preload("res://personaje/transformaciones/transformacion 
 
 enum State { FREE, APPROACH, WINDUP, ACTIVE, RECOVERY, COUNTER, EVADE, HIT, DEAD }
 
-## Sprint: the player's THREE-hit basic combo, in this order: the straight (jab,
-## one hand), the cross (cros, the other hand crossing the body) and the hook
-## (gancho) that closes the chain. Every number comes from the source clip, where
-## the impact instant is the measured peak forward reach of the striking hand, and
-## the clips are the module's own ("jab", "cros" and "gancho" in
-## player_anim_library.tres): the measured row of the fourth clip of the old set
-## ("dos": clip 0.600, impact 0.135, damage 1.2) is kept on file but is NOT part of
-## the basic chain.
+## Sprint: the player's FIVE-hit basic combo - MEJORA #4
+## Orden: jab (recto rápido) -> cros (cruzado) -> gancho (hook) -> dos (segundo recto, del set viejo) -> remate (finisher)
+## Cada número viene del clip fuente, donde impact es el pico de alcance del puño medido.
+## Clips del módulo: jab, cros, gancho, dos en player_anim_library.tres
+## El 5to es remate: reusa gancho pero más lento, más daño y con VFX grande
 ##
-## windup = impact, active = HIT_WINDOW, recovery = the rest of the clip, so the
-## damage lands exactly on the visual hit and the action ends when the clip ends.
-## These timers stay the ONE authority for damage; no animation event applies any,
-## so a hit can never be counted twice. The clip only shows the action.
-## `speed` is the per-attack playback speed (agile, natural hits): the phase
-## timers are divided by it so the damage still lands on the visual contact.
+## windup = impact, active = HIT_WINDOW, recovery = resto del clip
+## speed = playback speed por ataque: timers se dividen por speed para que daño caiga en contacto visual
 const HIT_WINDOW := 0.10
 const SPRINT: Array = [
-	{"id": "jab", "anim": "jab", "clip": 0.467, "impact": 0.233, "damage": 1.0, "knockback": 1.0, "speed": 1.25},
-	{"id": "cros", "anim": "cros", "clip": 0.733, "impact": 0.147, "damage": 1.4, "knockback": 1.3, "speed": 1.2},
-	{"id": "gancho", "anim": "gancho", "clip": 0.633, "impact": 0.327, "damage": 1.7, "knockback": 1.5, "speed": 1.15},
+	{"id": "jab", "anim": "jab", "clip": 0.467, "impact": 0.233, "damage": 1.0, "knockback": 1.0, "speed": 1.35, "stamina": 5.0, "type": "light"},
+	{"id": "cros", "anim": "cros", "clip": 0.733, "impact": 0.147, "damage": 1.4, "knockback": 1.3, "speed": 1.25, "stamina": 8.0, "type": "light"},
+	{"id": "gancho", "anim": "gancho", "clip": 0.633, "impact": 0.327, "damage": 1.7, "knockback": 1.5, "speed": 1.20, "stamina": 12.0, "type": "medium"},
+	{"id": "dos", "anim": "dos", "clip": 0.600, "impact": 0.135, "damage": 1.5, "knockback": 1.4, "speed": 1.30, "stamina": 10.0, "type": "light"}, # del set viejo, ahora parte de cadena
+	{"id": "remate", "anim": "gancho", "clip": 0.633, "impact": 0.327, "damage": 2.8, "knockback": 3.5, "speed": 0.90, "stamina": 18.0, "type": "heavy", "finisher": true}, # finisher: mismo clip gancho pero lento y devastador
 ]
 
 @export_group("Movement")
@@ -260,9 +255,6 @@ func _build_attack_chain(c: CombatConfig) -> Array:
 		a.attack_range = c.attack_range
 		a.ideal_distance = c.attack_ideal_distance
 		a.approach_speed = c.approach_speed
-		# The clip's own timeline drives the phases (see SPRINT above). The clip
-		# plays at `speed`, so the real-time phases are the clip fractions divided
-		# by it and the impact still lands on the same frame of the animation.
 		var sp: float = maxf(0.05, float(row.get("speed", 1.0)))
 		a.speed = sp
 		a.windup = float(row.impact) / sp
@@ -271,8 +263,32 @@ func _build_attack_chain(c: CombatConfig) -> Array:
 		a.cancel_window = c.attack_cancel_window
 		a.knockback = c.attack_knockback * float(row.knockback)
 		a.stun = 0.0
+		# MEJORA #4: Nuevos campos
+		a.stamina_cost = float(row.get("stamina", 5.0))
+		a.attack_type = String(row.get("type", "light"))
+		a.is_finisher = bool(row.get("finisher", false))
+		a.hitstop_duration = 0.08 if a.is_finisher else 0.05
+		a.camera_shake = 0.8 if a.is_finisher else (0.5 if a.attack_type == "medium" else 0.3)
 		chain.append(a)
 	return chain
+
+## MEJORA #4: Detecta input direccional para variantes (W=uppercut, S=barrido, A/D=lateral)
+func _get_directional_attack() -> String:
+	var dir := _input_dir()
+	if dir.length() < 0.3:
+		return "" # sin dirección = ataque normal de cadena
+	var cam_f := _camera_dir()
+	var forward_dot := dir.dot(cam_f)
+	var right := Vector3(cam_f.z, 0, -cam_f.x) # perpendicular derecha
+	var right_dot := dir.dot(right)
+	
+	if forward_dot > 0.7:
+		return "uppercut" # W + ataque = lanza al aire
+	elif forward_dot < -0.7:
+		return "sweep" # S + ataque = barrido bajo
+	elif absf(right_dot) > 0.7:
+		return "lateral" # A/D + ataque = golpe con desplazamiento lateral
+	return ""
 
 
 func _physics_process(delta: float) -> void:
@@ -473,9 +489,36 @@ func _apply_hit(t: Node3D) -> void:
 	if _manager != null:
 		_manager.combo.register_hit()
 		combo_changed.emit(_manager.combo.count)
-	# The hit CONNECTED: the combo window is refreshed, so the next attack still
-	# continues the chain a natural beat later.
+	# The hit CONNECTED: the combo window is refreshed
 	_combo_window = _config.combo_keep_time if _config != null else 2.0
+	
+	# --- MEJORA #3: Feedback AAA - Hitstop, Shake, FOV ---
+	if _camera_rig != null:
+		# Hitstop: 0.05s freeze en cada hit (Smash Bros feel)
+		var is_finisher := _chain_index == _attack_chain.size() - 1
+		var hitstop_dur := 0.08 if is_finisher else 0.05
+		if _camera_rig.has_method("hitstop"):
+			_camera_rig.hitstop(hitstop_dur)
+		
+		# Shake escalado por combo y por tipo de golpe
+		var base_shake := 0.3 + float(_manager.combo.count) * 0.08
+		if is_finisher:
+			base_shake = 0.8
+		if _action_kind == "special":
+			base_shake = 1.0
+		if _camera_rig.has_method("shake"):
+			_camera_rig.shake(base_shake)
+		
+		# FOV punch: -4 normal, -8 finisher
+		var fov_punch := -8.0 if is_finisher else -4.0
+		if _action_kind == "special":
+			fov_punch = -10.0
+		if _camera_rig.has_method("punch_fov"):
+			_camera_rig.punch_fov(fov_punch, 0.15 if is_finisher else 0.10)
+	
+	# Slowmo en finisher
+	if _chain_index == _attack_chain.size() - 1 and _camera_rig != null and _camera_rig.has_method("slowmo"):
+		_camera_rig.slowmo(0.25, 0.4)
 
 
 func _state_recovery(delta: float) -> void:
@@ -519,25 +562,113 @@ func _try_consume_buffered() -> bool:
 	return true
 
 
+var _approach_stuck_time: float = 0.0
+var _approach_sidestep_dir: int = 0 # -1 izq, 1 der, 0 ninguno
+
 func _state_approach(delta: float) -> void:
 	if _target == null or not is_instance_valid(_target):
 		state = State.FREE
+		_approach_stuck_time = 0.0
+		_approach_sidestep_dir = 0
 		return
 	if _target.has_method("is_alive") and not _target.is_alive():
 		state = State.FREE
+		_approach_stuck_time = 0.0
+		_approach_sidestep_dir = 0
 		return
 	_turn_towards(_flat_dir(_target), delta, _config.player_turn_speed)
 	var to: Vector3 = _target.global_position - global_position
 	to.y = 0.0
-	var dirn: Vector3 = to.normalized() if to.length() > 0.001 else Vector3.ZERO
+	var dist := to.length()
+	var dirn: Vector3 = to.normalized() if dist > 0.001 else Vector3.ZERO
 	var spd: float = _attack.approach_speed if _attack != null else _config.approach_speed
-	velocity.x = move_toward(velocity.x, dirn.x * spd, acceleration * delta)
-	velocity.z = move_toward(velocity.z, dirn.z * spd, acceleration * delta)
+	
+	# --- MEJORA #2: Pathfinding con sidestep si hay obstáculo ---
+	var desired_vel := dirn * spd
+	
+	# Detectar si estamos trabados contra pared/banco/farola
+	if is_on_wall():
+		_approach_stuck_time += delta
+		if _approach_stuck_time > 0.15: # 150ms trabado = intentar sidestep
+			if _approach_sidestep_dir == 0:
+				# Elegir dirección de sidestep: probar izq y der, quedarse con la que tiene más espacio
+				var left := Vector3(-dirn.z, 0, dirn.x) # perpendicular izq
+				var right := Vector3(dirn.z, 0, -dirn.x) # perpendicular der
+				var left_free := not test_move(global_transform, left * 0.8)
+				var right_free := not test_move(global_transform, right * 0.8)
+				if left_free and not right_free:
+					_approach_sidestep_dir = -1
+				elif right_free and not left_free:
+					_approach_sidestep_dir = 1
+				elif left_free and right_free:
+					# Elegir lado que más se acerca al target después del sidestep
+					var left_pos := global_position + left * 0.8
+					var right_pos := global_position + right * 0.8
+					var left_dist := left_pos.distance_to(_target.global_position)
+					var right_dist := right_pos.distance_to(_target.global_position)
+					_approach_sidestep_dir = -1 if left_dist < right_dist else 1
+				else:
+					# Ambos bloqueados, intentar escalón como en ControladorLeo
+					_intentar_escalon_approach(dirn)
+			# Aplicar sidestep
+			if _approach_sidestep_dir != 0:
+				var sidestep := Vector3(-dirn.z, 0, dirn.x) * float(_approach_sidestep_dir)
+				desired_vel = (dirn * 0.6 + sidestep * 0.8).normalized() * spd
+				# Si llevamos 0.6s haciendo sidestep, resetear para reevaluar
+				if _approach_stuck_time > 0.75:
+					_approach_stuck_time = 0.0
+					_approach_sidestep_dir = 0
+	else:
+		_approach_stuck_time = maxf(_approach_stuck_time - delta * 2.0, 0.0)
+		if _approach_stuck_time < 0.05:
+			_approach_sidestep_dir = 0
+	
+	velocity.x = move_toward(velocity.x, desired_vel.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, desired_vel.z, acceleration * delta)
 	_approach_timer -= delta
 	if _flat_distance(_target) <= _attack.ideal_distance:
 		_start_windup()
+		_approach_stuck_time = 0.0
+		_approach_sidestep_dir = 0
 	elif _approach_timer <= 0.0:
 		state = State.FREE
+		_approach_stuck_time = 0.0
+		_approach_sidestep_dir = 0
+
+## Intenta subir bordillo como en ControladorLeo (escalón 0.26m)
+func _intentar_escalon_approach(dir_mov: Vector3) -> bool:
+	var col := get_last_slide_collision()
+	if col == null:
+		return false
+	var normal := col.get_normal()
+	if absf(normal.y) >= 0.7:
+		return false
+	var altura := 0.26
+	var avance := 0.4
+	if test_move(global_transform, Vector3.UP * altura):
+		return false
+	var elevado := global_transform
+	elevado.origin.y += altura
+	if test_move(elevado, dir_mov * avance):
+		return false
+	var mundo := get_world_3d()
+	if mundo == null:
+		return false
+	var desde := elevado.origin + dir_mov * avance + Vector3.UP * 0.05
+	var q := PhysicsRayQueryParameters3D.create(desde, desde + Vector3.DOWN * (altura + 0.25))
+	q.collision_mask = collision_mask
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	var golpe := mundo.direct_space_state.intersect_ray(q)
+	if golpe.is_empty():
+		return false
+	var desnivel: float = (golpe["position"] as Vector3).y - global_position.y
+	if desnivel <= 0.05 or desnivel > altura + 0.03:
+		return false
+	move_and_collide(Vector3.UP * (desnivel + 0.03))
+	move_and_collide(dir_mov * avance)
+	move_and_collide(Vector3.DOWN * (desnivel + 0.08))
+	return true
 
 
 func _state_hit(delta: float) -> void:

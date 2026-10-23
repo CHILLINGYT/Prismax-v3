@@ -40,10 +40,32 @@ func get_active() -> Array:
 
 
 func threat_level_for(enemy: Node) -> float:
+	# MEJORA #5: Threat level real, no binario
+	# Más inminente = más amenaza (1.0 cuando time_left->0, 0.2 cuando recién empieza)
+	# + bonus si es ataque pesado
 	for t in _threats:
 		if t.enemy == enemy:
-			return 1.0
+			var total: float = float(t.total)
+			var left: float = float(t.time_left)
+			if total <= 0.0:
+				return 1.0
+			var imminence := 1.0 - (left / total) # 0.0 al inicio, 1.0 al impacto
+			var level := 0.2 + imminence * 0.8 # 0.2 a 1.0
+			# Bonus por tipo de ataque
+			var type: String = String(t.type)
+			if type == "heavy" or type == "pesado":
+				level += 0.3
+			elif type == "special":
+				level += 0.5
+			return clampf(level, 0.0, 1.5)
 	return 0.0
+
+func is_heavy_threat(enemy: Node) -> bool:
+	for t in _threats:
+		if t.enemy == enemy:
+			var type: String = String(t.type)
+			return type == "heavy" or type == "pesado" or type == "special"
+	return false
 
 
 ## Returns the most imminent counterable threat that lies within max_dist and in
