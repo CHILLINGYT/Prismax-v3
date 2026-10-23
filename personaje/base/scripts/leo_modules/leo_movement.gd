@@ -48,7 +48,9 @@ static func intentar_escalon(leo: CharacterBody3D, dir_mov: Vector3, col: Kinema
 	var desde := elevado.origin + dir_mov * avance + Vector3.UP * 0.05
 	var q := PhysicsRayQueryParameters3D.create(desde, desde + Vector3.DOWN * (altura + 0.25))
 	q.collision_mask = leo.collision_mask
-	q.exclude = [leo.get_rid()]
+	q.exclude = []
+	if leo is CollisionObject3D:
+		q.exclude = [(leo as CollisionObject3D).get_rid()]
 	var hit := mundo.direct_space_state.intersect_ray(q)
 	if hit.is_empty():
 		return false
@@ -80,5 +82,7 @@ static func rayo_suelo(leo: CharacterBody3D, desde: Vector3, largo: float) -> Di
 		return {}
 	var q := PhysicsRayQueryParameters3D.create(desde, desde + Vector3.DOWN * largo)
 	q.collision_mask = leo.collision_mask
-	q.exclude = [leo.get_rid()]
+	q.exclude = []
+	if leo is CollisionObject3D:
+		q.exclude = [(leo as CollisionObject3D).get_rid()]
 	return mundo.direct_space_state.intersect_ray(q)

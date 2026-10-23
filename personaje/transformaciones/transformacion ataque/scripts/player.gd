@@ -724,7 +724,9 @@ func _intentar_escalon_approach(dir_mov: Vector3) -> bool:
 	var desde := elevado.origin + dir_mov * avance + Vector3.UP * 0.05
 	var q := PhysicsRayQueryParameters3D.create(desde, desde + Vector3.DOWN * (altura + 0.25))
 	q.collision_mask = collision_mask
-	q.exclude = [get_rid()]
+	q.exclude = []
+	if self is CollisionObject3D:
+		q.exclude = [(self as CollisionObject3D).get_rid()]
 	q.collide_with_areas = false
 	var golpe := mundo.direct_space_state.intersect_ray(q)
 	if golpe.is_empty():

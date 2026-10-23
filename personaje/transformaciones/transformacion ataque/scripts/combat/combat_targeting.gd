@@ -126,7 +126,9 @@ static func _check_occlusion(space_state: PhysicsDirectSpaceState3D, player: Nod
 	query.collision_mask = 1 # solo capa mundo (edificios, suelo)
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [player.get_rid()]
+	query.exclude = []
+	if player is CollisionObject3D:
+		query.exclude.append((player as CollisionObject3D).get_rid())
 	if enemy is CollisionObject3D:
 		query.exclude.append((enemy as CollisionObject3D).get_rid())
 	
