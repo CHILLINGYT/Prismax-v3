@@ -1,4 +1,60 @@
 # Godot 4+ specific ignores
 .godot/
-/android/
+android/
 addons/ziva_agent/
+
+# Godot - No incluir binarios exportados ni cache
+export/
+*.tmp
+*.log
+*.translation
+*.import.tmp
+
+# PRISMAX - Limpieza de backups (Arena AI - 23/10/2026)
+# Todas las carpetas de backup temporales del proyecto
+.backup_*
+_backup_*
+backup_*
+*.backup
+*.pre
+(2).gitattributes
+*.bak
+*_backup/
+* - copia/
+copia_mixamo/
+
+# Binarios compilados - no deben estar en git
+*.dll
+*.exe
+*.so
+*.dylib
+*.pck
+*.zip
+*.7z
+prismaxdemo*
+libterrain*
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# IDEs
+.vscode/
+.idea/
+*.code-workspace
+
+# Godot mono / C#
+.mono/
+data_*/
+
+# Archivos temporales de pruebas
+_tests/capturas/
+**/capturas/
+**/logs/
+*.log.txt
+log_*.txt
+
+# Nota: Para archivos grandes .fbx/.png >50MB recomendamos Git LFS
+# Ejecutar: git lfs track "*.fbx" "*.png" "*.glb" "*.gltf"
