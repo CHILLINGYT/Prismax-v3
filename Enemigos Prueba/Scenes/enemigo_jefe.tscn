@@ -1,0 +1,41 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://Enemigos Prueba/Scripts/enemigo_jefe.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://cosas para enemigos/enemigos/enemigocombate.fbx" id="2_visual"]
+[ext_resource type="AnimationLibrary" path="res://Enemigos Prueba/Animations/enemigo_animaciones_mixamo.tres" id="3_anim"]
+[ext_resource type="Shader" path="res://Enemigos Prueba/Materials/barra_vida.gdshader" id="4_barra"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_cuerpo"]
+radius = 0.45
+height = 1.7
+
+[sub_resource type="QuadMesh" id="QuadMesh_barra"]
+size = Vector2(0.9, 0.09)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_barra"]
+shader = ExtResource("4_barra")
+
+[node name="EnemigoJefe" type="CharacterBody3D"]
+collision_layer = 16
+collision_mask = 17
+script = ExtResource("1_script")
+velocidad = 2.4
+
+[node name="Colision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("CapsuleShape3D_cuerpo")
+
+[node name="Visual" parent="." instance=ExtResource("2_visual")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Animador" type="AnimationPlayer" parent="."]
+libraries/ = ExtResource("3_anim")
+root_node = NodePath("../Visual")
+
+[node name="BarraVida" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.05, 0)
+
+[node name="Barra" type="MeshInstance3D" parent="BarraVida"]
+mesh = SubResource("QuadMesh_barra")
+material_override = SubResource("ShaderMaterial_barra")
+cast_shadow = 0

@@ -21,6 +21,7 @@ const CombatTargeting = preload("res://personaje/transformaciones/transformacion
 const AttackData = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/attack_data.gd")
 const PlayerAnimator = preload("res://personaje/transformaciones/transformacion ataque/scripts/player_animator.gd")
 const CombatVFX = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_vfx.gd")
+const CombatDamageNumbers = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_damage_numbers.gd")
 
 enum State { FREE, APPROACH, WINDUP, ACTIVE, RECOVERY, COUNTER, EVADE, HIT, DEAD }
 
@@ -576,6 +577,12 @@ func _apply_hit(t: Node3D) -> void:
 		vfx_parent = get_parent()
 	if vfx_parent != null:
 		CombatVFX.spawn_hit_vfx(vfx_parent, hit_pos, attack_type, is_finisher, combo_c)
+	
+	# --- FASE 3: Damage Numbers ---
+	if vfx_parent != null and _attack != null:
+		var dmg_type := "finisher" if is_finisher else attack_type
+		var es_crit := is_finisher or combo_c >= 5
+		CombatDamageNumbers.spawn(vfx_parent, hit_pos, _attack.damage * 10.0, dmg_type, es_crit)
 	
 	# --- FASE 2: SFX con pitch por combo ---
 	_play_combat_sfx(attack_type, is_finisher, combo_c)

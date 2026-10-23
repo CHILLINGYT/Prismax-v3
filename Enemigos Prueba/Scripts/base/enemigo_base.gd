@@ -89,6 +89,17 @@ var _t_esquiva: float = 0.0
 var _mat_flash: Array[StandardMaterial3D] = []
 var _mat_barra: ShaderMaterial = null
 
+# --- Fase 3: Sistema de Miedo ---
+var _miedo: float = 0.0 # 0..1 nivel de miedo
+var _t_miedo: float = 0.0 # timer de miedo
+var _muertes_cercanas: int = 0 # muertes vistas cerca
+const RADIO_MIEDO := 12.0 # radio para ver muertes cercanas
+const UMBRAL_MIEDO := 0.6 # a partir de aquí se pone defensivo
+const TIEMPO_MIEDO := 8.0 # dura 8s el miedo
+
+# --- Fase 3: Damage Numbers ---
+const CombatDamageNumbers = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_damage_numbers.gd")
+
 @onready var _visual: Node3D = get_node_or_null("Visual") as Node3D
 @onready var _anim: AnimationPlayer = get_node_or_null("Animador") as AnimationPlayer
 @onready var _barra: Node3D = get_node_or_null("BarraVida") as Node3D
@@ -120,6 +131,14 @@ func _physics_process(delta: float) -> void:
 	_actualizar_flash(delta)
 	_actualizar_barra_por_camara()
 	_espera = maxf(0.0, _espera - delta)
+	# Fase 3: actualizar miedo
+	if _t_miedo > 0.0:
+		_t_miedo -= delta
+		if _t_miedo <= 0.0:
+			_miedo = maxf(0.0, _miedo - delta * 0.3)
+			if _miedo <= 0.1:
+				_miedo = 0.0
+				_muertes_cercanas = 0
 
 	var jugador: Node3D = _obtener_jugador()
 	if jugador == null:
@@ -328,9 +347,22 @@ func _aplicar_dano(cantidad: float, dir: Vector3, empuje: float, aturde: float) 
 		return
 	_vida = maxf(0.0, _vida - cantidad)
 	_flash = 1.0
+	# Fase 3: Damage Numbers
+	var parent_for_vfx := get_parent() as Node3D
+	if parent_for_vfx == null:
+		parent_for_vfx = get_tree().current_scene as Node3D
+	if parent_for_vfx != null:
+		var es_crit := cantidad > danio_base * 1.5
+		CombatDamageNumbers.spawn(parent_for_vfx, get_hit_center(), cantidad, "normal", es_crit)
+	
 	if empuje > 0.0 and dir.length_squared() > 0.0001:
-		velocity.x += dir.x * empuje
-		velocity.z += dir.z * empuje
+		# Fase 3: Tanque tiene resistencia al empuje (sobreescrito en subclase)
+		var resistencia := 0.0
+		if has_method("get_resistencia_empuje"):
+			resistencia = call("get_resistencia_empuje")
+		var empuje_final := empuje * (1.0 - resistencia)
+		velocity.x += dir.x * empuje_final
+		velocity.z += dir.z * empuje_final
 		_t_empuje = 0.18
 	# Un golpe interrumpe el ataque: se limpia amenaza y turno para no bloquear
 	# la cola de ataques con un enemigo interrumpido.
@@ -347,6 +379,32 @@ func _aplicar_dano(cantidad: float, dir: Vector3, empuje: float, aturde: float) 
 	_actualizar_barra()
 	if _vida <= 0.0:
 		_morir()
+	# Fase 3: Si vida <20%, miedo + huida leve
+	if _vida / vida_max < 0.2:
+		_miedo = minf(1.0, _miedo + 0.3)
+		_t_miedo = TIEMPO_MIEDO
+
+# Fase 3: Llamado por gerente cuando muere un aliado cerca
+func notificar_muerte_cercana(pos: Vector3) -> void:
+	if _muerto:
+		return
+	var dist := global_position.distance_to(pos)
+	if dist > RADIO_MIEDO:
+		return
+	_muertes_cercanas += 1
+	_miedo = minf(1.0, _miedo + 0.25)
+	_t_miedo = TIEMPO_MIEDO
+	print("[Miedo] %s vio muerte cerca (dist %.1f) miedo %.2f muertes %d" % [name, dist, _miedo, _muertes_cercanas])
+	if _muertes_cercanas >= 3:
+		# 3 muertes rápidas = defensivo
+		_miedo = 1.0
+		_espera = maxf(_espera, 1.5)
+
+func nivel_miedo() -> float:
+	return _miedo
+
+func esta_asustado() -> bool:
+	return _miedo >= UMBRAL_MIEDO
 
 # =============================================================== Muerte
 func _morir() -> void:
@@ -357,6 +415,8 @@ func _morir() -> void:
 	_limpiar_amenaza()
 	_soltar_turno()
 	_desregistrar()
+	# Fase 3: notificar a enemigos cercanos para sistema de miedo
+	_notificar_muerte_a_cercanos()
 	remove_from_group(GRUPO_DANIO)
 	remove_from_group(GRUPO)
 	velocity = Vector3.ZERO
@@ -378,6 +438,17 @@ func _morir() -> void:
 	var misiones := get_node_or_null("/root/Misiones")
 	if misiones != null and misiones.has_method("registrar_baja_de_enemigo"):
 		misiones.call("registrar_baja_de_enemigo", self)
+
+func _notificar_muerte_a_cercanos() -> void:
+	# Avisar a enemigos en radio para miedo
+	var enemigos := get_tree().get_nodes_in_group(GRUPO) if is_inside_tree() else []
+	for n in enemigos:
+		if n == self:
+			continue
+		if not is_instance_valid(n):
+			continue
+		if n.has_method("notificar_muerte_cercana"):
+			n.call("notificar_muerte_cercana", global_position)
 
 ## Retirada limpia pedida por el gerente (otra pulsación de la tecla): sin tween.
 func retirar() -> void:

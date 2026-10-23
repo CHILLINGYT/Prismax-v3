@@ -34,10 +34,14 @@ const ClaseEnemigo := preload("res://Enemigos Prueba/Scripts/enemigo_prueba.gd")
 ## cápsula, se resuelven con preload para no depender de la caché de clases global.
 const ESCENA_MELEE := preload("res://Enemigos Prueba/Scenes/enemigo_melee.tscn")
 const ESCENA_TIRADOR := preload("res://Enemigos Prueba/Scenes/enemigo_tirador.tscn")
+const ESCENA_TANQUE := preload("res://Enemigos Prueba/Scenes/enemigo_tanque.tscn")
+const ESCENA_JEFE := preload("res://Enemigos Prueba/Scenes/enemigo_jefe.tscn")
 const GRUPO := &"enemigos_prueba"
 const ACCION := &"enemigos_prueba"
 const ACCION_MELEE := &"enemigos_melee"
 const ACCION_TIRADOR := &"enemigos_tirador"
+const ACCION_TANQUE := &"enemigos_tanque"
+const ACCION_JEFE := &"enemigos_jefe"
 const GRUPO_GESTOR := &"combat_manager"
 const GRUPO_JUGADOR := &"player"
 ## Altura total (m) de la cápsula del enemigo: la misma de enemigo_prueba.tscn.
@@ -47,28 +51,37 @@ const ALTURA_CAPSULA := 1.8
 ## H = cuerpo a cuerpo, J = tirador, G = MEZCLA de los dos (3 + 2).
 ## CAPSULA sigue existiendo para la API de cápsulas (generar_grupo), pero la
 ## tecla G ya NO la usa.
-enum Tipo { CAPSULA, MELEE, TIRADOR, MEZCLA }
+## Fase 3: nuevos roles TANQUE (K) y JEFE (L)
+enum Tipo { CAPSULA, MELEE, TIRADOR, MEZCLA, TANQUE, JEFE }
 const ESCENAS := {
 	Tipo.CAPSULA: ESCENA_ENEMIGO,
 	Tipo.MELEE: ESCENA_MELEE,
 	Tipo.TIRADOR: ESCENA_TIRADOR,
+	Tipo.TANQUE: ESCENA_TANQUE,
+	Tipo.JEFE: ESCENA_JEFE,
 }
 const NOMBRES := {
 	Tipo.CAPSULA: "cápsula",
 	Tipo.MELEE: "cuerpo a cuerpo",
 	Tipo.TIRADOR: "tirador",
 	Tipo.MEZCLA: "cuerpo a cuerpo + armas",
+	Tipo.TANQUE: "tanque",
+	Tipo.JEFE: "jefe",
 }
 const PREFIJOS := {
 	Tipo.CAPSULA: "Enemigo",
 	Tipo.MELEE: "Melee",
 	Tipo.TIRADOR: "Tirador",
+	Tipo.TANQUE: "Tanque",
+	Tipo.JEFE: "Jefe",
 }
 const TECLAS := {
 	Tipo.CAPSULA: "G",
 	Tipo.MELEE: "H",
 	Tipo.TIRADOR: "J",
 	Tipo.MEZCLA: "G",
+	Tipo.TANQUE: "K",
+	Tipo.JEFE: "L",
 }
 
 @export_group("Aparición (tecla G)")
@@ -96,7 +109,7 @@ const TECLAS := {
 ## Daño de cada golpe enemigo (por EstadisticasJugador.recibir_danio).
 @export var dano_enemigo: float = 10.0
 
-@export_group("Enemigos con esqueleto (H / J)")
+@export_group("Enemigos con esqueleto (H / J / K / L) - Fase 3")
 ## Cuántos enemigos cuerpo a cuerpo genera la tecla H.
 @export var cantidad_melee: int = 3
 ## Vida de cada cuerpo a cuerpo (se aplica al aparecer).
@@ -111,6 +124,14 @@ const TECLAS := {
 @export var vida_tirador: float = 56.25
 ## Daño de cada proyectil del tirador (J).
 @export var dano_tirador: float = 6.0
+## Fase 3: Tanques (K)
+@export var cantidad_tanque: int = 1
+@export var vida_tanque: float = 150.0
+@export var dano_tanque: float = 20.0
+## Fase 3: Jefes (L)
+@export var cantidad_jefe: int = 1
+@export var vida_jefe: float = 300.0
+@export var dano_jefe: float = 25.0
 
 var _enemigos: Array[Node3D] = []
 ## Enemigos agrupados por tipo (Tipo -> Array): permite que cada tecla genere o
@@ -127,7 +148,7 @@ var _sonda_hueco: SphereShape3D
 func _ready() -> void:
 	_sonda_hueco = SphereShape3D.new()
 	_sonda_hueco.radius = 0.55
-	for t in [Tipo.CAPSULA, Tipo.MELEE, Tipo.TIRADOR, Tipo.MEZCLA]:
+	for t in [Tipo.CAPSULA, Tipo.MELEE, Tipo.TIRADOR, Tipo.MEZCLA, Tipo.TANQUE, Tipo.JEFE]:
 		_grupos[t] = []
 	# El jugador puede no existir aún cuando el mundo se instancia en la pantalla
 	# de carga: se resuelve en diferido y, si hiciera falta, otra vez al generar.
@@ -142,6 +163,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(ACCION_TIRADOR):
 		_alternar_tipo(Tipo.TIRADOR)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(ACCION_TANQUE):
+		_alternar_tipo(Tipo.TANQUE)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(ACCION_JEFE):
+		_alternar_tipo(Tipo.JEFE)
 		get_viewport().set_input_as_handled()
 
 # =============================================================== API (la usa el enemigo)
@@ -366,6 +393,10 @@ func _cantidad_de(tipo: int) -> int:
 			return cantidad_melee
 		Tipo.TIRADOR:
 			return cantidad_tirador
+		Tipo.TANQUE:
+			return cantidad_tanque
+		Tipo.JEFE:
+			return cantidad_jefe
 		Tipo.MEZCLA:
 			return cantidad_melee_g + cantidad_tirador_g
 		_:
@@ -506,6 +537,10 @@ func _vida_de(tipo: int) -> float:
 			return vida_melee
 		Tipo.TIRADOR:
 			return vida_tirador
+		Tipo.TANQUE:
+			return vida_tanque
+		Tipo.JEFE:
+			return vida_jefe
 		_:
 			return vida_enemigo
 
@@ -515,6 +550,10 @@ func _dano_de(tipo: int) -> float:
 			return dano_melee
 		Tipo.TIRADOR:
 			return dano_tirador
+		Tipo.TANQUE:
+			return dano_tanque
+		Tipo.JEFE:
+			return dano_jefe
 		_:
 			return dano_enemigo
 
