@@ -1399,7 +1399,9 @@ func _rayo_suelo(desde: Vector3, largo: float) -> Dictionary:
 		return {}
 	var q := PhysicsRayQueryParameters3D.create(desde, desde + Vector3.DOWN * largo)
 	q.collision_mask = collision_mask
-	q.exclude = [get_rid()]
+	q.exclude = []
+	if self is CollisionObject3D:
+		q.exclude = [(self as CollisionObject3D).get_rid()]
 	q.collide_with_areas = false
 	q.collide_with_bodies = true
 	return mundo.direct_space_state.intersect_ray(q)
@@ -4110,8 +4112,11 @@ func _punto_objetivo_mira() -> Vector3:
 	var dir := -pivote.global_transform.basis.z
 	var mundo := get_world_3d()
 	if mundo != null:
+		var excluir: Array[RID] = []
+		if self is CollisionObject3D:
+			excluir.append((self as CollisionObject3D).get_rid())
 		var consulta := PhysicsRayQueryParameters3D.create(
-			origen, origen + dir * F_MIRA_ALCANCE, 1, [get_rid()])
+			origen, origen + dir * F_MIRA_ALCANCE, 1, excluir)
 		var golpe: Dictionary = mundo.direct_space_state.intersect_ray(consulta)
 		if golpe.has("position"):
 			return golpe["position"]
@@ -4270,7 +4275,9 @@ func _golpear_esfera_fuerza(centro: Vector3, radio: float, dano: float, empuje: 
 	var mundo := get_world_3d()
 	if mundo == null:
 		return
-	var excluir: Array = [get_rid()]
+	var excluir: Array = []
+	if self is CollisionObject3D:
+		excluir = [(self as CollisionObject3D).get_rid()]
 	FuerzaCombat.golpear_esfera(mundo.direct_space_state, centro, radio, dano, empuje, excluir, 0.4, 0.3)
 
 func _golpear_objetivo_fuerza(nodo: Node3D, centro: Vector3, dano: float, empuje: float) -> void:

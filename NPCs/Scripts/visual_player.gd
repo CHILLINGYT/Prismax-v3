@@ -313,7 +313,9 @@ func _update_camera(delta: float) -> void:
 		var backwards := _pitch_node.global_transform.basis.z.normalized()
 		var query := PhysicsRayQueryParameters3D.create(origin, origin + backwards * (camera_distance + 0.2))
 		query.collision_mask = camera_collision_mask
-		query.exclude = [get_rid()]
+		query.exclude = []
+		if self is CollisionObject3D:
+			query.exclude = [(self as CollisionObject3D).get_rid()]
 		var hit := space.intersect_ray(query)
 		if not hit.is_empty():
 			wanted = clampf(origin.distance_to(hit["position"]) - 0.2, 0.5, camera_distance)
