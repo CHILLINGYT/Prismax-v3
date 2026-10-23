@@ -20,6 +20,7 @@ const CombatConfig = preload("res://personaje/transformaciones/transformacion at
 const CombatTargeting = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_targeting.gd")
 const AttackData = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/attack_data.gd")
 const PlayerAnimator = preload("res://personaje/transformaciones/transformacion ataque/scripts/player_animator.gd")
+const CombatVFX = preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_vfx.gd")
 
 enum State { FREE, APPROACH, WINDUP, ACTIVE, RECOVERY, COUNTER, EVADE, HIT, DEAD }
 
@@ -290,6 +291,61 @@ func _get_directional_attack() -> String:
 		return "lateral" # A/D + ataque = golpe con desplazamiento lateral
 	return ""
 
+## FASE 2: Crea ataque direccional basado en ataque base
+func _crear_ataque_direccional(tipo: String, base: AttackData) -> AttackData:
+	var a := AttackData.new()
+	a.id = "%s_%s" % [base.id, tipo]
+	a.animation = base.animation
+	a.damage = base.damage
+	a.attack_range = base.attack_range
+	a.ideal_distance = base.ideal_distance
+	a.approach_speed = base.approach_speed
+	a.windup = base.windup
+	a.active = base.active
+	a.recovery = base.recovery
+	a.cancel_window = base.cancel_window
+	a.stamina_cost = base.stamina_cost
+	a.attack_type = base.attack_type
+	a.is_finisher = base.is_finisher
+	a.hitstop_duration = base.hitstop_duration
+	a.camera_shake = base.camera_shake
+	
+	match tipo:
+		"uppercut":
+			# W + ataque: lanza al aire, más daño vertical, knockback arriba
+			a.id = "uppercut"
+			a.animation = "gancho" # reusa gancho pero con efecto vertical
+			a.damage = base.damage * 1.3
+			a.knockback = base.knockback * 0.5
+			a.stun = 0.6 # stun aéreo
+			a.speed = base.speed * 0.9
+			a.windup = base.windup * 1.1
+			a.attack_type = "heavy"
+			a.camera_shake = 0.6
+			a.hitstop_duration = 0.07
+		"sweep":
+			# S + ataque: barrido bajo, tumba, área más grande
+			a.id = "sweep"
+			a.animation = "dos"
+			a.damage = base.damage * 1.2
+			a.attack_range = base.attack_range * 1.3
+			a.knockback = base.knockback * 1.8
+			a.stun = 0.8 # tumba
+			a.speed = base.speed * 0.85
+			a.attack_type = "medium"
+			a.camera_shake = 0.5
+		"lateral":
+			# A/D + ataque: golpe con desplazamiento lateral, reposiciona
+			a.id = "lateral"
+			a.animation = "cros"
+			a.damage = base.damage * 1.1
+			a.approach_speed = base.approach_speed * 1.4
+			a.knockback = base.knockback * 1.2
+			a.speed = base.speed * 1.15
+			a.attack_type = "light"
+			a.camera_shake = 0.4
+	return a
+
 
 func _physics_process(delta: float) -> void:
 	_ensure_combat()
@@ -406,27 +462,14 @@ func _start_action(act: Dictionary) -> void:
 func _begin_attack() -> void:
 	_action_kind = "attack"
 
-	# (Re)select the target at the start of EVERY new action, so a combo can
-	# travel from enemy to enemy. The intent blends WASD, camera and facing, so
-	# turning towards another enemy switches to it immediately, mid-combo.
 	var enemies: Array = _manager.get_active_enemies() if _manager != null else []
 	var threats = _manager.threats if _manager != null else null
-	# A dead, already-freed target is not valid as the "current" of the selection
-	# call (the parameter is typed, and passing a freed object errors out): it
-	# counts as no target, and the chain still restarts because the selection
-	# changed.
 	var previous: Node3D = _target if is_instance_valid(_target) else null
 	_target = CombatTargeting.select_target(self, _input_dir(), _camera_dir(), enemies, _config, previous, threats)
 
-	# A dead combo (no confirmed hit for combo_keep_time) starts over at the first
-	# hit; a live one keeps the chain going where it was.
 	if _combo_window <= 0.0:
 		_chain_index = 0
 
-	# FreeFlow rule: a CONFIRMED change of target restarts the Sprint at jab, so
-	# half a sequence is never carried over to another enemy. Only the next attack
-	# is affected: the hit already running keeps its own target and its own clip,
-	# and resolves its damage against that target alone.
 	if _target != previous:
 		_chain_index = 0
 
@@ -435,6 +478,11 @@ func _begin_attack() -> void:
 	else:
 		_chain_index = clampi(_chain_index, 0, _attack_chain.size() - 1)
 		_attack = _attack_chain[_chain_index]
+	
+	# --- MEJORA FASE 2: Variantes direccionales ---
+	var dir_attack := _get_directional_attack()
+	if dir_attack != "":
+		_attack = _crear_ataque_direccional(dir_attack, _attack)
 
 	if _target != null and is_instance_valid(_target):
 		if _flat_distance(_target) > _attack.ideal_distance:
@@ -489,19 +537,17 @@ func _apply_hit(t: Node3D) -> void:
 	if _manager != null:
 		_manager.combo.register_hit()
 		combo_changed.emit(_manager.combo.count)
-	# The hit CONNECTED: the combo window is refreshed
 	_combo_window = _config.combo_keep_time if _config != null else 2.0
 	
 	# --- MEJORA #3: Feedback AAA - Hitstop, Shake, FOV ---
+	var is_finisher := _attack.is_finisher or _chain_index == _attack_chain.size() - 1
 	if _camera_rig != null:
-		# Hitstop: 0.05s freeze en cada hit (Smash Bros feel)
-		var is_finisher := _chain_index == _attack_chain.size() - 1
-		var hitstop_dur := 0.08 if is_finisher else 0.05
+		var hitstop_dur: float = _attack.hitstop_duration if _attack != null else (0.08 if is_finisher else 0.05)
 		if _camera_rig.has_method("hitstop"):
 			_camera_rig.hitstop(hitstop_dur)
 		
-		# Shake escalado por combo y por tipo de golpe
-		var base_shake := 0.3 + float(_manager.combo.count) * 0.08
+		var base_shake: float = _attack.camera_shake if _attack != null else 0.3
+		base_shake += float(_manager.combo.count) * 0.08 if _manager != null else 0.0
 		if is_finisher:
 			base_shake = 0.8
 		if _action_kind == "special":
@@ -509,16 +555,30 @@ func _apply_hit(t: Node3D) -> void:
 		if _camera_rig.has_method("shake"):
 			_camera_rig.shake(base_shake)
 		
-		# FOV punch: -4 normal, -8 finisher
 		var fov_punch := -8.0 if is_finisher else -4.0
 		if _action_kind == "special":
 			fov_punch = -10.0
 		if _camera_rig.has_method("punch_fov"):
 			_camera_rig.punch_fov(fov_punch, 0.15 if is_finisher else 0.10)
 	
-	# Slowmo en finisher
-	if _chain_index == _attack_chain.size() - 1 and _camera_rig != null and _camera_rig.has_method("slowmo"):
+	if is_finisher and _camera_rig != null and _camera_rig.has_method("slowmo"):
 		_camera_rig.slowmo(0.25, 0.4)
+	
+	# --- FASE 2: VFX por golpe ---
+	var hit_pos := t.global_position + Vector3.UP * 1.0
+	if t.has_method("get_hit_center"):
+		hit_pos = t.call("get_hit_center")
+	var attack_type: String = _attack.attack_type if _attack != null else "light"
+	var combo_c: int = _manager.combo.count if _manager != null else _chain_index
+	# Buscar escena para spawnear VFX
+	var vfx_parent := get_tree().current_scene
+	if vfx_parent == null:
+		vfx_parent = get_parent()
+	if vfx_parent != null:
+		CombatVFX.spawn_hit_vfx(vfx_parent, hit_pos, attack_type, is_finisher, combo_c)
+	
+	# --- FASE 2: SFX con pitch por combo ---
+	_play_combat_sfx(attack_type, is_finisher, combo_c)
 
 
 func _state_recovery(delta: float) -> void:
@@ -863,16 +923,46 @@ func _try_counter() -> void:
 	_phase_timer = _config.counter_duration
 	var dir: Vector3 = -global_transform.basis.z
 	dir.y = 0.0
+	var is_perfect := false
+	var perfect_enemy: Node3D = null
+	
 	if _manager != null:
 		var threat: Dictionary = _manager.threats.find_counterable(global_position, dir, _config.counter_range, _config.counter_arc)
 		if not threat.is_empty():
 			var e = threat.enemy
 			if is_instance_valid(e):
+				# --- FASE 2: Counter perfecto si windup <0.15s ---
+				var time_left: float = float(threat.get("time_left", 0.5))
+				is_perfect = time_left < 0.15 and time_left > 0.02 # ventana perfecta 130ms antes de impacto
+				perfect_enemy = e as Node3D
+				
 				_face_dir(_flat_dir(e), 1.0)
+				var stun_dur := _config.counter_stun
+				if is_perfect:
+					stun_dur = 2.0 # perfecto = 2s stun vs 1.2s normal
+					print("[COMBAT] ¡COUNTER PERFECTO! stun %.1fs" % stun_dur)
 				if e.has_method("on_countered"):
-					e.on_countered(_config.counter_stun)
+					e.on_countered(stun_dur)
 				_manager.combo.register_hit()
 				combo_changed.emit(_manager.combo.count)
+	
+	# Feedback diferenciado
+	if _camera_rig != null:
+		if is_perfect:
+			if _camera_rig.has_method("slowmo"):
+				_camera_rig.slowmo(0.35, 0.2) # slowmo 0.2x por 0.35s
+			if _camera_rig.has_method("shake"):
+				_camera_rig.shake(1.2)
+			if _camera_rig.has_method("punch_fov"):
+				_camera_rig.punch_fov(-10.0, 0.25)
+			if _camera_rig.has_method("zoom_to_enemy") and perfect_enemy != null:
+				_camera_rig.zoom_to_enemy(perfect_enemy, 0.25)
+		else:
+			if _camera_rig.has_method("shake"):
+				_camera_rig.shake(0.5)
+			if _camera_rig.has_method("punch_fov"):
+				_camera_rig.punch_fov(-4.0, 0.12)
+	
 	_play_anim_strike()
 
 
@@ -897,11 +987,96 @@ func _start_evade() -> void:
 		d = -global_transform.basis.z
 		d.y = 0.0
 		d = d.normalized()
+	
+	# --- FASE 2: Evade perfecto si hay amenaza inminente ---
+	var is_perfect_evade := false
+	if _manager != null:
+		var threats := _manager.threats.get_active()
+		for t in threats:
+			var time_left: float = float(t.get("time_left", 1.0))
+			if time_left < 0.2 and time_left > 0.02: # ventana perfecta 180ms
+				var e: Node = t.enemy
+				if is_instance_valid(e) and e is Node3D:
+					var to_enemy: Vector3 = (e as Node3D).global_position - global_position
+					to_enemy.y = 0.0
+					if to_enemy.length() < _config.counter_range + 1.0:
+						is_perfect_evade = true
+						break
+	
 	_evade_dir = d
 	_evade_timer = _config.evade_duration
 	_iframe_timer = _config.evade_iframes
+	
+	if is_perfect_evade:
+		print("[COMBAT] ¡EVADE PERFECTO! Tiempo bala + gadget cooldown")
+		_evade_timer *= 1.3 # evade más largo si es perfecto
+		_iframe_timer = _config.evade_duration # iframes todo el evade
+		_gadget_timer = maxf(0.0, _gadget_timer - 2.0) # -2s cooldown gadget
+		if _camera_rig != null:
+			if _camera_rig.has_method("slowmo"):
+				_camera_rig.slowmo(0.4, 0.25) # tiempo bala
+			if _camera_rig.has_method("shake"):
+				_camera_rig.shake(0.6)
+		# Afterimage en posición anterior (como Velocista)
+		_crear_afterimage_evade()
+	else:
+		if _camera_rig != null and _camera_rig.has_method("shake"):
+			_camera_rig.shake(0.2)
+	
 	state = State.EVADE
 	_face_dir(d, 1.0)
+
+func _crear_afterimage_evade() -> void:
+	# Deja silueta en posición anterior como Velocista
+	if _visual == null:
+		return
+	var escena := get_tree().current_scene
+	if escena == null:
+		escena = get_parent()
+		if escena == null:
+			return
+	var fantasma := _visual.duplicate() as Node3D
+	if fantasma == null:
+		return
+	escena.add_child(fantasma)
+	fantasma.global_position = global_position - _evade_dir * 0.5
+	# Desvanecer
+	var tween := create_tween()
+	tween.tween_property(fantasma, "transparency", 1.0, 0.3)
+	tween.tween_callback(fantasma.queue_free)
+
+func _play_combat_sfx(attack_type: String, is_finisher: bool, combo_count: int) -> void:
+	# FASE 2: SFX con pitch por combo
+	# Busca AudioStreamPlayer3D en el jugador o usa SonidoUI
+	var sfx_player := get_node_or_null("SFX_Combate") as AudioStreamPlayer3D
+	if sfx_player == null:
+		sfx_player = get_node_or_null("AudioCombate") as AudioStreamPlayer3D
+	if sfx_player == null:
+		# Fallback: crear uno temporal
+		sfx_player = AudioStreamPlayer3D.new()
+		sfx_player.name = "SFX_Combate_Temp"
+		add_child(sfx_player)
+	
+	# Pitch escala con combo: 1.0, 1.05, 1.1, 1.15, 1.2, 1.3 finisher
+	var pitch := 1.0 + float(combo_count) * 0.05
+	if is_finisher:
+		pitch = 1.3
+	elif attack_type == "heavy":
+		pitch = 1.15
+	pitch = clampf(pitch, 0.9, 1.4)
+	
+	if sfx_player != null:
+		sfx_player.pitch_scale = pitch
+		# Si tiene stream asignado, reproducir
+		if sfx_player.stream != null:
+			sfx_player.play()
+		else:
+			# Crear sonido procedural simple si no hay stream
+			# Usar SonidoUI si existe
+			if has_node("/root/SonidoUI"):
+				var sonido_ui = get_node("/root/SonidoUI")
+				if sonido_ui.has_method("reproducir"):
+					sonido_ui.reproducir("golpe_%s" % attack_type)
 
 
 func _use_gadget() -> void:
