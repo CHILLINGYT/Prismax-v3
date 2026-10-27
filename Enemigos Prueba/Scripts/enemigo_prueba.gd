@@ -333,6 +333,10 @@ func _aplicar_dano(cantidad: float, dir: Vector3, empuje: float, aturde: float) 
 	_vida = maxf(0.0, _vida - cantidad)
 	_flash = 1.0
 	_animar_una_vez(clip_recibir)
+	# EFECTO de impacto en el punto de contacto: aquí el daño ya está confirmado
+	# (un golpe al aire no pasa de aquí) y es UNA llamada por impacto, así que no
+	# se puede duplicar por fotogramas ni por varias colisiones del mismo golpe.
+	VfxImpacto.reproducir(self, dir, cantidad)
 	if empuje > 0.0 and dir.length_squared() > 0.0001:
 		velocity.x += dir.x * empuje
 		velocity.z += dir.z * empuje

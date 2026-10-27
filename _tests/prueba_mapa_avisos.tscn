@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://_tests/prueba_mapa_avisos.gd" id="1_prueba"]
+
+[node name="PruebaMapaAvisos" type="Node3D"]
+script = ExtResource("1_prueba")

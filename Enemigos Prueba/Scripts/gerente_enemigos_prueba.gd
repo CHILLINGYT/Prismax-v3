@@ -20,6 +20,11 @@ extends Node3D
 ##
 ## El jugador se localiza por grupo y, si no está, por tipo (ControladorLeo),
 ## nunca por una ruta de nodo rígida: la escena se puede reordenar sin romperlo.
+##
+## VOCES DE APARICIÓN: cada enemigo que se crea de verdad (por G/H/J o por la API
+## de eventos) recibe UNA voz aleatoria de `res://Audio/enemigos` en audio 3D
+## (`VocesAparicion`), con las simultáneas repartidas. Los dos embudos de creación
+## llaman al MISMO helper, así que la misma aparición nunca suena dos veces.
 
 ## Emitida al generar un grupo, con cuántos enemigos se crearon de verdad.
 signal grupo_generado(cantidad: int)
@@ -88,6 +93,13 @@ const TECLAS := {
 ## Radio (m) del anillo de combate. Con CombatManager manda el
 ## formation_radius de su config (2.5); este es el respaldo sin gestor.
 @export var radio_cerco: float = 2.5
+
+@export_group("Voces de aparición")
+## Reproduce UNA voz aleatoria (`res://Audio/enemigos`, audio 3D pegado al
+## enemigo) al confirmarse cada aparición: vale igual para la tecla G/H/J y para
+## los enemigos que crea el DirectorEventos. Una voz por aparición; las
+## apariciones casi simultáneas se reparten solas para no sonar todas a la vez.
+@export var voces_aparicion: bool = true
 
 @export_group("Enemigos")
 ## Vida de cada cápsula (configurable; se aplica al aparecer).
@@ -437,6 +449,9 @@ func _crear_enemigo(escena: PackedScene, tipo: int, grupo: int, pos: Vector3, an
 		e.call("configurar", self, _siguiente_id)
 	add_child(e)
 	e.global_position = pos
+	# VOZ DE APARICIÓN: el enemigo quedó creado y colocado (ésta es la
+	# confirmación). Una voz por aparición, con el reparto de las simultáneas.
+	_voz_al_aparecer(e)
 	# La conexión muere con el nodo al liberarse: no queda ninguna referencia.
 	e.murio.connect(_al_morir_enemigo)
 	_enemigos.append(e)
@@ -498,7 +513,24 @@ func _instanciar_enemigo_en(escena: PackedScene, tipo: int, pos: Vector3) -> Nod
 		e.call("configurar", self, _siguiente_id)
 	add_child(e)
 	e.global_position = pos
+	# VOZ DE APARICIÓN: mismo embudo que G/H/J, también para los enemigos de
+	# evento (una sola llamada: el panel/evento y la tecla no duplican la voz).
+	_voz_al_aparecer(e)
 	return e
+
+
+## VOZ de aparición: UNA SOLA VOZ por APARICIÓN GRUPAL (Tarea 4).
+##
+## Este embudo se llama una vez por enemigo creado, pero la decisión NO es de cada
+## enemigo: se delega en `VocesAparicion.anunciar_aparicion`, que abre grupo con el
+## PRIMER enemigo (ése suelta la voz) y deja callados a los demás del mismo grupo.
+## Con la tecla G, por tanto, suena UNA voz para los cinco; con el panel/evento,
+## igual. Si el enemigo no llegó a crearse (o el sistema está apagado por ajuste),
+## no suena nada: esto SÓLO se llama desde los dos embudos de aparición.
+func _voz_al_aparecer(e: Node3D) -> void:
+	if not voces_aparicion or e == null or not e.is_inside_tree():
+		return
+	VocesAparicion.anunciar_aparicion(e)
 
 func _vida_de(tipo: int) -> float:
 	match tipo:

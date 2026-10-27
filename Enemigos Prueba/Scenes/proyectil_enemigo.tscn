@@ -1,23 +1,28 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
+
+; PROYECTIL de los enemigos tiradores. La lógica NO cambia: sigue siendo un Node3D
+; con barrido de esfera por fotograma (cast_motion) y daño por el sistema real del
+; jugador. Lo único que cambia (Tarea 2) es la MALLA VISIBLE: en lugar de la bola
+; naranja con emisión, lleva el CARTUCHO REAL importado.
+;
+; La bola (SphereMesh + material emisivo naranja) se retira de la escena, pero el
+; camino que la dibujaba SIGUE en `proyectil_enemigo.gd` (`_actualizar_malla`): si se
+; quisiera volver a ella basta con ponerle una SphereMesh al nodo `Malla`.
+;
+; `Municion` es el GLB del cartucho 6.5x55 (cartucho COMPLETO: culote + casco +
+; punta, no una bala suelta). Medido en `_tests/probe_armas.gd`: el modelo mide
+; 0.448 m de largo y su EJE LARGO es +Y, con la punta en el extremo +Y. Como el
+; proyectil vuela hacia su -Z (`look_at` en `lanzar()`), el modelo va girado para
+; que su +Y caiga sobre el -Z del proyectil:
+;   basis: X=(1,0,0)  Y=(0,0,-1)  Z=(0,1,0)   (rotación propia, sin espejo)
+; La ESCALA la fija el código de forma UNIFORME (no viene del .tscn) para que el
+; cartucho conserve el tamaño visible que tenía la bola: radio*2*escala_visual.
 
 [ext_resource type="Script" path="res://Enemigos Prueba/Scripts/proyectil_enemigo.gd" id="1_proy"]
-
-[sub_resource type="SphereMesh" id="SphereMesh_bala"]
-radius = 0.12
-height = 0.24
-radial_segments = 12
-rings = 6
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bala"]
-albedo_color = Color(1, 0.62, 0.2, 1)
-emission_enabled = true
-emission = Color(1, 0.45, 0.12, 1)
-emission_energy_multiplier = 2.5
+[ext_resource type="PackedScene" path="res://modelos 3d armas/bullet_6.5x55mm_swedish.glb" id="2_municion"]
 
 [node name="ProyectilEnemigo" type="Node3D"]
 script = ExtResource("1_proy")
 
-[node name="Malla" type="MeshInstance3D" parent="."]
-mesh = SubResource("SphereMesh_bala")
-material_override = SubResource("StandardMaterial3D_bala")
-cast_shadow = 0
+[node name="Municion" parent="." instance=ExtResource("2_municion")]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)

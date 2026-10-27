@@ -24,6 +24,22 @@ extends Node3D
 ## Multiplicador del tamaño VISUAL sobre el radio (1 = bola del tamaño del radio).
 @export var escala_visual: float = 1.0
 
+## Modelo REAL de la munición (Tarea 2): cartucho 6.5x55 COMPLETO (culote + casco +
+## punta), no una bala suelta. Sustituye a la bola visible; la lógica de vuelo, el
+## barrido y el daño son exactamente los mismos.
+const ESCENA_MUNICION := "res://modelos 3d armas/bullet_6.5x55mm_swedish.glb"
+## Largo real del modelo (m) medido con `_tests/probe_armas.gd` sobre la escena
+## importada: sirve para escalarlo de forma UNIFORME hasta el tamaño visible del
+## proyectil. (El cartucho real mide 8 cm; a 26 m/s y a 10-20 m de distancia eso son
+## un par de píxeles, así que el tamaño visible se mantiene en el que ya tenía la
+## bola: radio*2*escala_visual. Es una escala UNIFORME, no un estirado de ejes.)
+const LARGO_MODELO := 0.4482
+## Brillo propio del proyectil: se añade emisión a COPIAS de los materiales del
+## cartucho (los recursos importados NO se tocan) para que se siga leyendo en vuelo,
+## como se leía la bola emisiva. 0.0 = cartucho tal cual, sin brillo.
+const BRILLO_RASTRO := 0.9
+const COLOR_RASTRO := Color(1.0, 0.72, 0.35)
+
 var _dir: Vector3 = Vector3.FORWARD
 var _duenio: Node3D = null
 var _activo: bool = false
@@ -32,6 +48,11 @@ var _bola: SphereShape3D
 var _consulta := PhysicsShapeQueryParameters3D.new()
 
 @onready var _malla: MeshInstance3D = get_node_or_null("Malla") as MeshInstance3D
+## Cartucho real (hijo directo de la escena). Si está, manda él como malla visible;
+## el nombre antiguo "Malla/Municion" también se acepta por compatibilidad.
+@onready var _municion: Node3D = _buscar_municion()
+## ¿Ya se le puso el brillo al cartucho? (se hace una sola vez, con copias).
+var _brillo_puesto: bool = false
 
 func _ready() -> void:
 	# La bola de colisión y el tamaño visible salen del radio configurado. El
@@ -44,8 +65,14 @@ func _ready() -> void:
 	_consulta.collide_with_areas = false
 	_actualizar_malla()
 
-## Ajusta la bola visible al radio de colisión configurado.
+## Ajusta la malla VISIBLE al radio de colisión configurado. Con el cartucho real
+## (Tarea 2) la escala es UNIFORME y conserva el tamaño visible que tenía la bola;
+## si no hay cartucho, sigue funcionando el camino de la bola de siempre.
 func _actualizar_malla() -> void:
+	if _municion != null:
+		_municion.scale = Vector3.ONE * (radio * 2.0 * escala_visual / LARGO_MODELO)
+		_poner_brillo_rastro()
+		return
 	if _malla == null:
 		return
 	var esf := _malla.mesh as SphereMesh
@@ -55,6 +82,39 @@ func _actualizar_malla() -> void:
 	esf.radius = radio * escala_visual
 	esf.height = radio * 2.0 * escala_visual
 	_malla.mesh = esf
+
+## Nodo del cartucho real, esté como hijo directo (escena nueva) o bajo "Malla"
+## (disposición antigua): así el script funciona con las dos.
+func _buscar_municion() -> Node3D:
+	var directo := get_node_or_null("Municion") as Node3D
+	if directo != null:
+		return directo
+	return get_node_or_null("Malla/Municion") as Node3D
+
+
+## Brillo del proyectil: copias de los materiales del cartucho con emisión cálida.
+## Se trabaja sobre COPIAS (los materiales importados del GLB quedan intactos, igual
+## que hace el destello de daño de los enemigos): el cartucho se ve como es, pero
+## con luz propia suficiente para seguirlo en vuelo.
+func _poner_brillo_rastro() -> void:
+	if _brillo_puesto or BRILLO_RASTRO <= 0.0:
+		return
+	_brillo_puesto = true
+	for n in _municion.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var base := mi.get_active_material(s)
+			if base == null or not (base is BaseMaterial3D):
+				continue
+			var copia := (base as BaseMaterial3D).duplicate() as BaseMaterial3D
+			if copia is StandardMaterial3D:
+				var sm := copia as StandardMaterial3D
+				sm.emission_enabled = true
+				sm.emission = COLOR_RASTRO
+				sm.emission_energy_multiplier = BRILLO_RASTRO
+			mi.set_surface_override_material(s, copia)
 
 ## Arranca el proyectil. Se llama SIEMPRE después de añadirlo al árbol.
 func lanzar(origen: Vector3, direccion: Vector3, duenio: Node3D = null, vel: float = -1.0, dmg: float = -1.0) -> void:

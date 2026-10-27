@@ -29,7 +29,8 @@ const TITULO_PROFUGOS := "Derrota a los criminales profugos"
 ## distintas rutas notifiquen la misma muerte.
 const META_CONTADO := &"_mision_baja_contada"
 
-## id -> {titulo: String, objetivo: int, progreso: int, activa: bool, completada: bool}
+## id -> {titulo: String, objetivo: int, progreso: int, activa: bool,
+##        completada: bool, ancla: Variant (Vector3 o null)}
 var _misiones: Dictionary = {}
 
 func _ready() -> void:
@@ -43,6 +44,10 @@ func _definir(id: StringName, titulo: String, objetivo: int) -> void:
 		"progreso": 0,
 		"activa": false,
 		"completada": false,
+		# Ancla OPCIONAL: dónde está el objetivo en el mundo. La usa el mapa para
+		# poner su marcador; una misión sin ancla (p. ej. la de los prófugos, que
+		# aparecen por todo el mapa) simplemente no dibuja marcador.
+		"ancla": null,
 	}
 
 # ------------------------------------------------------------------ consulta
@@ -63,14 +68,42 @@ func progreso_de(id: StringName) -> Dictionary:
 ## Activa una misión. Idempotente: NO reinicia el progreso ni reactiva una misión
 ## ya activa o completada (volver a hablar con Iván no cambia nada). Devuelve true
 ## SÓLO la primera vez que se activa.
-func activar_mision(id: StringName) -> bool:
+## `ancla` (opcional) es la posición en el mundo del objetivo: el mapa la usa para
+## señalar la misión con un marcador.
+func activar_mision(id: StringName, ancla: Variant = null) -> bool:
 	var m: Dictionary = _misiones.get(id, {})
 	if m.is_empty() or bool(m["activa"]) or bool(m["completada"]):
 		return false
 	m["activa"] = true
+	if ancla is Vector3:
+		m["ancla"] = ancla
 	mision_activada.emit(id)
 	progreso_cambiado.emit(id, int(m["progreso"]), int(m["objetivo"]))
 	return true
+
+
+# ------------------------------------------------------------------ anclas (mapa)
+## Anclas de las misiones ACTIVAS y sin completar, para los marcadores del mapa:
+## [{id, titulo, posicion, actual, objetivo}]. Sólo entran las misiones con ancla
+## (las que no tienen un punto fijo en el mundo no dibujan marcador). Es una copia
+## de sólo lectura: no expone el diccionario interno.
+func anclas_activas() -> Array:
+	var salida: Array = []
+	for id in _misiones.keys():
+		var m: Dictionary = _misiones[id]
+		if not bool(m["activa"]) or bool(m["completada"]):
+			continue
+		var a: Variant = m.get("ancla")
+		if not (a is Vector3):
+			continue
+		salida.append({
+			"id": id,
+			"titulo": String(m["titulo"]),
+			"posicion": a,
+			"actual": int(m["progreso"]),
+			"objetivo": int(m["objetivo"]),
+		})
+	return salida
 
 # ------------------------------------------------------------------ progreso
 ## Registra UNA baja REAL de enemigo. Sólo cuenta si hay alguna misión ACTIVA y sin
