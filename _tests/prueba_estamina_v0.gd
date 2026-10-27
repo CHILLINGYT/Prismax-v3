@@ -622,6 +622,7 @@ func _correr() -> void:
 	await _esperar(2)
 
 	# ------------------------------------------------ 11. Águila: vuelo y habilidades
+	Misiones.marcar_completada(Misiones.MISION_PROFUGOS)
 	var ok_a := await _cambiar_forma(&"aguila", F_VUELO)
 	_check("agu. Transformado al águila (vuelo)", ok_a, "forma=%d" % int(_jug.forma))
 	await _esperar_seg(0.6)

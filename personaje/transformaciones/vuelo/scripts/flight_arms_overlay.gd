@@ -36,6 +36,14 @@ var _aviso_overlay := false
 var _tiempo_vuelo := 0.0
 var _modo: int = -1
 var _parametros_aplicados := ""
+## Posición del clip de aleteo en la muestra anterior: con ella se detecta
+## cuándo el ciclo REAL da la vuelta (= un aleteo nuevo) para el sonido.
+var _pos_aleteo := -1.0
+## Sonidos del personaje (hermano "SonidosVuelo").
+var _sonidos: Node = null
+
+func _ready() -> void:
+	_sonidos = get_parent().get_node_or_null("SonidosVuelo")
 
 func _physics_process(delta: float) -> void:
 	_overlay = _overlay_player()
@@ -66,6 +74,10 @@ func _physics_process(delta: float) -> void:
 	# Los disparos tienen prioridad: no tocamos el overlay mientras duran.
 	if _overlay.is_playing() and _overlay.current_animation != CLIP_ALETEO:
 		return
+
+	# SONIDO del aleteo: lo dispara CADA ciclo real de la animación (nunca un
+	# temporizador): si el clip no está corriendo, no suena.
+	_monitorear_aleteo()
 
 	match modo:
 		Modo.NEUTRO:
@@ -140,3 +152,24 @@ func _overlay_player() -> AnimationPlayer:
 		_aviso_overlay = true
 		push_warning("FlightArmsOverlay: no encontré el overlay del UAL2 loader.")
 	return overlay
+
+
+## Un ciclo COMPLETO del clip de aleteo = un aleteo. Se detecta por el avance
+## REAL de la animación (el primer fotograma en que el clip corre y cada vez que
+## su posición da la vuelta). Con el aleteo congelado (descenso: speed_scale 0)
+## o con otro overlay en curso, no suena nada.
+func _monitorear_aleteo() -> void:
+	if _overlay == null or not _overlay.is_playing() \
+			or String(_overlay.current_animation) != CLIP_ALETEO \
+			or _overlay.speed_scale <= 0.001:
+		_pos_aleteo = -1.0
+		return
+	var pos := _overlay.current_animation_position
+	if _pos_aleteo < 0.0 or pos + 0.05 < _pos_aleteo:
+		_sonar_aleteo()
+	_pos_aleteo = pos
+
+
+func _sonar_aleteo() -> void:
+	if _sonidos != null and _sonidos.has_method("aleteo"):
+		_sonidos.call("aleteo")

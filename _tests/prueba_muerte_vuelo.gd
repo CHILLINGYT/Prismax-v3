@@ -98,6 +98,9 @@ func _correr() -> void:
 	_check("jugador y estadísticas listos", true)
 
 	# ------------------------------------------------- 1. transformar a águila
+	# Vuelo está BLOQUEADO hasta completar la misión de Iván: se completa para poder
+	# probar aquí la muerte del águila (el bloqueo no es objeto de esta suite).
+	Misiones.marcar_completada(Misiones.MISION_PROFUGOS)
 	var ok := await _cambiar_forma(jug, &"aguila", FORMA_VUELO)
 	_check("1. La transformación a águila entra", ok, "forma=%d" % int(jug.forma))
 	var anim := _anim_muerte_de(jug)

@@ -373,6 +373,11 @@ func _morir() -> void:
 	t.tween_property(self, "scale", Vector3(0.08, 0.08, 0.08), 1.4)
 	t.chain().tween_callback(queue_free)
 	murio.emit(self)
+	# BAJA REAL: avisar al gestor de misiones (si existe). `retirar()` NO pasa por
+	# aquí, así que una retirada administrativa del gerente no cuenta como derrota.
+	var misiones := get_node_or_null("/root/Misiones")
+	if misiones != null and misiones.has_method("registrar_baja_de_enemigo"):
+		misiones.call("registrar_baja_de_enemigo", self)
 
 ## Retirada limpia pedida por el gerente (otra pulsación de la tecla): sin tween.
 func retirar() -> void:

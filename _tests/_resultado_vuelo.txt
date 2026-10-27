@@ -4,11 +4,18 @@
 [TEST] OK :: colisión de Vuelo desactivada al inicio | 
 [TEST] OK :: colisión del jugador ACTIVA al inicio | 
 [TEST] OK :: id_forma inicial = humano | 
-[TEST] OK :: Águila aparece DESBLOQUEADA en el menú | 
+[TEST] OK :: Águila aparece BLOQUEADA en el menú (misión sin completar) | 
+[TEST] OK :: el candado rojo de Vuelo está VISIBLE mientras la misión no está completa | 
+[TEST] OK :: el mensaje de bloqueo aparece al pasar el cursor sobre Vuelo | texto=requiere completar
+la mision
+[TEST] OK :: el mensaje desaparece al retirar el cursor de Vuelo | 
 [TEST] OK :: el retrato de Águila usa material de escala de grises | 
 [TEST] OK :: la tarjeta de Águila muestra la etiqueta DEMO | texto=DEMO
 [TEST] OK :: DEMO está en rojo intenso | color=0.93,0.06,0.06
 [TEST] OK :: las demás transformaciones conservan su aspecto (sin gris ni DEMO) | 
+[TEST] OK :: con la misión incompleta, Vuelo NO se activa (candado funcional) | forma=0
+[TEST] OK :: al completar la misión, Águila queda DESBLOQUEADA en el menú | 
+[TEST] OK :: el candado rojo desaparece al completar la misión | 
 [TEST] OK :: InputMap tiene la acción 'palmazo' | 
 [TEST] OK :: InputMap tiene la acción 'grab' | 
 [TEST] OK :: CONTROLES lista habilidades de Vuelo (palmazo, grab, guard…) | 
@@ -46,4 +53,4 @@
 [TEST] OK :: cambia a Velocista tras Vuelo | forma=1
 [TEST] OK :: el volador sigue apagado | 
 [TEST] OK :: cambia a Acuático tras Velocista | forma=2
-RESUMEN: 48 OK, 0 FALLOS
+RESUMEN: 54 OK, 0 FALLOS

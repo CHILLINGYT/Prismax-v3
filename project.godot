@@ -21,6 +21,7 @@ AjustesControles="*res://ui/scripts/ajustes_controles.gd"
 AjustesAudio="*res://ui/scripts/ajustes_audio.gd"
 SonidoUI="*res://ui/scripts/sonido_ui.gd"
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
+Misiones="*res://misiones/gestor_misiones.gd"
 
 [dialogue_manager]
 

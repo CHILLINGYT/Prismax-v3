@@ -1,8 +1,8 @@
 class_name PasosJugador
 extends Node
 
-## Pisadas del jugador SINCRONIZADAS CON LA ANIMACIÓN REAL, para las cinco
-## transformaciones (humano, combate, fuerza, velocista y acuático).
+## Pisadas del jugador SINCRONIZADAS CON LA ANIMACIÓN REAL, para las seis
+## transformaciones (humano, combate, fuerza, velocista, acuático y vuelo).
 ##
 ## No usa temporizadores propios ni un reloj paralelo: cada fotograma el
 ## controlador le pasa el AnimationPlayer de la forma activa y este nodo lee la
@@ -60,6 +60,19 @@ const TABLA := {
 		"walk": {"izq": 0.2762, "der": 0.7297, "carpeta": "acuatico", "guarda": 0.10, "sep": 0.12, "vol": -5.0},
 		"run":  {"izq": 0.3512, "der": 0.8690, "carpeta": "acuatico", "guarda": 0.08, "sep": 0.10, "vol": -4.0},
 	},
+	"vuelo": {
+		# Locomoción terrestre del águila: el clip retargeteado del personaje de
+		# COMBATE (vuelo_walk, ver personaje/base/scripts/retarget_locomocion_vuelo.gd)
+		# con los MISMOS recortes de pisada del combate. Fases MEDIDAS sobre el clip
+		# retargeteado y alineado al suelo (_tests/probe_fases_vuelo_walk.tscn,
+		# mínimo real del tobillo/punta): 0.3203 / 0.8125 (el clip del combate mide
+		# 0.3359 / 0.8203 — la diferencia es de una muestra de 240 Hz).
+		# "sep" CORTO (0.06) a propósito: la forma vuela a 5 m/s caminando y 8,5 m/s
+		# corriendo con el MISMO clip, así que la cadencia real llega a ~10 pasos/s;
+		# con 0,12 s se recortarían pisadas y la cadencia dejaría de seguir a la
+		# animación. El fondo de 6 reproductores aguanta el solape.
+		"vuelo_walk": {"izq": 0.3203, "der": 0.8125, "carpeta": "combate", "guarda": 0.10, "sep": 0.06, "vol": -4.5},
+	},
 }
 
 ## Carpeta de los recortes de pisada.
@@ -74,6 +87,10 @@ const RUTA_GOLPE_COMBATE := "res://Audio/personaje/transformacion/combate/golpe.
 ## audible caiga en el fotograma del golpe, no 75 ms después. El archivo no se toca.
 const AUD_INICIO_GOLPE_COMBATE := 0.070
 const VOL_GOLPE_COMBATE := -2.0
+## El reproductor del golpe de Combate sólo se crea donde se usa: las formas que
+## ya tienen su propio sonido de golpe (el vuelo, con Golpe3/Golpe4) lo apagan
+## para no duplicar reproductores ni sonidos.
+@export var crear_golpe: bool = true
 ## Guarda tras aterrizar (s): el aterrizaje no se duplica con el paso siguiente.
 const GUARDA_ATERRIZAJE := 0.10
 
@@ -98,14 +115,15 @@ func _ready() -> void:
 		p.bus = &"Efectos"
 		add_child(p)
 		_reps.append(p)
-	_golpe = AudioStreamPlayer.new()
-	_golpe.name = "GolpeCombate"
-	_golpe.bus = &"Efectos"
-	_golpe.volume_db = VOL_GOLPE_COMBATE
-	var st: AudioStream = load(RUTA_GOLPE_COMBATE)
-	if st != null:
-		_golpe.stream = st
-	add_child(_golpe)
+	if crear_golpe:
+		_golpe = AudioStreamPlayer.new()
+		_golpe.name = "GolpeCombate"
+		_golpe.bus = &"Efectos"
+		_golpe.volume_db = VOL_GOLPE_COMBATE
+		var st: AudioStream = load(RUTA_GOLPE_COMBATE)
+		if st != null:
+			_golpe.stream = st
+		add_child(_golpe)
 
 # ------------------------------------------------------------------ API pública
 ## Llamar UNA vez por fotograma desde el controlador, con la forma activa, su

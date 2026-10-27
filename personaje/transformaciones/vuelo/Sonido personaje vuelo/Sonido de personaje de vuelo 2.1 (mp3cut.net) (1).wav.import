@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dmijvkadrmalm"
+path="res://.godot/imported/Sonido de personaje de vuelo 2.1 (mp3cut.net) (1).wav-480f29d0fec0528c6b0b39ca07301255.sample"
+
+[deps]
+
+source_file="res://personaje/transformaciones/vuelo/Sonido personaje vuelo/Sonido de personaje de vuelo 2.1 (mp3cut.net) (1).wav"
+dest_files=["res://.godot/imported/Sonido de personaje de vuelo 2.1 (mp3cut.net) (1).wav-480f29d0fec0528c6b0b39ca07301255.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

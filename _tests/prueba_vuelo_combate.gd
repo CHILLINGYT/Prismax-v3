@@ -158,6 +158,9 @@ func _correr() -> void:
 			melee_antes.size() > 0, "n=%d" % melee_antes.size())
 
 	# ---------------------------------------------------------------- transformar
+	# Vuelo está BLOQUEADO hasta completar la misión de Iván: se completa para
+	# poder probar aquí el combate en vuelo (el bloqueo no es objeto de esta suite).
+	Misiones.marcar_completada(Misiones.MISION_PROFUGOS)
 	var ok_forma := await _cambiar_forma(&"aguila", FORMA_VUELO)
 	_check("2. La transformación a águila entra por el menú", ok_forma,
 			"forma=%d" % int(_jug.forma))
