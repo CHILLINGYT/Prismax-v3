@@ -1,0 +1,153 @@
+class_name CasaLeo
+extends Node3D
+## =============================================================================
+##  INTERIOR DE LA CASA DE LEO
+## =============================================================================
+##  Escena propia (res://casa_leo/casa_leo.tscn) con el modelo de interior
+##  importado, su luz y sus colisiones, y el JUGADOR DE VERDAD dentro (la misma
+##  escena de Leo, con sus transformaciones, su HUD y sus controles): así todo lo
+##  que funciona en la calle funciona dentro de casa.
+##
+##  La escena se carga SIEMPRE desde la pantalla de carga del juego, nunca a pelo.
+##  Aquí se prepara lo que depende del modelo real:
+##   · la caja de colisión (suelo, techo y cuatro paredes) se saca de la CAJA REAL
+##     de la malla: si el modelo cambia de tamaño, las paredes siguen donde toca;
+##   · el jugador se coloca en `PuntoEntrada`, mirando hacia dentro;
+##   · la luz de interior (ambiente cálido + una lámpara) se monta aquí, con los
+##     nombres de las constantes de Environment (sin números a mano).
+##
+##  La salida vive en `SalidaInterior` y la puerta de la calle en `PuertaCasaLeo`:
+##  las dos publican su aviso por el canal de siempre (`texto_interaccion()`).
+
+const GROSOR := 0.4        ## m de grosor de paredes y techo
+const LUZ_CALIDA := Color(1.0, 0.94, 0.86)
+
+var _jugador: CharacterBody3D
+var _caja := AABB()        ## caja REAL de la malla, ya centrada en el origen
+var _listo := false
+
+
+func _ready() -> void:
+	_entorno()
+	_caja = _medir_modelo()
+	_colisiones()
+	_jugador = get_tree().get_first_node_in_group("player") as CharacterBody3D
+	var punto := get_node_or_null("PuntoEntrada") as Node3D
+	if _jugador != null and punto != null:
+		_jugador.global_position = punto.global_position
+		_jugador.rotation.y = punto.rotation.y
+	_listo = true
+	print("[casa] interior listo | caja de la malla %.2f × %.2f × %.2f m | suelo a %.2f m" % [
+			_caja.size.x, _caja.size.y, _caja.size.z, _caja.position.y])
+
+
+## Luz de interior: ambiente cálido (para que ningún rincón quede negro) y una
+## lámpara en el centro. El fondo es un color oscuro: no se ve el cielo de la calle.
+func _entorno() -> void:
+	var we := get_node_or_null("Entorno") as WorldEnvironment
+	if we == null or we.environment != null:
+		return
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.05, 0.06, 0.08)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.93, 0.89, 0.83)
+	env.ambient_light_energy = 1.0
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	we.environment = env
+
+
+## Colisiones del interior: suelo, techo y las cuatro paredes, todas de la caja
+## real de la malla. El jugador no puede salirse ni caerse, y la salida es la
+## interacción de la puerta (no un agujero en la pared).
+func _colisiones() -> void:
+	if _caja.size.length() < 0.001:
+		return
+	var cuerpo := get_node_or_null("Colision") as StaticBody3D
+	if cuerpo == null:
+		cuerpo = StaticBody3D.new()
+		cuerpo.name = "Colision"
+		add_child(cuerpo)
+	cuerpo.collision_layer = 1
+	cuerpo.collision_mask = 0
+	var minimo := _caja.position
+	var maximo := _caja.position + _caja.size
+	var centro_y := minimo.y + _caja.size.y * 0.5
+	var alto := _caja.size.y + GROSOR
+	# Suelo (bajo la superficie) y techo (encima, para no salir de un salto).
+	_caja_colision(cuerpo, "Piso", Vector3(_caja.size.x + GROSOR * 2.0, GROSOR, _caja.size.z + GROSOR * 2.0),
+			Vector3(minimo.x + _caja.size.x * 0.5, minimo.y - GROSOR * 0.5, minimo.z + _caja.size.z * 0.5))
+	_caja_colision(cuerpo, "Techo", Vector3(_caja.size.x + GROSOR * 2.0, GROSOR, _caja.size.z + GROSOR * 2.0),
+			Vector3(minimo.x + _caja.size.x * 0.5, maximo.y + GROSOR * 0.5, minimo.z + _caja.size.z * 0.5))
+	# Cuatro paredes, por FUERA de la malla (para no comerse ningún mueble del modelo).
+	_caja_colision(cuerpo, "ParedOeste", Vector3(GROSOR, alto, _caja.size.z + GROSOR * 2.0),
+			Vector3(minimo.x - GROSOR * 0.5, centro_y, minimo.z + _caja.size.z * 0.5))
+	_caja_colision(cuerpo, "ParedEste", Vector3(GROSOR, alto, _caja.size.z + GROSOR * 2.0),
+			Vector3(maximo.x + GROSOR * 0.5, centro_y, minimo.z + _caja.size.z * 0.5))
+	_caja_colision(cuerpo, "ParedSur", Vector3(_caja.size.x + GROSOR * 2.0, alto, GROSOR),
+			Vector3(minimo.x + _caja.size.x * 0.5, centro_y, minimo.z - GROSOR * 0.5))
+	_caja_colision(cuerpo, "ParedNorte", Vector3(_caja.size.x + GROSOR * 2.0, alto, GROSOR),
+			Vector3(minimo.x + _caja.size.x * 0.5, centro_y, maximo.z + GROSOR * 0.5))
+
+
+func _caja_colision(cuerpo: StaticBody3D, nombre: String, tam: Vector3, centro: Vector3) -> void:
+	var forma := CollisionShape3D.new()
+	forma.name = nombre
+	var caja := BoxShape3D.new()
+	caja.size = tam
+	forma.shape = caja
+	forma.position = centro
+	cuerpo.add_child(forma)
+
+
+## Caja REAL de la malla del modelo (sólo MeshInstance3D), en el espacio de esta
+## escena: es la referencia de suelo, techo y paredes.
+func _medir_modelo() -> AABB:
+	var modelo := get_node_or_null("Modelo") as Node3D
+	if modelo == null:
+		return AABB()
+	return _caja_de_malla(modelo, modelo.transform)
+
+
+func _caja_de_malla(nodo: Node, t: Transform3D) -> AABB:
+	var caja := AABB()
+	var primero := true
+	if nodo is MeshInstance3D:
+		var mi := nodo as MeshInstance3D
+		if mi.mesh != null:
+			caja = _transformar_aabb(mi.get_aabb(), t)
+			primero = false
+	for c in nodo.get_children():
+		var hijo := c as Node3D
+		if hijo == null:
+			continue
+		var caja_hijo := _caja_de_malla(hijo, t * hijo.transform)
+		if caja_hijo.size.length() < 0.0001:
+			continue
+		caja = caja_hijo if primero else caja.merge(caja_hijo)
+		primero = false
+	return caja
+
+
+func _transformar_aabb(caja: AABB, t: Transform3D) -> AABB:
+	var r := AABB(t * caja.position, Vector3.ZERO)
+	for i in range(1, 8):
+		r = r.expand(t * caja.get_endpoint(i))
+	return r
+
+
+## --- Lecturas para las pruebas ----------------------------------------------
+func listo() -> bool:
+	return _listo
+
+
+func caja_interior() -> AABB:
+	return _caja
+
+
+func jugador() -> Node3D:
+	return _jugador
+
+
+func salida() -> SalidaInterior:
+	return get_node_or_null("SalidaInterior") as SalidaInterior

@@ -128,6 +128,10 @@ var _t_pulso: float = 0.0
 var _fuente_misiones: Array = []
 var _fuente_eventos: Array = []
 var _fuente_enemigos: Array = []
+## Casa de Leo: la marca del mapa sale de la PUERTA (grupo "puerta_casa_leo"), así
+## que es una sola, la misma que se usa para entrar, y no se duplica ni al entrar
+## ni al salir (la puerta es única en el mundo).
+var _fuente_casa: Array = []
 ## Ids de instancia de los enemigos que están ATACANDO ahora mismo (amenazas).
 var _ids_amenaza: Dictionary = {}
 var _director: Node = null
@@ -470,6 +474,10 @@ func _actualizar_avisos(delta: float) -> void:
 	# Misiones activas con objetivo en el mundo: rombo dorado que late.
 	for m in _fuente_misiones:
 		_anadir_marca(marcas, m["posicion"], AvisosMinimapa.T_MISION, pulso, true)
+	# Casa de Leo: una casa fija (sin latido) en su puerta, con el mismo icono en el
+	# minimapa y en el mapa ampliado (los dos usan esta misma lista de marcas).
+	for c in _fuente_casa:
+		_anadir_marca(marcas, c["posicion"], AvisosMinimapa.T_CASA, pulso, true)
 	# Eventos: tubo disponible (naranja) o combate en curso (rojo, aviso fuerte).
 	for e in _fuente_eventos:
 		var tipo := AvisosMinimapa.T_EVENTO_COMBATE if int(e["estado"]) == DirectorEventos.Est.COMBATE \
@@ -524,6 +532,14 @@ func _rehacer_fuentes() -> void:
 	_fuente_misiones.clear()
 	_fuente_eventos.clear()
 	_fuente_enemigos.clear()
+	_fuente_casa.clear()
+	# Casa de Leo: la puerta del mundo (su posición ya está puesta en la ciudad).
+	for n in get_tree().get_nodes_in_group("puerta_casa_leo"):
+		var puerta := n as Node3D
+		if puerta == null or not puerta.is_inside_tree():
+			continue
+		_fuente_casa.append({"posicion": puerta.global_position})
+		break
 	# Misiones: sólo las ACTIVAS y con objetivo situado en el mundo.
 	var misiones := get_node_or_null("/root/Misiones")
 	if misiones != null and misiones.has_method("anclas_activas"):

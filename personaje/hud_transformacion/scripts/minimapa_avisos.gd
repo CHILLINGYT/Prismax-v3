@@ -24,12 +24,16 @@ const T_EVENTO := 1
 const T_EVENTO_COMBATE := 2
 const T_ENEMIGO := 3
 const T_AMENAZA := 4
+## Casa de Leo: una casa fija (situación, no amenaza). Una sola para todo el mapa.
+const T_CASA := 5
 
 @export var color_mision: Color = Color(1.0, 0.82, 0.22, 1.0)
 @export var color_evento: Color = Color(1.0, 0.55, 0.16, 1.0)
 @export var color_evento_combate: Color = Color(1.0, 0.36, 0.12, 1.0)
 @export var color_enemigo: Color = Color(0.74, 0.22, 0.22, 1.0)
 @export var color_amenaza: Color = Color(1.0, 0.26, 0.20, 1.0)
+## Color de la casa de Leo: claro y tranquilo, que no se confunda con una amenaza.
+@export var color_casa: Color = Color(0.58, 0.88, 1.0, 1.0)
 ## Contorno oscuro común: los avisos se leen sobre terreno claro y oscuro.
 @export var color_borde: Color = Color(0.06, 0.05, 0.05, 0.9)
 
@@ -71,6 +75,10 @@ func _draw() -> void:
 				_forma(punto, r, color, _cuadrado(r))
 			T_AMENAZA:
 				_forma(punto, r, color, _triangulo(r))
+			T_CASA:
+				# Una casa: tejadillo a dos aguas sobre el cuerpo.
+				_forma(punto, r, color, _tejadillo(r))
+				_forma(punto, r, color, _cuerpo_casa(r))
 			_:
 				draw_circle(punto, r, color)
 
@@ -108,6 +116,19 @@ func _triangulo(r: float) -> PackedVector2Array:
 	])
 
 
+func _tejadillo(r: float) -> PackedVector2Array:
+	return PackedVector2Array([
+		Vector2(0.0, -r * 1.35), Vector2(r * 0.95, -r * 0.10), Vector2(-r * 0.95, -r * 0.10),
+	])
+
+
+func _cuerpo_casa(r: float) -> PackedVector2Array:
+	return PackedVector2Array([
+		Vector2(-r * 0.68, -r * 0.10), Vector2(r * 0.68, -r * 0.10),
+		Vector2(r * 0.68, r * 1.05), Vector2(-r * 0.68, r * 1.05),
+	])
+
+
 func _color_de(tipo: int) -> Color:
 	match tipo:
 		T_MISION:
@@ -118,6 +139,8 @@ func _color_de(tipo: int) -> Color:
 			return color_evento_combate
 		T_AMENAZA:
 			return color_amenaza
+		T_CASA:
+			return color_casa
 		_:
 			return color_enemigo
 
@@ -134,6 +157,8 @@ func _escala_de(tipo: int) -> float:
 			return 1.05
 		T_AMENAZA:
 			return 1.30
+		T_CASA:
+			return 1.10
 		_:
 			return 1.0
 

@@ -26,6 +26,12 @@ extends AudioStreamPlayer3D
 const CARPETA := "res://Audio/enemigos"
 ## Volumen propio de la voz (el bus "Efectos" sigue mandando por encima).
 const VOLUMEN_DB := -6.0
+## Bus PROPIO de las voces de enemigos (ver res://default_bus_layout.tres): lleva un
+## AudioEffectPitchShift a 0,92 que las hace sonar un poco más graves sin tocar el
+## resto del audio (arma, agua, diálogos, música y efectos del jugador van por
+## otros). El bus DESEMBOCA en "Efectos", así que el volumen de efectos del jugador
+## sigue mandando por encima y el filtro subacuático también las alcanza.
+const BUS := &"VocesEnemigos"
 ## Alcance (m) al que la voz deja de oírse.
 const DISTANCIA_MAX := 38.0
 ## Tamaño de unidad (m): a qué distancia se oye a volumen pleno.
@@ -118,7 +124,7 @@ static func instalar(enemigo: Node3D) -> VocesAparicion:
 		return null
 	var voces := VocesAparicion.new()
 	voces.name = "VozAparicion"
-	voces.bus = &"Efectos"
+	voces.bus = BUS if AudioServer.get_bus_index(BUS) >= 0 else &"Efectos"
 	voces.volume_db = VOLUMEN_DB
 	voces.unit_size = TAMANO_UNIDAD
 	voces.max_distance = DISTANCIA_MAX

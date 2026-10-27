@@ -129,7 +129,12 @@ static func alcanza(objetivo: Node3D, atacante: Node3D, punto: Vector3, radio_go
 		return false
 	if distancia_de_contacto(objetivo, punto, peso_altura, radio_golpe) > 0.0:
 		return false
-	if not en_arco(objetivo, punto, adelante, dot_min):
+	# EL ARCO SE MIDE DESDE EL CUERPO DEL ATACANTE, nunca desde el punto del golpe.
+	# El punto del golpe va POR DELANTE (en el velocista, 1,9 m): desde ahí, un
+	# enemigo pegado al cuerpo queda "detrás" y el golpe no lo alcanzaba (el golpe se
+	# veía pero no hacía daño). El arco describe qué hay delante DE MÍ.
+	var desde := atacante.global_position if atacante != null else punto
+	if not en_arco(objetivo, desde, adelante, dot_min):
 		return false
 	return en_banda_vertical(objetivo, atacante, tolerancia_vertical)
 
