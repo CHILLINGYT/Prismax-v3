@@ -1,0 +1,198 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+D3D12 12_0 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060
+
+WARNING: res://personaje/base/escenas/leo_jugador.tscn:43 - ext_resource, invalid UID: uid://scndx4m2k3no - using text path instead: res://Audio/personaje/transformacion/transformacion.mp3
+   at: load (scene/resources/resource_format_text.cpp:501)
+[cielo] Sky 3D montado en el entorno del juego: sol(y=0.71 vis=1.00 brillo=18.0) luna(y=-0.71 luz=0.00 vis=0.00) dia=true
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:62)
+   GDScript backtrace (most recent call first):
+       [0] _crear_terreno (res://world/terreno3d.gd:97)
+       [1] _ready (res://world/terreno3d.gd:82)
+[Terreno3D] 15034 matas de hierba
+[Terreno3D] 16 regiones de 256 vértices cada una, 2.0 m entre vértices, 2048 m de lado, colisión modo 1, en 1013 ms
+[Bosque] 3888 árboles y 787 arbustos en 17 trozos (356 ms)
+[GeneradorCiudad] Colisiones de vegetación: 632 cilindros (423 troncos de árbol/palmera + 209 canteros) en capa 1
+[Peatones] puertas usables: 57 de 68 (descartadas: 11 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 653 vértices { "acera": 325, "plaza": 40, "parque": 15, "paseo": 162, "arena": 111 } | 49 ciudadanos (playa 16) | bancos 54 asientos libres 18 | reposeras 17 libres 11 | obstáculos 917 | puertas 57 usables de 68
+[Peatones] reparto por sectores: { "B00": 1, "B01": 2, "B02": 2, "B03": 2, "B10": 2, "B11": 1, "B12": 2, "B13": 1, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-3_-1": 0, "P-3_0": 0, "P-3_1": 0, "P-2_1": 0, "P-1_-4": 0, "P0_-4": 0, "P-1_4": 0, "P-1_5": 0, "P0_4": 0, "P1_-5": 0, "P1_-4": 0, "P0_-5": 1, "P3_-5": 1, "P3_-4": 1, "P5_-4": 1, "P4_-4": 1, "P-1_-1": 1, "P-1_0": 1, "P0_-1": 1, "P-1_1": 1, "P0_1": 1, "P1_1": 1, "P1_0": 1 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 3143208329)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1097
+[GeneradorCiudad] Parques: 3 | árboles: 366 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 27
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 209
+[GeneradorCiudad] Playa: palmeras 57 | sombrillas 18 | reposeras 33
+[GeneradorCiudad] Prado costero: árboles 103 | arbustos 28 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2341 encendidas de 5877 ventanas (68 edificios)
+[GeneradorCiudad] Parcelas: 76 = edificios 68 + plazas 8 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 68 (0 prefabricados + 68 modulares) | props: 304 | vegetación: 114
+[GeneradorCiudad] Portales: 68 | puertas colocadas: 68
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 762 | nodos instanciados: 966 | tiempo: 1.26 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 49 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 54/54 reposeras libres 17/33 | cruces pintados 145
+UAL2 loader: GuardiaAlas generada (cruce en X; perillas en el Inspector).
+UAL2 loader: PatadaGarra generada (doble patada de garras).
+UAL2 loader: clips completos -> [&"BackFlip", &"DoubleJump", &"GuardiaAlas", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"PatadaGarra", &"Swim_Fwd", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: clips de torso+brazos -> [&"BackFlip", &"DoubleJump", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: Jump_Planeo generado (piernas recogidas para el avance).
+UAL2 loader: Planeo generado (pose congelada de alas).
+UAL2 loader: AleteoAlas generado (golpe de ala hacia abajo).
+UAL2 loader: PosePicado generada (brazos al costado, piernas juntas).
+UAL2 loader: VueloHeroe generado (superman: puño al frente, piernas rectas).
+UAL2 loader: PalmazoPush generado (solo torso+brazos; partes: ["Enter", "Push", "Exit"]).
+UAL2 loader: CaidaLibre generada (brazos hacia arriba).
+[GroundCombat] Cadena: Punch_Jab=OK, Punch_Cross=OK, Kick=OK, Melee_Uppercut=OK
+[GroundCombat] Guardia: UAL2/GuardiaAlas
+[Apuntado] Listo (OTS + mira).
+=== PRUEBA DE CALLES (líneas amarillas y tapas) ===
+Muelle: 9 instancias de mobiliario de playa ocultas bajo la huella.
+[Garras] Listo (agarre SOLO volando). PatadaGarra: OK
+[CamFX] Listo. Camera: Camera3D | Flight: FlightController | Anim: AnimationPlayer
+[Peatones] inicio del jugador despejado: 7 ciudadanos recolocados
+[Obrero] plantado en Parque_1 -> posicion (-15.00, -0.150, -19.10) | apoyo: cesped junto al sendero | libre alrededor: true | giro -107.6 grados | modelo true
+[Peatones] farolas apuntadas como obstáculo: 139 (total 1056)
+[farolas] 139 farolas colocadas (con luz) | acera 84 (movidas 0, descartadas 0) · esquina 49 · parque/plaza 6 sin tocar
+  OK   la ciudad se generó
+  trazado: calzada 12.0 m | acera 3.0 | manzana 24.0 | paso 42.0 | rejilla 6x6 | off (-126.0, -126.0)
+  cuadra entre cruces: 30.0 m de calzada a calzada (centro a 15.0 m de cada cruce)
+  estadísticas del generador: marcas 1097 | props 304
+--- A) DOBLE LÍNEA AMARILLA DEL EJE ---
+  OK   no se coloca ninguna pieza de curva como marca (0)
+  pieza de doble amarilla usada: Decal_DoubleYellow_Straight x252
+  OK   hay doble amarilla colocada (252 piezas)
+  largo de la pieza: 6.000 m | margen de paso de peatones: 4.753 m
+  piezas: 252 | desvío máximo del eje 0.0000 m | distancia mínima a un cruce 15.00 m (borde de la pieza: 12.00 m; hace falta >= 4.75)
+  OK   hay piezas de eje colocadas
+  OK   todas las piezas del eje están centradas en el eje de su calzada (desvío máx 0.0000 m)
+  OK   todas van giradas 0° o 90° (torcidas: 0)
+  OK   todas a cota de acera, sobre el pavimento (fuera de cota: 0)
+  OK   ninguna pieza pisa el paso de peatones (borde más cercano a 12.00 m >= 4.75 m)
+  continuidad: hueco máximo entre piezas contiguas 0.0000 m | escalón lateral máximo 0.0000 m
+  OK   las piezas del eje se tocan (hueco máximo 0.0000 m)
+  OK   no hay escalones laterales entre piezas (máx 0.0000 m)
+  franja libre por cuadra: 20.49 m -> 3 piezas de 6.0 m por tramo; esperadas 252 piezas de eje
+  OK   el número de piezas del eje es el esperado (252 de 252)
+--- B) DISCONTINUAS DE CARRIL ---
+  piezas: 504 | desvío máximo respecto de ±3.00 m: 0.0000 m
+  OK   hay discontinuas de carril (504)
+  OK   las discontinuas están a la distancia de carril exacta (desvío 0.0000 m)
+--- C) TAPAS DE ALCANTARILLA ---
+  tapas colocadas: 84 | cuadras en la rejilla: 84 (7 calles x 6 cuadras + 7 calles x 6 cuadras)
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, 126.0) | padre @Node3D@2843
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, 126.0) | padre @Node3D@2840
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, 126.0) | padre @Node3D@2837
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, 126.0) | padre @Node3D@2835
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, 126.0) | padre @Node3D@2833
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, 126.0) | padre @Node3D@2831
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, 84.0) | padre @Node3D@2819
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, 84.0) | padre @Node3D@2816
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, 84.0) | padre @Node3D@2813
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, 84.0) | padre @Node3D@2811
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, 84.0) | padre @Node3D@2810
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, 84.0) | padre @Node3D@2807
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, 42.0) | padre @Node3D@2797
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, 42.0) | padre @Node3D@2794
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, 42.0) | padre @Node3D@2792
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, 42.0) | padre @Node3D@2791
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, 42.0) | padre @Node3D@2789
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, 42.0) | padre @Node3D@2787
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, 0.0) | padre @Node3D@2775
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, 0.0) | padre @Node3D@2772
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, 0.0) | padre @Node3D@2770
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, 0.0) | padre @Node3D@2768
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, 0.0) | padre @Node3D@2766
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, 0.0) | padre @Node3D@2763
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, -42.0) | padre @Node3D@2754
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, -42.0) | padre @Node3D@2751
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, -42.0) | padre @Node3D@2749
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, -42.0) | padre @Node3D@2747
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, -42.0) | padre @Node3D@2745
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, -42.0) | padre @Node3D@2743
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, -84.0) | padre @Node3D@2735
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, -84.0) | padre @Node3D@2733
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, -84.0) | padre @Node3D@2731
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, -84.0) | padre @Node3D@2729
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, -84.0) | padre @Node3D@2726
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, -84.0) | padre @Node3D@2725
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (105.0, -0.13611, -126.0) | padre @Node3D@2718
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (63.0, -0.13611, -126.0) | padre @Node3D@2716
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (21.0, -0.13611, -126.0) | padre @Node3D@2713
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-21.0, -0.13611, -126.0) | padre @Node3D@2710
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-63.0, -0.13611, -126.0) | padre @Node3D@2708
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-105.0, -0.13611, -126.0) | padre @Node3D@2706
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (126.0, -0.13611, 105.0) | padre @Node3D@2698
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (126.0, -0.13611, 63.0) | padre @Node3D@2696
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (126.0, -0.13611, 21.0) | padre @Node3D@2694
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (126.0, -0.13611, -21.0) | padre @Node3D@2692
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (126.0, -0.13611, -63.0) | padre @Node3D@2690
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (126.0, -0.13611, -105.0) | padre @Node3D@2688
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (84.0, -0.13611, 105.0) | padre @Node3D@2680
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (84.0, -0.13611, 63.0) | padre @Node3D@2678
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (84.0, -0.13611, 21.0) | padre @Node3D@2675
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (84.0, -0.13611, -21.0) | padre @Node3D@2672
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (84.0, -0.13611, -63.0) | padre @Node3D@2670
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (84.0, -0.13611, -105.0) | padre @Node3D@2667
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (42.0, -0.13611, 105.0) | padre @Node3D@2654
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (42.0, -0.13611, 63.0) | padre @Node3D@2652
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (42.0, -0.13611, 21.0) | padre @Node3D@2649
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (42.0, -0.13611, -21.0) | padre @Node3D@2647
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (42.0, -0.13611, -63.0) | padre @Node3D@2645
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (42.0, -0.13611, -105.0) | padre @Node3D@2643
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (0.0, -0.13611, 105.0) | padre @Node3D@2636
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (0.0, -0.13611, 63.0) | padre @Node3D@2635
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (0.0, -0.13611, 21.0) | padre @Node3D@2632
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (0.0, -0.13611, -21.0) | padre @Node3D@2630
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (0.0, -0.13611, -63.0) | padre @Node3D@2627
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (0.0, -0.13611, -105.0) | padre @Node3D@2626
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-42.0, -0.13611, 105.0) | padre @Node3D@2616
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-42.0, -0.13611, 63.0) | padre @Node3D@2615
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-42.0, -0.13611, 21.0) | padre @Node3D@2612
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-42.0, -0.13611, -21.0) | padre @Node3D@2610
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-42.0, -0.13611, -63.0) | padre @Node3D@2608
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-42.0, -0.13611, -105.0) | padre @Node3D@2606
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-84.0, -0.13611, 105.0) | padre @Node3D@2597
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-84.0, -0.13611, 63.0) | padre @Node3D@2594
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-84.0, -0.13611, 21.0) | padre @Node3D@2593
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-84.0, -0.13611, -21.0) | padre @Node3D@2591
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-84.0, -0.13611, -63.0) | padre @Node3D@2590
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-84.0, -0.13611, -105.0) | padre @Node3D@2587
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-126.0, -0.13611, 105.0) | padre @Node3D@2580
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-126.0, -0.13611, 63.0) | padre @Node3D@2578
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-126.0, -0.13611, 21.0) | padre @Node3D@2577
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-126.0, -0.13611, -21.0) | padre @Node3D@2575
+    tapa Prop_ManholeCover | clase MeshInstance3D | pos (-126.0, -0.13611, -63.0) | padre @Node3D@2574
+    tapa Prop_ManholeCover | clase Node3D | pos (-126.0, -0.13611, -105.0) | padre Props
+  OK   hay exactamente UNA tapa por cuadra (84 de 84)
+  desvío máximo respecto del centro exacto de su cuadra: 0.0000 m (fuera de centro: 0)
+  distancia mínima entre dos tapas: 29.70 m | cuadras con más de una tapa: 0
+  OK   cada tapa está en el centro exacto de su cuadra (desvío máx 0.0000 m)
+  OK   ninguna tapa fuera del centro de su cuadra (0)
+  OK   no hay cuadras con tapas duplicadas (0)
+  OK   ninguna tapa superpuesta (distancia mínima 29.70 m)
+  desvío transversal máximo respecto del eje de la calzada: 0.0000 m | cota y = -0.1361 (calzada -0.15) | sin alinear: 0
+  distancia mínima de una tapa a un cruce: 21.00 m (media cuadra = 21.00 m)
+  OK   todas las tapas están en el centro transversal de la calzada (desvío máx 0.0000 m)
+  OK   las tapas están apoyadas en el asfalto, ni enterradas ni flotando (y = -0.1361)
+  OK   todas las tapas van alineadas con el pavimento (0 torcidas)
+  OK   ninguna tapa cae dentro de un cruce (mínimo 21.00 m)
+--- D) CAPTURAS ---
+  captura 01_cuadra_cenital: true (1920x1080)
+  captura 02_calle_desde_cruce: true (1920x1080)
+  captura 03_cuadra_cenital_horizontal: true (1920x1080)
+=== RESULTADO: 0 fallos ===
+tiempo total: 3.2 s
+=== FIN ===
+WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
