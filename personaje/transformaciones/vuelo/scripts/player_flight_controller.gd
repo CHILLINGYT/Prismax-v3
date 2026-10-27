@@ -145,6 +145,10 @@ func update_flight(
 				return false
 			is_flying = true
 			is_diving = false
+			# SONIDO 2.2 del despegue: suena SÓLO cuando el vuelo arranca DESDE EL
+			# SUELO (el despegue real), una vez por activación.
+			if character.is_on_floor():
+				_sonar_despegue()
 			# Despegue según cómo venga: quieto = un impulso; caminando =
 			# se eleva suave; corriendo = sale disparado hacia adelante.
 			var h_previo := Vector2(
@@ -588,3 +592,11 @@ func _reset_hover_bob(visual_root: Node3D) -> void:
 	visual_root.position.y = _visual_root_rest_position.y
 	visual_root.rotation.z = 0.0
 	_bank = 0.0
+
+
+## Sonido 2.2 del despegue: el nodo hermano "SonidosVuelo" lo reproduce UNA vez,
+## en el mismo fotograma en que el vuelo se activa de verdad desde el suelo.
+func _sonar_despegue() -> void:
+	var snd := get_parent().get_node_or_null("SonidosVuelo")
+	if snd != null and snd.has_method("despegue"):
+		snd.call("despegue")

@@ -223,6 +223,38 @@ const MUERTE_ESPERA_FUNDIDO := 1.1
 ## Pantalla final (fundido + logo real + NUEVA PARTIDA / VOLVER AL MENÚ).
 const ESCENA_MUERTE_PANTALLA := preload("res://ui/scenes/DeathScreen.tscn")
 
+# --- SONIDOS de la muerte (orden pedido, UNA vez por muerte) -------------------
+# 1 + 2 suenan JUNTOS al arrancar la animación y la caída (cada uno en su
+# reproductor: el 2 es la capa de fondo, con volumen propio más bajo); el 4
+# cuando el cuerpo se ARRODILLA y el 3 cuando GOLPEA el suelo. Los tres momentos
+# siguen el progreso REAL de la animación (altura de la cadera del esqueleto
+# activo) y, en el VUELO, el aterrizaje físico del cadáver: nunca temporizadores.
+# `morido` y vida=0 no los repiten.
+const VOLUMEN_MUERTE1_DB := -6.0
+const VOLUMEN_MUERTE2_DB := -8.0
+const VOLUMEN_MUERTE3_DB := 0.0
+const VOLUMEN_MUERTE4_DB := 0.0
+## Medida REAL de la muerte: extensión de la PIERNA (cadera menos el pie/toe más
+## bajo del propio esqueleto), en metros y DENTRO del esqueleto: inmune a que el
+## origen del modelo no esté en los pies (el velocista mide su cadera en
+## negativo, y con alturas absolutas ni el 4 ni el 3 llegaban a dispararse).
+## Los umbrales son FRACCIONES de la extensión máxima vista durante la muerte
+## (la postura de pie de ESE modelo): cada transformación tiene su escala.
+const MUERTE_PIERNA_ARRODILLA_FRAC := 0.55
+const MUERTE_PIERNA_SUELO_FRAC := 0.28
+## Extensión mínima (m) que debe haberse visto para dar por válida la referencia.
+const MUERTE_PIERNA_REF_MIN := 0.5
+## Caída (m/s) mínima para que el aterrizaje del cadáver del VUELO cuente como
+## golpe contra el suelo (morir ya de pie no lo dispara).
+const MUERTE_CAIDA_IMPACTO := 2.0
+
+var _snd_muerte_inicio := false
+var _snd_muerte_arrodillado := false
+var _snd_muerte_impacto := false
+## Referencia VIVA de la muerte en curso: extensión máxima de pierna vista
+## (la postura de pie de ese modelo). Se rearma en `_al_morir`.
+var _muerte_pierna_max := 0.0
+
 # --- SONIDOS de la forma acuática (mismo bus "Efectos" que el resto) -----------
 # Volumen de las dos capas del golpe: el físico aporta la contundencia y el acuático
 # complementa el impacto sin taparlo. Los archivos ya miden parecido en pico
@@ -5571,6 +5603,9 @@ func _procesar_muerte(delta: float) -> void:
 			and _anim_muerte.current_animation_length > 0.0 \
 			and _anim_muerte.current_animation_position >= _anim_muerte.current_animation_length - 0.05:
 		_pasar_a_morido()
+	# Sonidos del golpe de la muerte (arrodillarse / suelo) siguiendo la
+	# animación real: se llama desde el ciclo de física, con la pose ya evaluada.
+	_procesar_sonidos_muerte(delta)
 
 
 ## Caída del cadáver del águila: desciende su PROPIO cuerpo con física real
@@ -5586,6 +5621,101 @@ func _procesar_caida_muerte_vuelo(delta: float) -> void:
 	var choque := cuerpo.move_and_collide(Vector3.DOWN * _muerte_vuelo_vel * delta)
 	if choque != null:
 		_muerte_vuelo_aterrizado = true
+
+
+## Los sonidos 1 y 2 arrancan EXACTAMENTE con la animación de muerte (mismo
+## instante, reproductores independientes: se mezclan, no se cortan).
+func _sonar_muerte_inicio() -> void:
+	if _snd_muerte_inicio:
+		return
+	_snd_muerte_inicio = true
+	_sonar_muerte("AudioMuerte1", VOLUMEN_MUERTE1_DB)
+	_sonar_muerte("AudioMuerte2", VOLUMEN_MUERTE2_DB)
+
+
+## Sonidos 4 (arrodillarse) y 3 (golpe contra el suelo) siguiendo la animación
+## REAL. Una vez por muerte y nunca en `morido`.
+func _procesar_sonidos_muerte(_delta: float) -> void:
+	if _muerte_estado != Muerte.MURIENDO:
+		return
+	if _snd_muerte_arrodillado and _snd_muerte_impacto:
+		return
+	var pierna := _altura_cadera_muerte()
+	if pierna >= 0.0:
+		_muerte_pierna_max = maxf(_muerte_pierna_max, pierna)
+		# Con la referencia ya formada (el modelo estuvo de pie), las fracciones
+		# valen para CUALQUIER escala y cualquier origen de modelo.
+		if _muerte_pierna_max >= MUERTE_PIERNA_REF_MIN:
+			if not _snd_muerte_arrodillado \
+					and pierna <= MUERTE_PIERNA_ARRODILLA_FRAC * _muerte_pierna_max:
+				_snd_muerte_arrodillado = true
+				_sonar_muerte("AudioMuerte4", VOLUMEN_MUERTE4_DB)
+			if not _snd_muerte_impacto \
+					and pierna <= MUERTE_PIERNA_SUELO_FRAC * _muerte_pierna_max:
+				_snd_muerte_impacto = true
+				_sonar_muerte("AudioMuerte3", VOLUMEN_MUERTE3_DB)
+	# Aterrizaje real del cadáver del VUELO (si murió en el aire): ese golpe
+	# contra el suelo ES el del sonido 3, aunque la pose aún no haya bajado la
+	# cadera al piso.
+	if not _snd_muerte_impacto and forma == Forma.VUELO \
+			and _muerte_vuelo_aterrizado and _muerte_vuelo_vel >= MUERTE_CAIDA_IMPACTO:
+		_snd_muerte_impacto = true
+		_sonar_muerte("AudioMuerte3", VOLUMEN_MUERTE3_DB)
+
+
+## Extensión REAL de la PIERNA del cadáver (m): distancia vertical entre la cadera
+## y el hueso de pie/toe más bajo, medida DENTRO del propio esqueleto — vale para
+## todos los modelos aunque su origen no esté a los pies (el velocista da valores
+## negativos con una altura absoluta). -1 si no se puede medir (no se inventa).
+func _altura_cadera_muerte() -> float:
+	var skel := _esqueleto_de(_nodo_forma_actual())
+	if skel == null:
+		return -1.0
+	var indice := -1
+	for nombre in ["mixamorig_Hips", "Hips", "mixamorig:Hips"]:
+		indice = skel.find_bone(StringName(nombre))
+		if indice != -1:
+			break
+	if indice == -1:
+		for i in skel.get_bone_count():
+			if String(skel.get_bone_name(i)).to_lower().contains("hips"):
+				indice = i
+				break
+	if indice == -1:
+		return -1.0
+	var y_cadera := (skel.global_transform * skel.get_bone_global_pose(indice).origin).y
+	var y_pies := y_cadera
+	var vistos := 0
+	for nombre in ["mixamorig_LeftToeBase", "mixamorig_RightToeBase",
+			"mixamorig_LeftFoot", "mixamorig_RightFoot",
+			"LeftToes", "RightToes", "LeftFoot", "RightFoot"]:
+		var i := skel.find_bone(StringName(nombre))
+		if i < 0:
+			continue
+		vistos += 1
+		y_pies = minf(y_pies, (skel.global_transform * skel.get_bone_global_pose(i).origin).y)
+	if vistos == 0:
+		return -1.0
+	return y_cadera - y_pies
+
+
+## Reproduce un audio de la muerte con su volumen (el reproductor vive en la raíz
+## del jugador, junto a los demás sonidos del personaje).
+func _sonar_muerte(nombre: String, vol_db: float) -> void:
+	var p := get_node_or_null(nombre) as AudioStreamPlayer
+	if p == null:
+		return
+	p.volume_db = vol_db
+	p.play()
+
+
+## Corta los 4 audios: al empezar una muerte nueva no queda nada sonando de la
+## anterior (al reaparecer con escena nueva los reproductores ya vienen limpios).
+func _detener_sonidos_muerte() -> void:
+	for nombre in ["AudioMuerte1", "AudioMuerte2", "AudioMuerte3", "AudioMuerte4"]:
+		var p := get_node_or_null(String(nombre)) as AudioStreamPlayer
+		if p != null:
+			p.stop()
 
 
 ## La señal `murio` de las estadísticas llega aquí UNA sola vez (recibir_danio ya
@@ -5610,9 +5740,22 @@ func _al_morir() -> void:
 	c_estado = C_E.LIBRE
 	_cancelar_carga_agua()
 	_parar_sonido_nado()
+	# Los sonidos del volador (aleteo/despegue/aire/golpes) tampoco siguen
+	# sonando sobre la secuencia de muerte.
+	if vuelo != null:
+		var sonidos := vuelo.get_node_or_null("SonidosVuelo")
+		if sonidos != null and sonidos.has_method("detener_todo"):
+			sonidos.call("detener_todo")
 	velocity = Vector3.ZERO
 	_muerte_vuelo_vel = 0.0
 	_muerte_vuelo_aterrizado = false
+	# Los sonidos son de ESTA muerte: se corta lo que hubiera sonando y se rearman
+	# los tres avisos (inicio, arrodillarse, golpe contra el suelo).
+	_snd_muerte_inicio = false
+	_snd_muerte_arrodillado = false
+	_snd_muerte_impacto = false
+	_muerte_pierna_max = 0.0
+	_detener_sonidos_muerte()
 	# 2) Los menús no siguen funcionando sobre un cadáver: el radial (F) se cierra y
 	#    deja de leer la tecla; la pausa no puede abrirse encima de la secuencia.
 	if menu_transf != null:
@@ -5658,6 +5801,9 @@ func _iniciar_animacion_muerte() -> void:
 	var anim := _animador_forma(nodo)
 	var skel := _esqueleto_de(nodo)
 	_anim_muerte = anim
+	# SONIDOS 1 + 2: arrancan con la animación de muerte y la caída (aunque el
+	# modelo no tuviera reproductor: la caída del cuerpo existe igual).
+	_sonar_muerte_inicio()
 	if anim == null:
 		# Sin reproductor no hay animación que esperar: se pasa al final.
 		_pasar_a_morido()

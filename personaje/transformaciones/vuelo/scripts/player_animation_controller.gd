@@ -17,10 +17,24 @@ enum MotionState {
 @export var movement_threshold: float = 0.1
 @export_range(0.0, 0.5, 0.01) var landing_interrupt_delay: float = 0.08
 @export_range(0.0, 0.5, 0.01) var overlay_blend_time: float = 0.1
+## (Sin uso desde que la escala del ciclo sigue la velocidad real; se conserva por
+## compatibilidad con escenas/valores existentes.)
 @export_range(1.0, 2.5, 0.05) var sprint_anim_speed: float = 1.4
 @export var sprint_animation: StringName = &"Sprint"
 ## Velocidad horizontal (m/s) a partir de la cual se considera sprint.
 @export_range(4.0, 12.0, 0.1) var sprint_speed_threshold: float = 6.5
+
+## --- LOCOMOCIÓN TERRESTRE (clips del personaje de Combate, retargeteados) -----
+## Librería con el clip `walk` del personaje de Combate adaptado a ESTE esqueleto
+## (generada por personaje/base/scripts/retarget_locomocion_vuelo.gd).
+const LOCOMOCION_COMBATE := preload("res://personaje/transformaciones/vuelo/animations/vuelo_walk.tres")
+## Velocidad real (m/s) que cubre el clip de locomoción con escala 1: es la
+## calibración MEDIDA del clip `walk` del personaje de Combate (su propia
+## referencia walk_reference_speed = 2.95 m/s).
+@export_range(1.0, 6.0, 0.05) var locomocion_ref_velocidad: float = 2.95
+## Límites de la escala del ciclo (evita pasos ridículos a velocidad extrema).
+@export_range(0.4, 1.5, 0.05) var locomocion_escala_min: float = 0.8
+@export_range(1.0, 4.0, 0.05) var locomocion_escala_max: float = 3.0
 
 @onready var _character: CharacterBody3D = get_parent() as CharacterBody3D
 @onready var _animation_player: AnimationPlayer = (
@@ -29,6 +43,9 @@ enum MotionState {
 @onready var _flight_controller: VueloPlayerFlightController = (
 	get_node_or_null("../FlightController") as VueloPlayerFlightController
 )
+## Pisadas terrestres (sistema compartido PasosJugador del proyecto). Se resuelve
+## en `_ready`, donde también se crea si la escena no lo trae.
+var _pasos: PasosJugador = null
 
 var _state: int = MotionState.GROUNDED
 var _current_animation: StringName = &""
@@ -57,6 +74,24 @@ func _ready() -> void:
 	if _animation_player == null:
 		push_error("No se encontró el AnimationPlayer. Revisá animation_player_path.")
 		return
+
+	# LOCOMOCIÓN del personaje de Combate adaptada a este rig: la librería se
+	# registra acá (el reproductor vive dentro del sub-escena del maniquí) y los
+	# exports walk_animation/sprint_animation apuntan a sus clips.
+	if not _animation_player.has_animation_library(&"vuelo_walk"):
+		_animation_player.add_animation_library(&"vuelo_walk", LOCOMOCION_COMBATE)
+
+	# PISADAS: el MISMO sistema compartido del proyecto (PasosJugador) que usan
+	# las demás formas. Se crea acá — sin el reproductor del golpe de Combate,
+	# porque el vuelo ya tiene Golpe3/Golpe4 en SonidosVuelo: nada duplicado.
+	_pasos = get_parent().get_node_or_null("Pasos") as PasosJugador
+	if _pasos == null:
+		var pasos := PasosJugador.new()
+		pasos.name = "Pasos"
+		pasos.crear_golpe = false
+		# `_ready` corre con el padre "ocupado": el hijo se agrega diferido y
+		# `_physics_process` lo resuelve en el primer fotograma.
+		get_parent().add_child.call_deferred(pasos)
 
 	_idle_animation_name = _find_animation(idle_animation)
 	# Walk/Sprint con fallback silencioso: si pedis un clip RM que no cargo,
@@ -102,6 +137,22 @@ func esta_en_overlay() -> bool:
 func _physics_process(delta: float) -> void:
 	if _character == null or _animation_player == null:
 		return
+
+	# PISADAS terrestres (mismo sistema compartido que las demás formas): sólo
+	# con locomoción REAL en el suelo — volando, en el aire, saltando, quieto o
+	# durante un ataque no se pisa. Corre ANTES de las salidas para que en el aire
+	# el sistema se rearme y no quede un contacto a medias.
+	if _pasos == null:
+		_pasos = get_parent().get_node_or_null("Pasos") as PasosJugador
+	if _pasos != null:
+		var puede_pisar: bool = (
+			_state == MotionState.GROUNDED
+			and _character.is_on_floor()
+			and (_flight_controller == null or not _flight_controller.is_flying)
+			and not _overlay_activo
+			and _horizontal_speed() > movement_threshold
+		)
+		_pasos.actualizar("vuelo", _animation_player, puede_pisar, delta)
 
 	# Mientras dura un overlay, la máquina de estados no toca la animación.
 	if _overlay_activo:
@@ -170,13 +221,6 @@ func _physics_process(delta: float) -> void:
 			):
 				_state = MotionState.GROUNDED
 				_update_ground_animation()
-					# Sprint: acelera la caminata; toda otra animación va a velocidad normal.
-	var en_sprint: bool = (
-		Input.is_action_pressed("correr")
-		and _state == MotionState.GROUNDED
-		and _horizontal_speed() > movement_threshold
-	)
-	_animation_player.speed_scale = sprint_anim_speed if en_sprint else 1.0
 
 
 ## --- Regímenes de vuelo (animaciones) ---
@@ -300,6 +344,21 @@ func _update_ground_animation() -> void:
 
 	_estado_terrestre = target_animation
 	_play_if_changed(target_animation)
+
+	# LOCOMOCIÓN a la velocidad REAL: el ciclo del clip se escala con la
+	# velocidad horizontal para que los pies no patinen — la MISMA técnica y la
+	# MISMA referencia medida que usa la forma Combate con su clip `walk`.
+	# Caminar y correr son el mismo clip a distinta escala (el personaje de
+	# Combate no tiene un clip de carrera aparte): la cadencia de la zancada y de
+	# las pisadas sube sola con la velocidad real, sin temporizadores.
+	if moviendo:
+		_animation_player.speed_scale = clampf(
+			_horizontal_speed() / locomocion_ref_velocidad,
+			locomocion_escala_min,
+			locomocion_escala_max
+		)
+	else:
+		_animation_player.speed_scale = 1.0
 
 
 func _horizontal_speed() -> float:
