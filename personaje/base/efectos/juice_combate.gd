@@ -173,6 +173,21 @@ var _vibraciones := 0
 const ACELERACION_ORIGINAL := 30.0
 var _buffer_original := -1.0
 
+# ------------------------------------------------------ INDICADOR DE AMENAZA
+@export_group("Indicador de amenaza")
+## Aviso sobre la cabeza de cada enemigo que tiene un ataque en curso (lo que ya
+## registran en el ThreatSystem del CombatManager). Late cada vez más rápido y
+## crece al aparecer. NO añade ningún contraataque: el proyecto no lo tiene en la
+## forma Combate; es lectura del peligro (ver informe: propuesta de "counter").
+@export var indicador_amenaza_activo := true
+## Ámbar: distinto del cian de la bolita de "objetivo actual" que ya existe.
+@export var indicador_color := Color(1.0, 0.72, 0.25)
+@export var indicador_altura := 1.9      ## m sobre el centro de golpe (por encima de la bolita de objetivo, a 1,45)
+@export var indicador_tamano := 0.5      ## m a 6 m de distancia (se compensa la perspectiva)
+
+const SHADER_AMENAZA := preload("res://personaje/base/efectos/shaders/juice_indicador_amenaza.gdshader")
+var _indicadores := {}   ## enemigo (instance_id) -> MeshInstance3D
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -199,6 +214,11 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	for id in _indicadores.keys():
+		var ind: MeshInstance3D = _indicadores[id]
+		if is_instance_valid(ind):
+			ind.queue_free()
+	_indicadores.clear()
 	# Nunca dejar el juego a cámara lenta si el jugador desaparece a mitad.
 	if not is_equal_approx(_escala_puesta, 1.0) and is_equal_approx(Engine.time_scale, _escala_puesta):
 		Engine.time_scale = 1.0
@@ -209,6 +229,7 @@ func _process(delta: float) -> void:
 	_actualizar_tiempo()
 	_actualizar_pantalla(delta)
 	_aplicar_timing()
+	_actualizar_indicadores()
 
 
 ## Se reaplica cada fotograma (barato): el combo puede ser el del gestor del
@@ -529,6 +550,86 @@ func pantalla_pico_y_reset() -> float:
 
 func pantalla_visible() -> bool:
 	return _rect_pantalla != null and _rect_pantalla.visible
+
+
+# ------------------------------------------------------- indicador de amenaza
+func _amenazas() -> Array:
+	var gestor := get_tree().get_first_node_in_group("combat_manager") if get_tree() != null else null
+	if gestor == null:
+		return []
+	var t: Variant = gestor.get("threats")
+	if t == null or not t.has_method("get_active"):
+		return []
+	return t.call("get_active")
+
+
+func _actualizar_indicadores() -> void:
+	var vivos := {}
+	if indicador_amenaza_activo and _jugador is Node3D:
+		var cam := get_viewport().get_camera_3d() if get_viewport() != null else null
+		var ahora := float(Time.get_ticks_msec()) / 1000.0
+		for t in _amenazas():
+			var e: Variant = t.get("enemy")
+			if not is_instance_valid(e) or not (e is Node3D):
+				continue
+			var en := e as Node3D
+			if en.has_method("is_alive") and not bool(en.call("is_alive")):
+				continue
+			var id := en.get_instance_id()
+			vivos[id] = true
+			var ind: MeshInstance3D = _indicadores.get(id, null)
+			if ind == null or not is_instance_valid(ind):
+				ind = _crear_indicador()
+				if ind == null:
+					continue
+				_indicadores[id] = ind
+				ind.set_meta(&"nace", ahora)
+			var centro := en.global_position + Vector3.UP * 1.0
+			if en.has_method("get_hit_center"):
+				centro = en.call("get_hit_center")
+			ind.global_position = centro + Vector3.UP * indicador_altura
+			# Tamaño casi constante en pantalla (legible lejos, discreto cerca).
+			var dist := 6.0
+			if cam != null:
+				dist = maxf(cam.global_position.distance_to(ind.global_position), 1.0)
+			var nace := ahora - float(ind.get_meta(&"nace", ahora))
+			var aparicion := clampf(nace / 0.12, 0.0, 1.0)
+			var escala := indicador_tamano * clampf(dist / 6.0, 0.6, 2.2) * lerpf(1.6, 1.0, aparicion)
+			ind.scale = Vector3.ONE * escala
+			# Latido que se acelera mientras dura la amenaza.
+			var total := maxf(float(t.get("total", 1.0)), 0.01)
+			var resta := clampf(float(t.get("time_left", 0.0)) / total, 0.0, 1.0)
+			var mat := ind.material_override as ShaderMaterial
+			mat.set_shader_parameter("latido", 0.5 + 0.5 * sin(ahora * lerpf(28.0, 10.0, resta)))
+			mat.set_shader_parameter("intensidad", lerpf(1.6, 1.0, aparicion))
+	for id in _indicadores.keys():
+		if not vivos.has(id):
+			var viejo: MeshInstance3D = _indicadores[id]
+			if is_instance_valid(viejo):
+				viejo.queue_free()
+			_indicadores.erase(id)
+
+
+func _crear_indicador() -> MeshInstance3D:
+	var escena := get_tree().current_scene if get_tree() != null else null
+	if escena == null:
+		return null
+	var mi := MeshInstance3D.new()
+	mi.name = "JuiceIndicadorAmenaza"
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	mi.mesh = quad
+	var mat := ShaderMaterial.new()
+	mat.shader = SHADER_AMENAZA
+	mat.set_shader_parameter("color", indicador_color)
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	escena.add_child(mi)
+	return mi
+
+
+func indicadores_visibles() -> int:
+	return _indicadores.size()
 
 
 # ------------------------------------------------------------------ reacción

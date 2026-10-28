@@ -103,7 +103,51 @@ func _secciones_extra() -> void:
 	await _seccion_pantalla()
 	await _seccion_vibracion()
 	await _seccion_timing()
+	await _seccion_amenaza()
 	await _seccion_camara_lenta()
+
+
+## Se deja atacar al enemigo (alcance real 2,9 m): mientras ataca, aviso encima.
+func _seccion_amenaza() -> void:
+	await _nueva_seccion()
+	# Sin gerente este enemigo no tiene jugador y no ataca: se registra su ataque
+	# por el MISMO contrato que usan los enemigos (ThreatSystem del CombatManager).
+	var threats: Variant = get_node("CombatManager").get("threats")
+	threats.call("register", _enemigo, "melee", 0.9, true)
+	var visto := false
+	var foto := false
+	for _i in 600:
+		await get_tree().process_frame
+		if int(_juice.call("indicadores_visibles")) > 0:
+			visto = true
+			if not foto:
+				foto = true
+				await RenderingServer.frame_post_draw
+				await RenderingServer.frame_post_draw
+				_foto("juice_amenaza")
+			break
+	_check(visto, "amenaza: aparece el aviso sobre el enemigo que ataca")
+	_enemigo.set("alcance_golpe", 0.05)
+	var limpio := false
+	for _i in 600:
+		await get_tree().process_frame
+		if int(_juice.call("indicadores_visibles")) == 0:
+			limpio = true
+			break
+	_check(limpio, "amenaza: el aviso desaparece cuando termina su ataque")
+	_check(get_tree().current_scene.find_children("JuiceIndicadorAmenaza", "", true, false).size() <= 0 \
+			or int(_juice.call("indicadores_visibles")) == 0, "amenaza: no quedan nodos de aviso huérfanos")
+	_juice.set("indicador_amenaza_activo", false)
+	threats.call("register", _enemigo, "melee", 0.9, true)
+	var aparece := false
+	for _i in 300:
+		await get_tree().process_frame
+		if int(_juice.call("indicadores_visibles")) > 0:
+			aparece = true
+	_check(not aparece, "indicador_amenaza_activo=false: no se dibuja nada")
+	_enemigo.set("alcance_golpe", 0.05)
+	_juice.set("indicador_amenaza_activo", true)
+	(_jug.get_node("Estadisticas")).set("muerto", false)
 
 
 ## Pulsa al EMPEZAR el gancho y no vuelve a pulsar: ¿sale otro golpe después?
