@@ -1,0 +1,177 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+WARNING: res://personaje/base/escenas/leo_jugador.tscn:43 - ext_resource, invalid UID: uid://scndx4m2k3no - using text path instead: res://Audio/personaje/transformacion/transformacion.mp3
+   at: load (scene/resources/resource_format_text.cpp:501)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://.backup_semilla/_prueba_etapas.gd:25)
+[cielo] Sky 3D montado en el entorno del juego: sol(y=0.71 vis=1.00 brillo=18.0) luna(y=-0.71 luz=0.00 vis=0.00) dia=true
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:62)
+   GDScript backtrace (most recent call first):
+       [0] _crear_terreno (res://world/terreno3d.gd:97)
+       [1] _ready (res://world/terreno3d.gd:82)
+[Terreno3D] 15034 matas de hierba
+[Terreno3D] 16 regiones de 256 vértices cada una, 2.0 m entre vértices, 2048 m de lado, colisión modo 1, en 1159 ms
+[Bosque] 3888 árboles y 787 arbustos en 17 trozos (424 ms)
+UAL2 loader: GuardiaAlas generada (cruce en X; perillas en el Inspector).
+UAL2 loader: PatadaGarra generada (doble patada de garras).
+UAL2 loader: clips completos -> [&"BackFlip", &"DoubleJump", &"GuardiaAlas", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"PatadaGarra", &"Swim_Fwd", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: clips de torso+brazos -> [&"BackFlip", &"DoubleJump", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: Jump_Planeo generado (piernas recogidas para el avance).
+UAL2 loader: Planeo generado (pose congelada de alas).
+UAL2 loader: AleteoAlas generado (golpe de ala hacia abajo).
+UAL2 loader: PosePicado generada (brazos al costado, piernas juntas).
+UAL2 loader: VueloHeroe generado (superman: puño al frente, piernas rectas).
+UAL2 loader: PalmazoPush generado (solo torso+brazos; partes: ["Enter", "Push", "Exit"]).
+UAL2 loader: CaidaLibre generada (brazos hacia arriba).
+[GroundCombat] Cadena: Punch_Jab=OK, Punch_Cross=OK, Kick=OK, Melee_Uppercut=OK
+[GroundCombat] Guardia: UAL2/GuardiaAlas
+[Apuntado] Listo (OTS + mira).
+[Garras] Listo (agarre SOLO volando). PatadaGarra: OK
+[CamFX] Listo. Camera: Camera3D | Flight: FlightController | Anim: AnimationPlayer
+[GeneradorCiudad] Colisiones de vegetación: 699 cilindros (456 troncos de árbol/palmera + 243 canteros) en capa 1
+[Peatones] puertas usables: 53 de 64 (descartadas: 11 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 678 vértices { "acera": 325, "plaza": 65, "parque": 15, "paseo": 162, "arena": 111 } | 46 ciudadanos (playa 16) | bancos 66 asientos libres 18 | reposeras 25 libres 11 | obstáculos 1047 | puertas 53 usables de 64
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 2, "B03": 2, "B10": 1, "B11": 2, "B12": 2, "B13": 1, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 0, "B33": 1, "costa": 16, "P-4_-1": 0, "P-4_0": 0, "P-5_-1": 0, "P-2_-1": 0, "P-2_0": 0, "P-3_-1": 0, "P-1_-5": 0, "P-1_-4": 0, "P-1_-2": 0, "P-1_-3": 0, "P0_-2": 0, "P1_3": 0, "P0_3": 0, "P3_-3": 0, "P3_-2": 0, "P2_-3": 0, "P3_-1": 0, "P3_0": 0, "P2_-1": 1, "P3_2": 0, "P3_3": 1, "P2_2": 1, "P5_-5": 1, "P5_-4": 1, "P4_-5": 1, "P5_-1": 1, "P5_0": 0, "P4_-1": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_2": 0, "P4_3": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] Colisiones de vegetación: 698 cilindros (458 troncos de árbol/palmera + 240 canteros) en capa 1
+[Peatones] puertas usables: 98 de 128 (descartadas: 21 sin acceso en la red, 0 por mobiliario, 9 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 673 vértices { "acera": 325, "plaza": 60, "parque": 15, "paseo": 162, "arena": 111 } | 39 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 13 libres 11 | obstáculos 966 | puertas 98 usables de 128
+[Peatones] reparto por sectores: { "B00": 1, "B01": 2, "B02": 2, "B03": 2, "B10": 2, "B11": 2, "B12": 2, "B13": 1, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-5_-3": 0, "P-5_-2": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-5_1": 0, "P-5_4": 0, "P-4_4": 0, "P-5_5": 0, "P-4_5": 0, "P-3_-1": 0, "P1_-3": 0, "P0_-3": 0, "P1_1": 0, "P0_1": 0, "P2_-1": 0, "P2_0": 0, "P3_-1": 0, "P3_3": 0, "P3_2": 0, "P2_3": 0, "P4_-2": 0, "P4_-3": 0, "P4_-1": 0, "P4_0": 0, "P5_-1": 0, "P-1_-3": 0, "P-1_-2": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P1_-1": 1, "P1_0": 0 }
+
+========== RONDA FRÍA (primera del proceso) ==========
+
+========== RONDA CALIENTE (segunda del proceso) ==========
+=== COMPARACIÓN ETAPA A ETAPA ===
+DIF  00 tras sembrar    -> listas, est
+        fría     listas: {"_aires":0,"_alcantarillas":0,"_bolardos":0,"_categorias":0,"_cornisas":0,"_familias":0,"_hojas_puerta":0,"_linea_central":0,"_linea_discontinua":0,"_marcos_puerta":0,"_modelos":0,"_paredes":0,"_prefabs":0,"_sumideros":0,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {}
+        caliente est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+DIF  01 escanear        -> listas, est
+        fría     listas: {"_aires":0,"_alcantarillas":0,"_bolardos":0,"_categorias":7,"_cornisas":0,"_familias":0,"_hojas_puerta":0,"_linea_central":0,"_linea_discontinua":0,"_marcos_puerta":0,"_modelos":153,"_paredes":0,"_prefabs":0,"_sumideros":0,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {}
+        caliente est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+DIF  02 listas          -> listas, est
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {}
+        caliente est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+DIF  03 texturas        -> listas, est
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {}
+        caliente est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+DIF  04 trazado         -> listas, est
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {}
+        caliente est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+DIF  05 contenedores    -> listas, est
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {}
+        caliente est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+DIF  06 escena          -> listas
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+DIF  07 suelo           -> listas
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+DIF  08 calles          -> estado, listas, est
+        fría     estado: -4577256460032532044
+        caliente estado: -6515016055088189751
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":0,"arboles_costa":0,"arbustos_costa":0,"bancos":0,"macetas":0,"marcas":1093,"modulares":0,"palmeras":0,"parcelas":0,"parcelas_vacias":0,"parques":0,"plazas":0,"portales":0,"prefabs":0,"props":0,"reposeras":0,"sombrillas":0,"suelos":1,"tramos":840,"vegetacion":0,"ventanas":0,"ventanas_luz":0}
+        caliente est: {"arboles":0,"arboles_costa":0,"arbustos_costa":0,"bancos":0,"macetas":0,"marcas":1101,"modulares":0,"palmeras":0,"parcelas":0,"parcelas_vacias":0,"parques":0,"plazas":0,"portales":0,"prefabs":0,"props":0,"reposeras":0,"sombrillas":0,"suelos":1,"tramos":840,"vegetacion":0,"ventanas":0,"ventanas_luz":0}
+DIF  09 manzanas        -> estado, listas, est
+        fría     estado: -7837696252227206657
+        caliente estado: 1477331139315824114
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":72,"arboles_costa":0,"arbustos_costa":0,"bancos":33,"macetas":18,"marcas":1093,"modulares":64,"palmeras":0,"parcelas":77,"parcelas_vacias":0,"parques":3,"plazas":13,"portales":64,"prefabs":0,"props":24,"reposeras":0,"sombrillas":0,"suelos":34,"tramos":840,"vegetacion":49,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":71,"arboles_costa":0,"arbustos_costa":0,"bancos":31,"macetas":17,"marcas":1101,"modulares":64,"palmeras":0,"parcelas":76,"parcelas_vacias":0,"parques":3,"plazas":12,"portales":64,"prefabs":0,"props":24,"reposeras":0,"sombrillas":0,"suelos":34,"tramos":840,"vegetacion":48,"ventanas":5449,"ventanas_luz":1867}
+DIF  10 paseo           -> estado, listas, est
+        fría     estado: 7296082204524115775
+        caliente estado: -1772272734340345294
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":72,"arboles_costa":0,"arbustos_costa":0,"bancos":33,"macetas":18,"marcas":1093,"modulares":64,"palmeras":0,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":24,"reposeras":0,"sombrillas":0,"suelos":34,"tramos":840,"vegetacion":89,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":71,"arboles_costa":0,"arbustos_costa":0,"bancos":31,"macetas":17,"marcas":1101,"modulares":64,"palmeras":0,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":24,"reposeras":0,"sombrillas":0,"suelos":34,"tramos":840,"vegetacion":88,"ventanas":5449,"ventanas_luz":1867}
+DIF  11 playa           -> estado, listas, est
+        fría     estado: 5218412703720120103
+        caliente estado: -1104726722008754047
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":72,"arboles_costa":0,"arbustos_costa":0,"bancos":33,"macetas":18,"marcas":1093,"modulares":64,"palmeras":43,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":24,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":89,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":71,"arboles_costa":0,"arbustos_costa":0,"bancos":31,"macetas":17,"marcas":1101,"modulares":64,"palmeras":48,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":24,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":88,"ventanas":5449,"ventanas_luz":1867}
+DIF  12 vegetacion costa -> estado, listas, est
+        fría     estado: -3542758741928417430
+        caliente estado: 863794188236055243
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":178,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":18,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":24,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":178,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":17,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":24,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  13 mobiliario      -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  14 volcar veget    -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  15 volcar lotes    -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  16 macetas         -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  17 volcar playa    -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  18 ventanas        -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  19 colisiones veg  -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+DIF  20 peatones        -> estado, listas, est
+        fría     estado: 7898701967630477552
+        caliente estado: -4452153036670840315
+        fría     listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":1,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        caliente listas: {"_aires":1,"_alcantarillas":1,"_bolardos":1,"_categorias":7,"_cornisas":1,"_familias":3,"_hojas_puerta":3,"_linea_central":2,"_linea_discontinua":1,"_marcos_puerta":2,"_modelos":153,"_paredes":17,"_prefabs":3,"_sumideros":1,"_vegetacion":0}
+        fría     est: {"arboles":403,"arboles_costa":106,"arbustos_costa":23,"bancos":33,"macetas":243,"marcas":1093,"modulares":64,"palmeras":53,"parcelas":77,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":13,"portales":64,"prefabs":0,"props":272,"reposeras":49,"sombrillas":23,"suelos":34,"tramos":840,"vegetacion":112,"ventanas":6039,"ventanas_luz":2637}
+        caliente est: {"arboles":401,"arboles_costa":107,"arbustos_costa":27,"bancos":31,"macetas":240,"marcas":1101,"modulares":64,"palmeras":57,"parcelas":76,"parcelas_vacias":0,"parques":3,"paseo":162,"plazas":12,"portales":64,"prefabs":0,"props":290,"reposeras":26,"sombrillas":13,"suelos":34,"tramos":840,"vegetacion":115,"ventanas":5449,"ventanas_luz":1867}
+=== PRIMERA ETAPA QUE DIFIERE: 00 tras sembrar ===
+
+WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)

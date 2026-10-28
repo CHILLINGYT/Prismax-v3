@@ -124,6 +124,10 @@ const POOL_OF_KIND := {
 
 @export_group("Personalidad")
 ## Si está activo, cada ciudadano sortea su propia personalidad al aparecer (no hay dos iguales).
+## Semilla del generador propio de ESTE ciudadano (aspecto, carácter, ritmo…).
+## La pone el director de peatones, así que cada peatón sale siempre igual en
+## cada partida. 0 = al azar (para un ciudadano colocado a mano en el editor).
+@export var semilla: int = 0
 @export var randomize_personality := true
 ## Multiplicador de velocidad; afecta al movimiento Y a la animación (los pies no patinan).
 @export_range(0.6, 1.4) var move_scale := 1.0
@@ -278,7 +282,13 @@ var _viajes_cancelados := 0          # trayectos cancelados por bloqueo (para la
 
 
 func _ready() -> void:
-	_rng.randomize()
+	# Generador propio, sembrado de forma ESTABLE por el director de peatones:
+	# el aspecto, el carácter y el ritmo de este ciudadano son los mismos en cada
+	# partida. Sólo va al azar el ciudadano colocado a mano (semilla = 0).
+	if semilla != 0:
+		_rng.seed = semilla
+	else:
+		_rng.randomize()
 	collision_layer = LAYER_NPC
 	collision_mask = LAYER_WORLD
 	floor_snap_length = 0.4

@@ -1,0 +1,4 @@
+ciudad=63585623
+peatones=2198728164
+nodos=4816
+instancias=19153
