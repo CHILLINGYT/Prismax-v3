@@ -119,6 +119,8 @@ func _resolver_referencias() -> void:
 
 
 func _ready() -> void:
+	# El mapa (minimapa.gd) lo localiza por este grupo para sus marcadores.
+	add_to_group(&"director_eventos")
 	for def in EVENTOS:
 		var id: StringName = def["id"]
 		_eventos[id] = {
@@ -454,6 +456,26 @@ static func _formato_tiempo(seg: float) -> String:
 
 
 # =============================================================== API de consulta / pruebas
+## AVISOS PARA EL MAPA (Tarea 6): posición y estado de los eventos que el jugador
+## puede atender ahora mismo — tubo DISPONIBLE (ir a por él) o COMBATE en curso
+## (enemigos vivos de ese evento). No crea ni cambia nada: lee las anclas ya
+## resueltas. Lo consume `minimapa.gd` para sus marcadores.
+func avisos_eventos() -> Array:
+	var salida: Array = []
+	for id in _eventos.keys():
+		var est: Dictionary = _eventos[id]
+		var estado := int(est.get("estado", Est.ESPERANDO))
+		if estado != Est.DISPONIBLE and estado != Est.COMBATE:
+			continue
+		salida.append({
+			"id": id,
+			"posicion": est.get("ancla", Vector3.ZERO),
+			"estado": estado,
+			"vivos": enemigos_vivos_de(id) if estado == Est.COMBATE else 0,
+		})
+	return salida
+
+
 func eventos_definidos() -> int:
 	return EVENTOS.size()
 

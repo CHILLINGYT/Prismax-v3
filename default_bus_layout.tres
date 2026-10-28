@@ -1,4 +1,8 @@
-[gd_resource type="AudioBusLayout" format=3]
+[gd_resource type="AudioBusLayout" format=3 uid="uid://bcbvtqwdnfjwm"]
+
+[sub_resource type="AudioEffectPitchShift" id="PitchVocesEnemigos"]
+pitch_scale = 0.92
+fft_size = 2
 
 [resource]
 bus/1/name = &"Musica"
@@ -19,3 +23,11 @@ bus/3/mute = false
 bus/3/bypass_fx = false
 bus/3/volume_db = 0.0
 bus/3/send = &"Master"
+bus/4/name = &"VocesEnemigos"
+bus/4/solo = false
+bus/4/mute = false
+bus/4/bypass_fx = false
+bus/4/volume_db = 0.0
+bus/4/send = &"Efectos"
+bus/4/effect/0/effect = SubResource("PitchVocesEnemigos")
+bus/4/effect/0/enabled = true
