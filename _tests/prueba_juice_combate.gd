@@ -1,0 +1,149 @@
+extends Node3D
+## PRUEBAS de la CAPA DE PULIDO del combate (JuiceCombate).
+##
+## Jugador REAL (leo_jugador.tscn) en la forma Combate por el camino del menú, con
+## el CombatManager del módulo y un enemigo real delante. Comprueba, efecto por
+## efecto, que se dispara SÓLO con impacto confirmado, que su interruptor lo apaga
+## y que no deja secuelas (p. ej. Engine.time_scale vuelve a 1).
+##
+##   godot --path <proyecto> res://_tests/prueba_juice_combate.tscn
+
+const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
+const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
+const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
+const ENEMIGO := "res://Enemigos Prueba/Scenes/enemigo_prueba.tscn"
+const FORMA_COMBATE := 4
+const C_LIBRE := 0
+
+var _ok := 0
+var _fallos := 0
+var _jug: Node3D
+var _juice: Node
+var _enemigo: Node3D
+var _min_escala := 1.0
+var _golpes_sonados := 0
+var _conectados := 0
+var _lanzados := 0
+
+
+func _ready() -> void:
+	_piso()
+	var mgr := Node.new()
+	mgr.name = "CombatManager"
+	mgr.set_script(GestorCombate)
+	mgr.set("config", ConfigCombate)
+	add_child(mgr)
+	_jug = (load(JUGADOR) as PackedScene).instantiate() as Node3D
+	_jug.position = Vector3(0, 0.1, 0)
+	add_child(_jug)
+	await get_tree().create_timer(0.9).timeout
+	_juice = _jug.get_node_or_null("JuiceCombate")
+	_check(_juice != null, "LeoJugador tiene el nodo JuiceCombate")
+	_jug.connect("golpe_conectado", func(_o: Node3D, _d: Vector3, _i: int, _r: bool) -> void: _conectados += 1)
+	_jug.connect("golpe_lanzado", func(_i: int) -> void: _lanzados += 1)
+	var pasos: Node = _jug.get_node_or_null("Pasos")
+	if pasos != null and pasos.has_signal("golpe"):
+		pasos.connect("golpe", func() -> void: _golpes_sonados += 1)
+
+	_jug.call("_on_transformacion_elegida", &"combate")
+	var t := 0.0
+	while (int(_jug.get("forma")) != FORMA_COMBATE or bool(_jug.get("_transformando"))) and t < 8.0:
+		await get_tree().physics_frame
+		t += 1.0 / 60.0
+	await get_tree().create_timer(0.6).timeout
+	_check(int(_jug.get("forma")) == FORMA_COMBATE, "el jugador entró en la forma Combate")
+
+	# --- 1. Golpe AL AIRE: se lanza pero no conecta, no suena impacto, no hay hitstop
+	_reset_medidas()
+	await _lanzar_golpe()
+	_check(_lanzados == 1, "golpe al aire: se emite golpe_lanzado (%d)" % _lanzados)
+	_check(_conectados == 0, "golpe al aire: NO se emite golpe_conectado (%d)" % _conectados)
+	_check(_golpes_sonados == 0, "golpe al aire: el sonido de IMPACTO no suena (%d)" % _golpes_sonados)
+	_check(_min_escala > 0.99, "golpe al aire: no hay hitstop (escala mínima %.2f)" % _min_escala)
+	await get_tree().create_timer(2.6).timeout   # se agota la ventana de combo
+
+	# --- 2. Golpe que CONECTA: hitstop real y vuelta a 1 ---------------------
+	_enemigo = (load(ENEMIGO) as PackedScene).instantiate() as Node3D
+	_enemigo.name = "Blanco"
+	add_child(_enemigo)
+	_enemigo.set("_vida", 500.0)
+	_enemigo.global_position = _jug.global_position + (_jug.get("ataque_visual") as Node3D).global_transform.basis * Vector3(0.0, 0.0, -1.5)
+	await get_tree().create_timer(0.5).timeout
+	_reset_medidas()
+	await _lanzar_golpe()
+	_check(_conectados == 1, "golpe que conecta: golpe_conectado una vez (%d)" % _conectados)
+	_check(_golpes_sonados == 1, "golpe que conecta: el impacto suena UNA vez (%d)" % _golpes_sonados)
+	_check(_min_escala < 0.1, "hitstop: el tiempo se congeló al impactar (escala mínima %.3f)" % _min_escala)
+	await get_tree().create_timer(0.3).timeout
+	_check(is_equal_approx(Engine.time_scale, 1.0), "hitstop: Engine.time_scale vuelve a 1 (%.3f)" % Engine.time_scale)
+
+	# --- 3. Interruptor apagado: sin hitstop ----------------------------------
+	_juice.set("hitstop_activo", false)
+	_reset_medidas()
+	await _lanzar_golpe()
+	_check(_conectados == 1, "con hitstop apagado el golpe sigue conectando (%d)" % _conectados)
+	_check(_min_escala > 0.99, "hitstop_activo=false: el tiempo no se toca (escala mínima %.2f)" % _min_escala)
+	_juice.set("hitstop_activo", true)
+
+	await _secciones_extra()
+	print("==================== JUICE COMBATE: %d OK / %d FALLO ====================" % [_ok, _fallos])
+
+
+## Punto de extensión: las mejoras siguientes añaden aquí sus comprobaciones.
+func _secciones_extra() -> void:
+	pass
+
+
+func _process(_delta: float) -> void:
+	_min_escala = minf(_min_escala, Engine.time_scale)
+
+
+func _reset_medidas() -> void:
+	_min_escala = 1.0
+	_golpes_sonados = 0
+	_conectados = 0
+	_lanzados = 0
+
+
+func _lanzar_golpe() -> void:
+	Input.action_press("atacar")
+	await get_tree().physics_frame
+	Input.action_release("atacar")
+	var visto := false
+	for _i in 200:
+		await get_tree().process_frame
+		var e := int(_jug.get("c_estado"))
+		if e != C_LIBRE:
+			visto = true
+		elif visto:
+			break
+	await get_tree().create_timer(0.15).timeout
+
+
+func _check(condicion: bool, texto: String) -> void:
+	if condicion:
+		_ok += 1
+		print("[juice-suite] OK   ", texto)
+	else:
+		_fallos += 1
+		print("[juice-suite] FALLO ", texto)
+
+
+func _piso() -> void:
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "Piso"
+	var forma := CollisionShape3D.new()
+	var caja := BoxShape3D.new()
+	caja.size = Vector3(120, 1, 120)
+	forma.shape = caja
+	cuerpo.add_child(forma)
+	cuerpo.position = Vector3(0, -0.5, 0)
+	add_child(cuerpo)
+	var malla := MeshInstance3D.new()
+	var caja_malla := BoxMesh.new()
+	caja_malla.size = Vector3(120, 1, 120)
+	malla.mesh = caja_malla
+	cuerpo.add_child(malla)
+	var luz := DirectionalLight3D.new()
+	luz.rotation = Vector3(-0.9, 0.6, 0.0)
+	add_child(luz)

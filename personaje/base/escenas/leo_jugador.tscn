@@ -62,6 +62,7 @@
 [ext_resource type="AudioStream" path="res://Audio/Sonido de muerte/Sonido de muerte 3 (mp3cut.net).wav" id="58_aud_muerte3"]
 [ext_resource type="AudioStream" path="res://Audio/Sonido de muerte/Sonido de muerte 4 (mp3cut.net).wav" id="59_aud_muerte4"]
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/vuelo/player/vuelo_player.tscn" id="51_vuelo"]
+[ext_resource type="Script" path="res://personaje/base/efectos/juice_combate.gd" id="90_juice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jugador"]
 radius = 0.4
@@ -307,6 +308,9 @@ vida = 0.75
 
 [node name="VistaSubmarina" type="Node3D" parent="." unique_id=848636400]
 script = ExtResource("37_vista_sub")
+
+[node name="JuiceCombate" type="Node" parent="."]
+script = ExtResource("90_juice")
 
 [node name="Vuelo" parent="." instance=ExtResource("51_vuelo")]
 visible = false
