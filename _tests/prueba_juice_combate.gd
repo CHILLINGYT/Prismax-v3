@@ -39,7 +39,9 @@ func _ready() -> void:
 	await get_tree().create_timer(0.9).timeout
 	_juice = _jug.get_node_or_null("JuiceCombate")
 	_check(_juice != null, "LeoJugador tiene el nodo JuiceCombate")
-	_jug.connect("golpe_conectado", func(_o: Node3D, _d: Vector3, _i: int, _r: bool) -> void: _conectados += 1)
+	_jug.connect("golpe_conectado", func(_o: Node3D, _d: Vector3, i: int, r: bool) -> void:
+		_conectados += 1
+		print("[juice-suite] (conectó eslabón %d%s)" % [i, " REMATE" if r else ""]))
 	_jug.connect("golpe_lanzado", func(_i: int) -> void: _lanzados += 1)
 	var pasos: Node = _jug.get_node_or_null("Pasos")
 	if pasos != null and pasos.has_signal("golpe"):
@@ -67,6 +69,7 @@ func _ready() -> void:
 	_enemigo.name = "Blanco"
 	add_child(_enemigo)
 	_enemigo.set("_vida", 500.0)
+	_enemigo.set("alcance_golpe", 0.05)
 	_enemigo.global_position = _jug.global_position + (_jug.get("ataque_visual") as Node3D).global_transform.basis * Vector3(0.0, 0.0, -1.5)
 	await get_tree().create_timer(0.5).timeout
 	_reset_medidas()
@@ -97,7 +100,36 @@ func _secciones_extra() -> void:
 	await _seccion_audio()
 	await _seccion_destello()
 	await _seccion_reaccion()
+	await _seccion_pantalla()
 	await _seccion_camara_lenta()
+
+
+func _seccion_pantalla() -> void:
+	await _nueva_seccion()
+	_juice.call("pantalla_pico_y_reset")
+	await _lanzar_golpe()   # jab
+	var jab := float(_juice.call("pantalla_pico_y_reset"))
+	await _lanzar_golpe()   # cros
+	await _lanzar_golpe()   # gancho
+	var gancho := float(_juice.call("pantalla_pico_y_reset"))
+	_check(jab < 0.0001, "pantalla: el jab no emborrona (%.4f)" % jab)
+	_check(gancho > 0.02, "pantalla: el gancho dispara blur radial + aberración (%.4f)" % gancho)
+	await get_tree().create_timer(0.6).timeout
+	_check(not bool(_juice.call("pantalla_visible")), "pantalla: el efecto se apaga y deja de dibujarse")
+	var stats: Node = _jug.get_node("Estadisticas")
+	stats.call("recibir_danio", 1.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var dano := float(_juice.call("pantalla_pico_y_reset"))
+	_check(dano > 0.005, "pantalla: recibir daño da un pulso de aberración (%.4f)" % dano)
+	_juice.set("aberracion_dano_activa", false)
+	await get_tree().create_timer(0.5).timeout
+	_juice.call("pantalla_pico_y_reset")
+	stats.call("recibir_danio", 1.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(float(_juice.call("pantalla_pico_y_reset")) < 0.0001, "aberracion_dano_activa=false: sin pulso")
+	_juice.set("aberracion_dano_activa", true)
 
 
 ## Remates: con otro enemigo vivo → respiro corto; al último → cámara lenta larga.
@@ -140,7 +172,19 @@ func _seccion_camara_lenta() -> void:
 	print("[juice-suite] (t total de la sección %.1f s)" % (float(Time.get_ticks_msec() - t0) / 1000.0))
 
 
+## Empieza una sección limpia: agota la ventana de combo (la cadena vuelve al jab)
+## y recoloca al enemigo delante (los empujes de la sección anterior lo alejan).
+func _nueva_seccion() -> void:
+	await get_tree().create_timer(2.6).timeout
+	if is_instance_valid(_enemigo):
+		var adelante := (_jug.get("ataque_visual") as Node3D).global_transform.basis * Vector3(0.0, 0.0, -1.5)
+		_enemigo.global_position = _jug.global_position + adelante
+		_enemigo.velocity = Vector3.ZERO
+		await get_tree().create_timer(0.3).timeout
+
+
 func _seccion_reaccion() -> void:
+	await _nueva_seccion()
 	var visual := _enemigo.get_node("Visual") as Node3D
 	var reposo: Transform3D = visual.get_meta(&"juice_reposo") if visual.has_meta(&"juice_reposo") else visual.transform
 	var lean := await _golpe_y_maximos(func() -> float:
@@ -159,7 +203,7 @@ func _seccion_reaccion() -> void:
 
 
 func _seccion_destello() -> void:
-	await get_tree().create_timer(2.6).timeout
+	await _nueva_seccion()
 	var antes := int(_juice.call("estallidos_creados"))
 	var fuerza_max := 0.0
 	# Cámara lateral SOLO para la foto (la del jugador queda tapada por Leo).
@@ -208,7 +252,7 @@ func _foto(nombre: String) -> void:
 
 
 func _seccion_audio() -> void:
-	await get_tree().create_timer(2.6).timeout   # cadena a 0 → jab
+	await _nueva_seccion()
 	var antes := int(_juice.call("sonidos_disparados"))
 	await _lanzar_golpe()
 	var jab := int(_juice.call("sonidos_disparados")) - antes
@@ -254,7 +298,7 @@ func _golpe_y_maximos(lectura: Callable) -> float:
 
 func _seccion_camara() -> void:
 	var piv: Node = _jug.get_node("PivoteCamara")
-	await get_tree().create_timer(2.6).timeout   # cadena a 0 → jab
+	await _nueva_seccion()
 	var trauma := await _golpe_y_maximos(func() -> float: return float(piv.call("trauma_actual")))
 	_check(trauma > 0.2, "sacudida: el impacto suma trauma a la cámara (máx %.2f)" % trauma)
 	var fov := await _golpe_y_maximos(func() -> float: return -float(piv.call("fov_extra_actual")))

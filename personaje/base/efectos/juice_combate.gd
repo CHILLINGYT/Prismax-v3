@@ -121,6 +121,29 @@ var _lenta_hasta_us := 0
 var _lenta_escala := 1.0
 var _lentas := 0
 
+# ------------------------------------------------------- EFECTOS DE PANTALLA
+@export_group("Pantalla")
+## Blur radial + aberración cromática desde el punto del impacto en los golpes
+## pesados (gancho) y remates. Por debajo del HUD.
+@export var pantalla_golpe_activa := true
+@export_range(0.0, 0.2, 0.005) var blur_gancho := 0.035
+@export_range(0.0, 0.2, 0.005) var blur_remate := 0.06
+@export_range(0.0, 0.03, 0.001) var aberracion_golpe := 0.006
+## Pulso de aberración al RECIBIR daño (se suma a la viñeta roja del HUD).
+@export var aberracion_dano_activa := true
+@export_range(0.0, 0.03, 0.001) var aberracion_dano := 0.012
+@export var pantalla_duracion := 0.22
+
+const SHADER_PANTALLA := preload("res://personaje/base/efectos/shaders/juice_pantalla_golpe.gdshader")
+const CAPA_PANTALLA := 5
+var _capa_pantalla: CanvasLayer = null
+var _rect_pantalla: ColorRect = null
+var _mat_pantalla: ShaderMaterial = null
+var _blur := 0.0
+var _aberr := 0.0
+var _pantalla_max := 0.0
+var _t_pantalla_us := 0
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -136,6 +159,10 @@ func _ready() -> void:
 	if _jugador == null:
 		return
 	_preparar_audio()
+	_preparar_pantalla()
+	var stats := _jugador.get_node_or_null("Estadisticas")
+	if stats != null and stats.has_signal("danio_recibido"):
+		stats.connect("danio_recibido", _on_danio_recibido)
 	if _jugador.has_signal("golpe_conectado"):
 		_jugador.connect("golpe_conectado", _on_golpe_conectado)
 	if _jugador.has_signal("golpe_lanzado"):
@@ -149,8 +176,9 @@ func _exit_tree() -> void:
 	_escala_puesta = 1.0
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_actualizar_tiempo()
+	_actualizar_pantalla(delta)
 
 
 # ------------------------------------------------------------------ eventos
@@ -175,6 +203,9 @@ func _on_golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bo
 		_estallido(objetivo, dir, indice, remate)
 	if reaccion_activa:
 		_reaccion(objetivo, dir, indice, remate)
+	if pantalla_golpe_activa and (indice >= 2 or remate):
+		_pulso_pantalla(blur_remate if remate else blur_gancho, aberracion_golpe,
+				_punto_contacto(objetivo, dir))
 	if remate:
 		if _quedan_enemigos(objetivo):
 			if camara_lenta_remate_activa:
@@ -365,6 +396,74 @@ func _quad_estallido(padre: Node, punto: Vector3, forma: int, tam: float, dur: f
 	tw.tween_property(mi, "scale", Vector3.ONE * tam, dur).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("vida", v), 1.0, 0.0, dur)
 	tw.chain().tween_callback(mi.queue_free)
+
+
+# ------------------------------------------------------------------ pantalla
+func _preparar_pantalla() -> void:
+	_capa_pantalla = CanvasLayer.new()
+	_capa_pantalla.name = "JuicePantalla"
+	_capa_pantalla.layer = CAPA_PANTALLA
+	add_child(_capa_pantalla)
+	_rect_pantalla = ColorRect.new()
+	_rect_pantalla.name = "Efecto"
+	_rect_pantalla.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_rect_pantalla.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mat_pantalla = ShaderMaterial.new()
+	_mat_pantalla.shader = SHADER_PANTALLA
+	_rect_pantalla.material = _mat_pantalla
+	_rect_pantalla.visible = false   # sin efecto, ni siquiera se dibuja (coste 0)
+	_capa_pantalla.add_child(_rect_pantalla)
+
+
+func _on_danio_recibido(_cantidad: float) -> void:
+	if aberracion_dano_activa:
+		_pulso_pantalla(0.0, aberracion_dano, Vector3.INF)
+
+
+## `punto` en el mundo (centro del efecto) o Vector3.INF = centro de pantalla.
+func _pulso_pantalla(blur: float, aberr: float, punto: Vector3) -> void:
+	if _mat_pantalla == null:
+		return
+	_blur = maxf(_blur, blur)
+	_aberr = maxf(_aberr, aberr)
+	var centro := Vector2(0.5, 0.5)
+	var cam := get_viewport().get_camera_3d() if get_viewport() != null else null
+	if punto != Vector3.INF and cam != null and not cam.is_position_behind(punto):
+		var tam := get_viewport().get_visible_rect().size
+		var p := cam.unproject_position(punto)
+		centro = Vector2(clampf(p.x / tam.x, 0.1, 0.9), clampf(p.y / tam.y, 0.1, 0.9))
+	_mat_pantalla.set_shader_parameter("centro", centro)
+
+
+func _actualizar_pantalla(_delta: float) -> void:
+	if _mat_pantalla == null:
+		return
+	# Se apaga en tiempo REAL (se ve igual durante el hitstop). Se mide con el
+	# reloj del sistema: `delta / time_scale` falla justo en el fotograma en que
+	# cambia la escala (el delta ya venía con la escala anterior).
+	var ahora := Time.get_ticks_usec()
+	var real := 0.0 if _t_pantalla_us == 0 else minf(float(ahora - _t_pantalla_us) / 1_000_000.0, 0.1)
+	_t_pantalla_us = ahora
+	var caida := real / maxf(pantalla_duracion, 0.01)
+	_blur = maxf(0.0, _blur - blur_remate * caida)
+	_aberr = maxf(0.0, _aberr - aberracion_dano * caida)
+	var activo := _blur > 0.0005 or _aberr > 0.0002
+	_rect_pantalla.visible = activo
+	if activo:
+		_pantalla_max = maxf(_pantalla_max, _blur + _aberr)
+		_mat_pantalla.set_shader_parameter("blur", _blur)
+		_mat_pantalla.set_shader_parameter("aberracion", _aberr)
+
+
+## Lectura para pruebas: pico de efecto de pantalla visto desde la última lectura.
+func pantalla_pico_y_reset() -> float:
+	var v := _pantalla_max
+	_pantalla_max = 0.0
+	return v
+
+
+func pantalla_visible() -> bool:
+	return _rect_pantalla != null and _rect_pantalla.visible
 
 
 # ------------------------------------------------------------------ reacción

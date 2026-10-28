@@ -53,6 +53,7 @@ var _vib_h: float = 0.0
 var _vib_v: float = 0.0
 var _t_ruido: float = 0.0
 var _ruido := FastNoiseLite.new()
+var _t_real_us: int = 0
 
 func _ready() -> void:
 	_brazo = get_node_or_null("Brazo") as SpringArm3D
@@ -110,8 +111,11 @@ func _process(delta: float) -> void:
 	if _cam != null:
 		# Tiempo REAL (sin la escala del hitstop/cámara lenta): la sacudida y el
 		# golpe de FOV se ven y se recuperan aunque el mundo esté congelado.
-		var real: float = delta / maxf(Engine.time_scale, 0.001)
-		real = minf(real, 0.1)
+		# Reloj del sistema, no `delta / time_scale`: en el fotograma en que el
+		# hitstop cambia la escala, ese cociente da un salto de ×25.
+		var ahora_us: int = Time.get_ticks_usec()
+		var real: float = 0.0 if _t_real_us == 0 else minf(float(ahora_us - _t_real_us) / 1_000_000.0, 0.1)
+		_t_real_us = ahora_us
 		_fov_suave = lerpf(_fov_suave, objetivo_fov, 5.0 * delta)
 		_fov_extra = lerpf(_fov_extra, 0.0, clampf(FOV_PUNCH_RECUPERACION * real, 0.0, 1.0))
 		_cam.fov = _fov_suave + _fov_extra
