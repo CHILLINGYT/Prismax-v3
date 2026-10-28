@@ -92,6 +92,34 @@ func _ready() -> void:
 ## Punto de extensión: las mejoras siguientes añaden aquí sus comprobaciones.
 func _secciones_extra() -> void:
 	await _seccion_camara()
+	await _seccion_audio()
+
+
+func _seccion_audio() -> void:
+	await get_tree().create_timer(2.6).timeout   # cadena a 0 → jab
+	var antes := int(_juice.call("sonidos_disparados"))
+	await _lanzar_golpe()
+	var jab := int(_juice.call("sonidos_disparados")) - antes
+	_check(jab == 2, "audio jab que conecta: whoosh + puñetazo = 2 capas (%d)" % jab)
+	antes = int(_juice.call("sonidos_disparados"))
+	await _lanzar_golpe()
+	var cros := int(_juice.call("sonidos_disparados")) - antes
+	_check(cros == 3, "audio cros: whoosh + puñetazo pesado + golpe sordo = 3 capas (%d)" % cros)
+	# Golpe al aire: solo el whoosh.
+	var pos := _enemigo.global_position
+	_enemigo.global_position = pos + Vector3(30, 0, 30)
+	await get_tree().create_timer(2.6).timeout
+	antes = int(_juice.call("sonidos_disparados"))
+	await _lanzar_golpe()
+	var aire := int(_juice.call("sonidos_disparados")) - antes
+	_check(aire == 1, "audio golpe al aire: solo el whoosh (%d)" % aire)
+	_juice.set("audio_capas_activo", false)
+	antes = int(_juice.call("sonidos_disparados"))
+	await _lanzar_golpe()
+	_check(int(_juice.call("sonidos_disparados")) == antes, "audio_capas_activo=false: no suena ninguna capa nueva")
+	_juice.set("audio_capas_activo", true)
+	_enemigo.global_position = pos
+	await get_tree().create_timer(0.5).timeout
 
 
 func _golpe_y_maximos(lectura: Callable) -> float:
