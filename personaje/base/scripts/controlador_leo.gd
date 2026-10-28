@@ -3122,7 +3122,7 @@ func texto_interaccion() -> String:
 ## HUD retira el aviso solo. No crea ningún aviso propio: los dos nodos publican su
 ## texto y el HUD lo pinta como el de las escaleras.
 func _casa_a_mano() -> Node3D:
-	for grupo in [&"puerta_casa_leo", &"salida_interior"]:
+	for grupo in [&"puerta_casa_leo", &"salida_interior", &"cama_casa_leo"]:
 		for n in get_tree().get_nodes_in_group(grupo):
 			var nodo := n as Node3D
 			if nodo == null or not nodo.is_inside_tree():

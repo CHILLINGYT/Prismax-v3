@@ -80,6 +80,14 @@ const MIRA := Vector3(-4.441, 0.0, 1.722)
 ## Al estar en el plano de la puerta, el radio y el lado (`normal`) cubren justo el
 ## pasillo de delante: el aviso se ofrece ahí y sólo ahí.
 const SALIDA := Vector3(-3.98, 0.0, 0.221)
+## CAMA del dormitorio principal (la de la foto: mesas de luz y lámparas colgantes
+## a los dos lados). Centro del colchón en coordenadas del GLB, medido con el mapa
+## de alturas de `_tests/sonda_cama.gd` (colchón x 0,25..2,55 · z −1,6..+0,5 en la
+## escena, cabecero al sur). Semiejes en metros de la escena.
+const CAMA := Vector3(-2.066, 0.0, -1.402)
+const CAMA_SEMIEJES := Vector2(1.15, 1.05)
+## Interruptor de "dormir en la cama".
+const CAMA_DORMIR_ACTIVA := true
 
 # --- Vanos EXTERIORES del modelo (sonda): cristal invisible -------------------
 ## [centro en el modelo, tamaño en metros del modelo]. Son los tres huecos que dan
@@ -220,6 +228,12 @@ func _marcadores() -> void:
 	var destino := get_node_or_null("MiraEntrada") as Node3D
 	if destino != null:
 		destino.position = _de_modelo(MIRA)
+	if CAMA_DORMIR_ACTIVA and get_node_or_null("CamaDormir") == null:
+		var cama := CamaDormir.new()
+		cama.name = "CamaDormir"
+		cama.semiejes = CAMA_SEMIEJES
+		add_child(cama)
+		cama.position = _de_modelo(CAMA)
 	var nodo_salida := get_node_or_null("SalidaInterior") as SalidaInterior
 	if nodo_salida == null:
 		return

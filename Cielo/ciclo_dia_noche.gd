@@ -350,6 +350,13 @@ func _segundos_tramo(desde: float, hasta: float) -> float:
 	return (hasta - desde) * 2.0 * maxf(duracion, 0.001)
 
 
+## ¿Se VE de día ahora? (oscuridad < 0,5: el atardecer temprano cuenta como día y
+## el amanecer avanzado también). Lectura pública para quien tenga que decidir
+## según la hora visible, p. ej. dormir en la casa de Leo.
+func es_de_dia() -> bool:
+	return _oscuridad() < 0.5
+
+
 func _es_de_dia(fase: float) -> bool:
 	var f: float = fposmod(fase, 1.0)
 	return f >= 0.25 and f < 0.75
