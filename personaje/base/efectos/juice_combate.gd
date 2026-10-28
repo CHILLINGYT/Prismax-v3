@@ -58,7 +58,7 @@ extends Node
 
 const SFX_DIR := "res://assets/sfx_combat/kenney_impact/"
 const VOCES := 8
-static var _whooshes: Array[AudioStreamWAV] = []
+var _whooshes: Array[AudioStreamWAV] = []
 var _sfx_medio: Array[AudioStream] = []
 var _sfx_pesado: Array[AudioStream] = []
 var _sfx_sordo: Array[AudioStream] = []
@@ -102,6 +102,24 @@ var _estallidos_creados := 0
 @export var reaccion_retroceso := 0.07
 @export var reaccion_subida := 0.06
 @export var reaccion_vuelta := 0.3
+
+# ---------------------------------------------------------- CÁMARA LENTA
+@export_group("Camara lenta")
+## Al tumbar al ÚLTIMO enemigo del encuentro: cámara lenta marcada ("final KO").
+@export var camara_lenta_ultimo_activa := true
+@export_range(0.05, 1.0, 0.05) var camara_lenta_ultimo_escala := 0.25
+## Segundos REALES; el último 40 % vuelve a velocidad normal con suavidad.
+@export var camara_lenta_ultimo_duracion := 0.9
+@export var camara_lenta_ultimo_fov := -6.0
+## En cualquier otro remate (quedan enemigos): un respiro corto y leve.
+@export var camara_lenta_remate_activa := true
+@export_range(0.05, 1.0, 0.05) var camara_lenta_remate_escala := 0.5
+@export var camara_lenta_remate_duracion := 0.22
+
+var _lenta_desde_us := 0
+var _lenta_hasta_us := 0
+var _lenta_escala := 1.0
+var _lentas := 0
 
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
@@ -157,6 +175,15 @@ func _on_golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bo
 		_estallido(objetivo, dir, indice, remate)
 	if reaccion_activa:
 		_reaccion(objetivo, dir, indice, remate)
+	if remate:
+		if _quedan_enemigos(objetivo):
+			if camara_lenta_remate_activa:
+				_camara_lenta(camara_lenta_remate_escala, camara_lenta_remate_duracion)
+		elif camara_lenta_ultimo_activa:
+			_camara_lenta(camara_lenta_ultimo_escala, camara_lenta_ultimo_duracion)
+			var piv := _pivote_camara()
+			if piv != null and piv.has_method("impulso_golpe") and fov_punch_activo:
+				piv.call("impulso_golpe", 0.0, camara_lenta_ultimo_fov)
 
 
 # ------------------------------------------------------------------ audio
@@ -419,7 +446,46 @@ func _escala_deseada() -> float:
 	var escala := 1.0
 	if ahora < _hitstop_hasta_us:
 		escala = minf(escala, hitstop_escala)
+	if ahora < _lenta_hasta_us:
+		var total := float(maxi(_lenta_hasta_us - _lenta_desde_us, 1))
+		var u := float(ahora - _lenta_desde_us) / total
+		# Meseta y salida suave en el último 40 % (smoothstep), sin "tirón".
+		var k := 1.0 if u < 0.6 else 1.0 - smoothstep(0.6, 1.0, u)
+		escala = minf(escala, lerpf(1.0, _lenta_escala, k))
 	return escala
+
+
+func _camara_lenta(escala: float, segundos: float) -> void:
+	var ahora := Time.get_ticks_usec()
+	# Una cámara lenta en curso más fuerte no se acorta.
+	if ahora < _lenta_hasta_us and _lenta_escala <= escala:
+		return
+	_lenta_desde_us = ahora
+	_lenta_hasta_us = ahora + int(segundos * 1_000_000.0)
+	_lenta_escala = escala
+	_lentas += 1
+	_actualizar_tiempo()
+
+
+## ¿Queda algún enemigo vivo en el encuentro además del que acaba de caer?
+func _quedan_enemigos(caido: Node) -> bool:
+	var gestor := get_tree().get_first_node_in_group("combat_manager") if get_tree() != null else null
+	var lista: Array = []
+	if gestor != null and gestor.has_method("get_active_enemies"):
+		lista = gestor.call("get_active_enemies")
+	else:
+		lista = get_tree().get_nodes_in_group(&"enemigos_prueba")
+	for e in lista:
+		if e == caido or not is_instance_valid(e):
+			continue
+		if e.has_method("is_alive") and not bool(e.call("is_alive")):
+			continue
+		return true
+	return false
+
+
+func camaras_lentas() -> int:
+	return _lentas
 
 
 func _actualizar_tiempo() -> void:

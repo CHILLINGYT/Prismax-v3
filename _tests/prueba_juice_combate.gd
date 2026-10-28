@@ -87,6 +87,8 @@ func _ready() -> void:
 
 	await _secciones_extra()
 	print("==================== JUICE COMBATE: %d OK / %d FALLO ====================" % [_ok, _fallos])
+	await get_tree().create_timer(0.3).timeout
+	get_tree().quit()
 
 
 ## Punto de extensión: las mejoras siguientes añaden aquí sus comprobaciones.
@@ -95,6 +97,47 @@ func _secciones_extra() -> void:
 	await _seccion_audio()
 	await _seccion_destello()
 	await _seccion_reaccion()
+	await _seccion_camara_lenta()
+
+
+## Remates: con otro enemigo vivo → respiro corto; al último → cámara lenta larga.
+func _seccion_camara_lenta() -> void:
+	var otro := (load(ENEMIGO) as PackedScene).instantiate() as Node3D
+	otro.name = "Testigo"
+	add_child(otro)
+	otro.global_position = _jug.global_position + Vector3(8, 0, 8)
+	otro.set("alcance_golpe", 0.05)
+	await get_tree().create_timer(0.4).timeout
+	_enemigo.set("_vida", 5.0)
+	var lentas0 := int(_juice.call("camaras_lentas"))
+	var t0 := Time.get_ticks_msec()
+	await _lanzar_golpe()
+	_check(not bool(_enemigo.call("is_alive")) if is_instance_valid(_enemigo) else true, "remate: el primer enemigo cae")
+	_check(int(_juice.call("camaras_lentas")) == lentas0 + 1, "remate con enemigos vivos: respiro de cámara lenta (%d)" % (int(_juice.call("camaras_lentas")) - lentas0))
+	await get_tree().create_timer(0.6).timeout
+	_check(is_equal_approx(Engine.time_scale, 1.0), "tras el respiro el tiempo vuelve a 1 (%.2f)" % Engine.time_scale)
+	# Último enemigo: se le acerca y se le remata.
+	_enemigo = otro
+	_enemigo.set("_vida", 5.0)
+	_enemigo.global_position = _jug.global_position + (_jug.get("ataque_visual") as Node3D).global_transform.basis * Vector3(0.0, 0.0, -1.5)
+	await get_tree().create_timer(0.5).timeout
+	_reset_medidas()
+	var dur_lenta := 0.0
+	Input.action_press("atacar")
+	await get_tree().physics_frame
+	Input.action_release("atacar")
+	var inicio := -1
+	for _i in 400:
+		await get_tree().process_frame
+		_min_escala = minf(_min_escala, Engine.time_scale)
+		if Engine.time_scale < 0.4 and Engine.time_scale > 0.1 and inicio < 0:
+			inicio = Time.get_ticks_msec()
+		if inicio >= 0 and is_equal_approx(Engine.time_scale, 1.0):
+			dur_lenta = float(Time.get_ticks_msec() - inicio) / 1000.0
+			break
+	_check(dur_lenta > 0.4, "último enemigo: cámara lenta marcada (%.2f s reales a <0,4×)" % dur_lenta)
+	_check(is_equal_approx(Engine.time_scale, 1.0), "y el tiempo vuelve exactamente a 1 (%.2f)" % Engine.time_scale)
+	print("[juice-suite] (t total de la sección %.1f s)" % (float(Time.get_ticks_msec() - t0) / 1000.0))
 
 
 func _seccion_reaccion() -> void:
