@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://.backup_semilla/_prueba_mundo.gd" id="1_prueba"]
+
+[node name="PruebaMundo" type="Node"]
+script = ExtResource("1_prueba")

@@ -160,7 +160,10 @@ func instalar(datos: Dictionary) -> void:
 	# reloj; sin la variable no imprimen nada y no cambian ningún comportamiento.
 	var medir := OS.get_environment("PRISMAX_MEDIR_ETAPAS") == "1"
 	var t0 := Time.get_ticks_usec()
-	_rng.randomize()
+	# Semilla FIJA del reparto de peatones (quién sale, dónde y con qué perfil):
+	# con la misma semilla el vecindario es idéntico en cada partida. Ver
+	# `world/semilla_mundo.gd` para cambiarla.
+	_rng.seed = SemillaMundo.semilla_de("peatones")
 	red = RedPeatonal.new()
 	red.construir(datos)
 	var t_red := Time.get_ticks_usec()          # 1. red peatonal
@@ -636,6 +639,9 @@ func _nacer(perfil: String, usados: Array[Vector2]) -> NPCCitizen:
 	var c := _escena_ciudadano.instantiate() as NPCCitizen
 	if c == null:
 		return null
+	# Semilla propia y ESTABLE de este ciudadano (aspecto, carácter, ritmo): sale
+	# de su número de orden en el reparto, así que siempre es el mismo peatón.
+	c.semilla = SemillaMundo.semilla_de("ciudadano_%d" % peatones.size())
 	var idx_modelo := (_rng.randi() % _modelos.size()) if not _modelos.is_empty() else -1
 	c.model_scene = _modelos[idx_modelo] if idx_modelo >= 0 else null
 	c.body_type = sexo_de(idx_modelo)

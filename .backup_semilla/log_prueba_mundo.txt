@@ -1,0 +1,42 @@
+=== PRUEBA DE DETERMINISMO Y EDICIONES — modo todo — 2026-10-27T16:53:33 ===
+Semilla del mundo: SEMILLA=20260215 (fija)
+Ediciones en la tabla: sin ediciones (ciudad 100% procedural)
+mundo asentado: bosque 17 | terreno 1
+farolas colocadas: 142
+OK   mundo montado y ciudad generada
+OK   director de peatones instalado
+generación 1 (fría): ciudad 63585623 | nodos 4816 | instancias 19153 | peatones 2198728164 (40)
+generación 2: ciudad 63585623 | nodos 4816 | instancias 19153 | peatones 2198728164 (40)
+OK   la PRIMERA generación del proceso es igual a la siguiente  -> 63585623 vs 63585623
+OK   y los mismos peatones  -> 2198728164 vs 2198728164
+OK   misma CIUDAD que la partida anterior (proceso nuevo)  -> base=63585623 ahora=63585623
+OK   mismos PEATONES que la partida anterior (proceso nuevo)  -> base=2198728164 ahora=2198728164
+OK   regenerar en la misma sesión da la MISMA ciudad  -> 63585623 vs 63585623
+OK   regenerar en la misma sesión da los MISMOS peatones  -> 2198728164 vs 2198728164
+(regeneración en la misma sesión: 956 ms)
+OK   la generación POR ETAPAS da la MISMA ciudad  -> 63585623 vs 63585623
+OK   y los MISMOS peatones
+--- Edición de una tapa + objeto a mano ---
+OK   la tapa de partida existe (nodo tapa_V3_2)
+(pieza para el objeto a mano: Prop_ManholeCover)
+OK   la tapa editada YA NO se genera
+OK   el objeto a mano existe en su posición exacta  -> pos (-21.0, 0.0, 11.0)
+OK   el reparto de peatones no se movió por editar una tapa
+OK   la edición no cambió NADA más (fuera de esos dos, todo igual)  -> 390023686 vs 390023686
+--- Edición de un edificio concreto ---
+edificio elegido: E0_0_0_0, parcela 12.0 x 24.0 m en (-111.00, 9.00, -105.00)
+OK   la casa editada sigue existiendo con su id
+OK   la casa editada se construye aparte (mallas propias)  -> 364 mallas
+OK   la casa editada lleva su material/tinte propio  -> 364 de 364
+(captura omitida: esta corrida va sin ventana)
+OK   la edición SE CONSERVA al volver a generar la ciudad  -> 364 mallas, 364 con material
+OK   al quitar la edición del edificio vuelve EXACTAMENTE el mundo de antes  -> 63585623 vs 63585623
+(edificios comparados uno por uno: 70 con la edición, 70 sin ella | huella global fuera de la parcela: 3233986091 vs 1686468669)
+OK   los DEMÁS edificios siguen EXACTAMENTE igual, uno por uno  -> distintos: ninguno
+--- Streaming: cargar y descargar sectores ---
+(streaming activo=true, radios 60/80/100)
+OK   el streaming descargó sectores al alejarse  -> 28 de 64 sectores siguen cargados, descargas=36
+OK   al volver se restauran TODOS los sectores  -> 64 de 64
+OK   tras cargar y descargar, el mapa es IDÉNTICO  -> 63585623 vs 63585623
+(se descargaron 36 sectores)
+=== FIN: TODO OK ===

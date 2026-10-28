@@ -1,0 +1,358 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[PRUEBA] === PRUEBA DE DETERMINISMO Y EDICIONES — modo todo — 2026-10-27T16:53:33 ===
+[PRUEBA] Semilla del mundo: SEMILLA=20260215 (fija)
+[PRUEBA] Ediciones en la tabla: sin ediciones (ciudad 100% procedural)
+WARNING: res://personaje/base/escenas/leo_jugador.tscn:43 - ext_resource, invalid UID: uid://scndx4m2k3no - using text path instead: res://Audio/personaje/transformacion/transformacion.mp3
+   at: load (scene/resources/resource_format_text.cpp:501)
+   GDScript backtrace (most recent call first):
+       [0] _montar_mundo (res://.backup_semilla/_prueba_mundo4.gd:146)
+       [1] _ready (res://.backup_semilla/_prueba_mundo4.gd:53)
+[cielo] Sky 3D montado en el entorno del juego: sol(y=0.71 vis=1.00 brillo=18.0) luna(y=-0.71 luz=0.00 vis=0.00) dia=true
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:62)
+   GDScript backtrace (most recent call first):
+       [0] _crear_terreno (res://world/terreno3d.gd:97)
+       [1] _ready (res://world/terreno3d.gd:82)
+[Terreno3D] 15034 matas de hierba
+[Terreno3D] 16 regiones de 256 vértices cada una, 2.0 m entre vértices, 2048 m de lado, colisión modo 1, en 995 ms
+[Bosque] 3888 árboles y 787 arbustos en 17 trozos (388 ms)
+UAL2 loader: GuardiaAlas generada (cruce en X; perillas en el Inspector).
+UAL2 loader: PatadaGarra generada (doble patada de garras).
+UAL2 loader: clips completos -> [&"BackFlip", &"DoubleJump", &"GuardiaAlas", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"PatadaGarra", &"Swim_Fwd", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: clips de torso+brazos -> [&"BackFlip", &"DoubleJump", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: Jump_Planeo generado (piernas recogidas para el avance).
+UAL2 loader: Planeo generado (pose congelada de alas).
+UAL2 loader: AleteoAlas generado (golpe de ala hacia abajo).
+UAL2 loader: PosePicado generada (brazos al costado, piernas juntas).
+UAL2 loader: VueloHeroe generado (superman: puño al frente, piernas rectas).
+UAL2 loader: PalmazoPush generado (solo torso+brazos; partes: ["Enter", "Push", "Exit"]).
+UAL2 loader: CaidaLibre generada (brazos hacia arriba).
+[GroundCombat] Cadena: Punch_Jab=OK, Punch_Cross=OK, Kick=OK, Melee_Uppercut=OK
+[GroundCombat] Guardia: UAL2/GuardiaAlas
+[Apuntado] Listo (OTS + mira).
+[Garras] Listo (agarre SOLO volando). PatadaGarra: OK
+[CamFX] Listo. Camera: Camera3D | Flight: FlightController | Anim: AnimationPlayer
+[PRUEBA] mundo asentado: bosque 17 | terreno 1
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.73 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[Peatones] farolas apuntadas como obstáculo: 139 (total 1094)
+[farolas] 139 farolas colocadas (con luz) | acera 84 (movidas 0, descartadas 0) · esquina 49 · parque/plaza 6 sin tocar
+[PRUEBA] farolas colocadas: 142
+[PRUEBA] OK   mundo montado y ciudad generada
+[PRUEBA] OK   director de peatones instalado
+[PRUEBA] generación 1 (fría): ciudad 63585623 | nodos 4816 | instancias 19153 | peatones 2198728164 (40)
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.76 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] generación 2: ciudad 63585623 | nodos 4816 | instancias 19153 | peatones 2198728164 (40)
+[PRUEBA] OK   la PRIMERA generación del proceso es igual a la siguiente  -> 63585623 vs 63585623
+[PRUEBA] OK   y los mismos peatones  -> 2198728164 vs 2198728164
+[PRUEBA] OK   misma CIUDAD que la partida anterior (proceso nuevo)  -> base=63585623 ahora=63585623
+[PRUEBA] OK   mismos PEATONES que la partida anterior (proceso nuevo)  -> base=2198728164 ahora=2198728164
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.71 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   regenerar en la misma sesión da la MISMA ciudad  -> 63585623 vs 63585623
+[PRUEBA] OK   regenerar en la misma sesión da los MISMOS peatones  -> 2198728164 vs 2198728164
+[PRUEBA] (regeneración en la misma sesión: 956 ms)
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.86 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   la generación POR ETAPAS da la MISMA ciudad  -> 63585623 vs 63585623
+[PRUEBA] OK   y los MISMOS peatones
+[PRUEBA] --- Edición de una tapa + objeto a mano ---
+[PRUEBA] OK   la tapa de partida existe (nodo tapa_V3_2)
+[PRUEBA] (pieza para el objeto a mano: Prop_ManholeCover)
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: edificios 0 | props 1 | objetos a mano 1
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 285 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.72 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   la tapa editada YA NO se genera
+[PRUEBA] OK   el objeto a mano existe en su posición exacta  -> pos (-21.0, 0.0, 11.0)
+[PRUEBA] OK   el reparto de peatones no se movió por editar una tapa
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.73 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   la edición no cambió NADA más (fuera de esos dos, todo igual)  -> 390023686 vs 390023686
+[PRUEBA] --- Edición de un edificio concreto ---
+[PRUEBA] edificio elegido: E0_0_0_0, parcela 12.0 x 24.0 m en (-111.00, 9.00, -105.00)
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: edificios 1 | props 0 | objetos a mano 0
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2054 encendidas de 5596 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 758 | nodos instanciados: 1325 | tiempo: 0.72 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   la casa editada sigue existiendo con su id
+[PRUEBA] OK   la casa editada se construye aparte (mallas propias)  -> 364 mallas
+[PRUEBA] OK   la casa editada lleva su material/tinte propio  -> 364 de 364
+[PRUEBA] (captura omitida: esta corrida va sin ventana)
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: edificios 1 | props 0 | objetos a mano 0
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2054 encendidas de 5596 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 758 | nodos instanciados: 1325 | tiempo: 0.73 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   la edición SE CONSERVA al volver a generar la ciudad  -> 364 mallas, 364 con material
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 40 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 1, "B03": 2, "B10": 2, "B11": 2, "B12": 1, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 1, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 0, "P4_0": 0, "P5_1": 0, "P4_4": 0, "P4_5": 0, "P-1_-1": 0, "P-1_0": 0, "P0_-1": 0, "P-1_1": 1, "P0_1": 0, "P1_-1": 1, "P1_0": 0 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 0.74 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 40 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[PRUEBA] OK   al quitar la edición del edificio vuelve EXACTAMENTE el mundo de antes  -> 63585623 vs 63585623
+[PRUEBA] (edificios comparados uno por uno: 70 con la edición, 70 sin ella | huella global fuera de la parcela: 3233986091 vs 1686468669)
+[PRUEBA] OK   los DEMÁS edificios siguen EXACTAMENTE igual, uno por uno  -> distintos: ninguno
+[PRUEBA] --- Streaming: cargar y descargar sectores ---
+[PRUEBA] (streaming activo=true, radios 60/80/100)
+[PRUEBA] OK   el streaming descargó sectores al alejarse  -> 28 de 64 sectores siguen cargados, descargas=36
+[PRUEBA] OK   al volver se restauran TODOS los sectores  -> 64 de 64
+[PRUEBA] OK   tras cargar y descargar, el mapa es IDÉNTICO  -> 63585623 vs 63585623
+[PRUEBA] (se descargaron 36 sectores)
+[PRUEBA] === FIN: TODO OK ===
+[PRUEBA] registro en res://.backup_semilla/log_prueba_mundo.txt
+WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
