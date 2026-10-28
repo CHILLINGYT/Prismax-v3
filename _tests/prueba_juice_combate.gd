@@ -105,7 +105,28 @@ func _secciones_extra() -> void:
 	await _seccion_timing()
 	await _seccion_amenaza()
 	await _seccion_contador()
+	await _seccion_camara_combate()
 	await _seccion_camara_lenta()
+
+
+func _seccion_camara_combate() -> void:
+	var piv: Node = _jug.get_node("PivoteCamara")
+	await _nueva_seccion()
+	var base := float(piv.get("largo_base"))
+	_check(bool(_juice.call("camara_combate_puesta")) and is_equal_approx(float(piv.get("objetivo_largo")), base + 0.45),
+			"cámara de combate: con un enemigo cerca se abre (largo objetivo %.2f)" % float(piv.get("objetivo_largo")))
+	_juice.set("camara_combate_activa", false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(is_equal_approx(float(piv.get("objetivo_largo")), base) and is_equal_approx(float(piv.get("objetivo_fov")), float(piv.get("fov_base"))),
+			"camara_combate_activa=false: vuelve exactamente a la base (%.2f / %.1f°)" % [float(piv.get("objetivo_largo")), float(piv.get("objetivo_fov"))])
+	_juice.set("camara_combate_activa", true)
+	var pos := _enemigo.global_position
+	_enemigo.global_position = pos + Vector3(40, 0, 40)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(not bool(_juice.call("camara_combate_puesta")), "cámara de combate: sin enemigos cerca, vuelve a la normal")
+	_enemigo.global_position = pos
 
 
 func _seccion_contador() -> void:

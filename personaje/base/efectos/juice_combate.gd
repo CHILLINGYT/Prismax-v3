@@ -206,6 +206,17 @@ var _lbl_numero: Label = null
 var _lbl_texto: Label = null
 var _tw_contador: Tween = null
 
+# ------------------------------------------------------- CÁMARA DE COMBATE
+@export_group("Camara de combate")
+## En la forma Combate, con enemigos del encuentro cerca, la cámara se aleja un
+## poco y abre el FOV para ver el corro (Arkham hace lo mismo). Suave (la propia
+## cámara interpola) y se deshace sola al terminar la pelea o salir de la forma.
+@export var camara_combate_activa := true
+@export var camara_combate_distancia_extra := 0.45   ## m sobre la distancia base (2,6)
+@export var camara_combate_fov_extra := 4.0          ## grados sobre el FOV base (70)
+@export var camara_combate_radio := 10.0             ## m: enemigos que cuentan como "pelea"
+var _camara_combate_puesta := false
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -250,6 +261,7 @@ func _process(delta: float) -> void:
 	_aplicar_timing()
 	_actualizar_indicadores()
 	_actualizar_contador(delta)
+	_actualizar_camara_combate()
 
 
 ## Se reaplica cada fotograma (barato): el combo puede ser el del gestor del
@@ -806,6 +818,48 @@ func _camara_golpe(indice: int, remate: bool) -> void:
 		fov = fov_punch_remate if remate else _valor_por_golpe(fov_punch_por_golpe, indice, -1.0)
 	if trauma > 0.0 or not is_zero_approx(fov):
 		piv.call("impulso_golpe", trauma, fov)
+
+
+func _en_forma_combate() -> bool:
+	return _jugador != null and "forma" in _jugador \
+			and int(_jugador.get("forma")) == ControladorLeo.Forma.COMBATE
+
+
+func _hay_pelea_cerca() -> bool:
+	var j := _jugador as Node3D
+	if j == null:
+		return false
+	var gestor := get_tree().get_first_node_in_group("combat_manager")
+	if gestor == null or not gestor.has_method("get_active_enemies"):
+		return false
+	for e in gestor.call("get_active_enemies"):
+		if is_instance_valid(e) and e is Node3D \
+				and (e as Node3D).global_position.distance_to(j.global_position) <= camara_combate_radio:
+			return true
+	return false
+
+
+func _actualizar_camara_combate() -> void:
+	var piv := _pivote_camara()
+	if piv == null or not ("objetivo_largo" in piv):
+		return
+	var en_combate := _en_forma_combate()
+	var quiere := camara_combate_activa and en_combate and _hay_pelea_cerca()
+	if quiere:
+		piv.set("objetivo_largo", float(piv.get("largo_base")) + camara_combate_distancia_extra)
+		piv.set("objetivo_fov", float(piv.get("fov_base")) + camara_combate_fov_extra)
+		_camara_combate_puesta = true
+	elif _camara_combate_puesta:
+		# Sólo se devuelve lo que esta capa cambió, y sólo dentro de la forma
+		# Combate (al cambiar de forma, el controlador ya restaura la cámara).
+		if en_combate:
+			piv.set("objetivo_largo", float(piv.get("largo_base")))
+			piv.set("objetivo_fov", float(piv.get("fov_base")))
+		_camara_combate_puesta = false
+
+
+func camara_combate_puesta() -> bool:
+	return _camara_combate_puesta
 
 
 # ------------------------------------------------------------------ tiempo
