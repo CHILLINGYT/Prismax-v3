@@ -93,6 +93,56 @@ func _ready() -> void:
 func _secciones_extra() -> void:
 	await _seccion_camara()
 	await _seccion_audio()
+	await _seccion_destello()
+
+
+func _seccion_destello() -> void:
+	await get_tree().create_timer(2.6).timeout
+	var antes := int(_juice.call("estallidos_creados"))
+	var fuerza_max := 0.0
+	# Cámara lateral SOLO para la foto (la del jugador queda tapada por Leo).
+	var cam_previa := get_viewport().get_camera_3d()
+	var lateral := Camera3D.new()
+	add_child(lateral)
+	var medio := (_jug.global_position + _enemigo.global_position) * 0.5
+	var eje := (_enemigo.global_position - _jug.global_position).normalized()
+	var costado := eje.cross(Vector3.UP).normalized()
+	lateral.look_at_from_position(medio + costado * 3.2 + Vector3.UP * 1.5, medio + Vector3.UP * 1.1)
+	lateral.current = true
+	Input.action_press("atacar")
+	await get_tree().physics_frame
+	Input.action_release("atacar")
+	var foto := false
+	for _i in 240:
+		await get_tree().process_frame
+		var mat: ShaderMaterial = _enemigo.get_meta(&"juice_destello") as ShaderMaterial if _enemigo.has_meta(&"juice_destello") else null
+		if mat != null:
+			var f := float(mat.get_shader_parameter("fuerza"))
+			fuerza_max = maxf(fuerza_max, f)
+			if f > 0.6 and not foto:
+				foto = true
+				await RenderingServer.frame_post_draw
+				await RenderingServer.frame_post_draw
+				_foto("juice_impacto")
+		if int(_jug.get("c_estado")) == C_LIBRE and fuerza_max > 0.0:
+			break
+	lateral.queue_free()
+	if cam_previa != null:
+		cam_previa.current = true
+	_check(fuerza_max > 0.9, "destello: el overlay del enemigo se enciende al impactar (máx %.2f)" % fuerza_max)
+	_check(int(_juice.call("estallidos_creados")) > antes, "estallido: se crea luz en el punto de contacto")
+	await get_tree().create_timer(0.5).timeout
+	var mat2: ShaderMaterial = _enemigo.get_meta(&"juice_destello") as ShaderMaterial if _enemigo.has_meta(&"juice_destello") else null
+	_check(mat2 != null and float(mat2.get_shader_parameter("fuerza")) < 0.01, "destello: se apaga solo")
+	_check(get_tree().current_scene.find_children("JuiceEstallido", "", true, false).is_empty(),
+			"estallido: los quads se liberan solos")
+	var barra := _enemigo.get_node_or_null("BarraVida/Barra") as MeshInstance3D
+	_check(barra == null or barra.material_overlay == null, "la barra de vida no recibe el destello")
+
+
+func _foto(nombre: String) -> void:
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(ProjectSettings.globalize_path("res://_tests/capturas/%s.png" % nombre))
 
 
 func _seccion_audio() -> void:

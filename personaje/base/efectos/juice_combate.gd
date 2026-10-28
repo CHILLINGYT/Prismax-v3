@@ -67,6 +67,29 @@ var _voces: Array[AudioStreamPlayer] = []
 var _voz_siguiente := 0
 var _sonidos_disparados := 0
 
+# ------------------------------------------------------ DESTELLO + ESTALLIDO
+@export_group("Destello")
+## Destello blanco-cálido sobre el enemigo golpeado (material_overlay aditivo con
+## contorno fresnel; no toca sus materiales ni su modelo). Se suma al destello
+## rojo que ya tenía el enemigo, que se conserva.
+@export var destello_enemigo_activo := true
+@export var destello_color := Color(1.0, 0.94, 0.82)
+## Segundos REALES que tarda en apagarse (cubre el hitstop).
+@export var destello_duracion := 0.13
+## Estallido de luz en el PUNTO DE CONTACTO (estrella) y, en golpes pesados y
+## remates, un anillo de onda expansiva.
+@export var estallido_activo := true
+@export var estallido_color := Color(1.0, 0.82, 0.5)
+@export var estallido_tamano := PackedFloat32Array([0.55, 0.7, 0.95])
+@export var estallido_tamano_remate := 1.3
+## Metros por encima del centro de golpe del enemigo (≈ pecho, 1 m) donde nace el
+## estallido: los tres golpes de la cadena son puñetazos altos (cara/hombro).
+@export var estallido_altura := 0.42
+
+const SHADER_DESTELLO := preload("res://personaje/base/efectos/shaders/juice_destello_golpe.gdshader")
+const SHADER_ESTALLIDO := preload("res://personaje/base/efectos/shaders/juice_estallido.gdshader")
+var _estallidos_creados := 0
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -107,7 +130,7 @@ func _on_golpe_lanzado(indice: int) -> void:
 		_sonar(_elegir(_whooshes, "whoosh"), whoosh_db + 1.5 * float(clampi(indice, 0, 2)), tono)
 
 
-func _on_golpe_conectado(objetivo: Node3D, _dir: Vector3, indice: int, remate: bool) -> void:
+func _on_golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bool) -> void:
 	if objetivo == null:
 		return
 	if hitstop_activo:
@@ -115,6 +138,10 @@ func _on_golpe_conectado(objetivo: Node3D, _dir: Vector3, indice: int, remate: b
 		_hitstop(dur)
 	_camara_golpe(indice, remate)
 	_audio_golpe(indice, remate)
+	if destello_enemigo_activo:
+		_destello_enemigo(objetivo)
+	if estallido_activo:
+		_estallido(objetivo, dir, indice, remate)
 
 
 # ------------------------------------------------------------------ audio
@@ -218,6 +245,88 @@ static func _sintetizar_whoosh(variante: int) -> AudioStreamWAV:
 ## Lectura para pruebas: cuántas capas de sonido disparó esta capa.
 func sonidos_disparados() -> int:
 	return _sonidos_disparados
+
+
+# ------------------------------------------------------------------ destello
+func _destello_enemigo(objetivo: Node3D) -> void:
+	var visual := objetivo.get_node_or_null("Visual")
+	var raiz: Node = visual if visual != null else objetivo
+	var mat: ShaderMaterial = null
+	if objetivo.has_meta(&"juice_destello"):
+		mat = objetivo.get_meta(&"juice_destello") as ShaderMaterial
+	if mat == null:
+		mat = ShaderMaterial.new()
+		mat.shader = SHADER_DESTELLO
+		objetivo.set_meta(&"juice_destello", mat)
+		var mallas: Array[Node] = raiz.find_children("*", "MeshInstance3D", true, false)
+		if raiz is MeshInstance3D:
+			mallas.append(raiz)
+		for n in mallas:
+			var mi := n as MeshInstance3D
+			# La barra de vida (fuera de Visual) nunca entra; dentro de Visual se
+			# respeta un overlay que ya existiera.
+			if mi != null and mi.material_overlay == null and not String(mi.name).begins_with("Barra"):
+				mi.material_overlay = mat
+	mat.set_shader_parameter("color", destello_color)
+	mat.set_shader_parameter("fuerza", 1.0)
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("fuerza", v), 1.0, 0.0, destello_duracion) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+## Punto de contacto: la superficie del enemigo que mira al atacante (el mismo
+## criterio que VfxImpacto, para que luz y chispas salgan del mismo sitio).
+func _punto_contacto(objetivo: Node3D, dir: Vector3) -> Vector3:
+	var centro := objetivo.global_position + Vector3.UP * 1.0
+	if objetivo.has_method("get_hit_center"):
+		centro = objetivo.call("get_hit_center")
+	var radio := 0.6
+	if objetivo.has_method("get_hit_radius"):
+		radio = maxf(float(objetivo.call("get_hit_radius")), 0.2)
+	var d := Vector3(dir.x, 0.0, dir.z)
+	d = d.normalized() if d.length_squared() > 0.0001 else Vector3.FORWARD
+	return centro - d * radio * 0.75 + Vector3.UP * estallido_altura
+
+
+func _estallido(objetivo: Node3D, dir: Vector3, indice: int, remate: bool) -> void:
+	var escena := get_tree().current_scene if get_tree() != null else null
+	if escena == null:
+		return
+	var punto := _punto_contacto(objetivo, dir)
+	var tam := estallido_tamano_remate if remate else _valor_por_golpe(estallido_tamano, indice, 0.6)
+	_quad_estallido(escena, punto, 0, tam, 0.11)
+	if indice >= 2 or remate:
+		_quad_estallido(escena, punto, 1, tam * 1.9, 0.24)
+
+
+func _quad_estallido(padre: Node, punto: Vector3, forma: int, tam: float, dur: float) -> void:
+	var mi := MeshInstance3D.new()
+	mi.name = "JuiceEstallido"
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	mi.mesh = quad
+	var mat := ShaderMaterial.new()
+	mat.shader = SHADER_ESTALLIDO
+	mat.set_shader_parameter("color", estallido_color)
+	mat.set_shader_parameter("forma", forma)
+	mat.set_shader_parameter("vida", 1.0)
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	padre.add_child(mi)
+	mi.global_position = punto
+	mi.scale = Vector3.ONE * tam * (0.45 if forma == 0 else 0.6)
+	_estallidos_creados += 1
+	var tw := mi.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3.ONE * tam, dur).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("vida", v), 1.0, 0.0, dur)
+	tw.chain().tween_callback(mi.queue_free)
+
+
+func estallidos_creados() -> int:
+	return _estallidos_creados
 
 
 # ------------------------------------------------------------------ cámara
