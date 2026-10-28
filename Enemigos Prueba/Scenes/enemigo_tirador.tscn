@@ -4,7 +4,12 @@
 [ext_resource type="PackedScene" path="res://cosas para enemigos/enemigos/enemigoconarma.fbx" id="2_visual"]
 [ext_resource type="AnimationLibrary" path="res://Enemigos Prueba/Animations/enemigo_animaciones_mixamo_arma.tres" id="3_anim"]
 [ext_resource type="Shader" path="res://Enemigos Prueba/Materials/barra_vida.gdshader" id="4_barra"]
-[ext_resource type="PackedScene" path="res://Enemigos Prueba/Scenes/arma_tirador.tscn" id="5_arma"]
+; El arma provisional (cajas y cilindros) se sustituye por el AKM REAL importado.
+; La escena vieja se conserva en disco (no se borra nada), pero ya no se usa.
+; La convención local es la MISMA (origen en la empuñadura, cañón hacia -Z), así que
+; el transform de anclaje a `mixamorig_RightHand` de abajo NO cambia y ninguna
+; animación se toca.
+[ext_resource type="PackedScene" path="res://Enemigos Prueba/Scenes/arma_ak_tirador.tscn" id="5_arma"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_cuerpo"]
 radius = 0.45

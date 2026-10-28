@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://casa_leo/casa_leo.gd" id="1_casa"]
+[ext_resource type="PackedScene" path="res://modelos 3d casa leo/appartement.glb" id="2_modelo"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="3_jugador"]
+[ext_resource type="Script" path="res://casa_leo/salida_interior.gd" id="4_salida"]
+
+[node name="CasaLeo" type="Node3D"]
+script = ExtResource("1_casa")
+
+[node name="Entorno" type="WorldEnvironment" parent="."]
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, -0.439385, 0.369214, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 3, 0)
+light_energy = 0.35
+shadow_enabled = false
+
+[node name="LuzCalida" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+light_color = Color(1, 0.94, 0.86, 1)
+light_energy = 1.6
+omni_range = 10.0
+shadow_enabled = false
+
+[node name="Modelo" parent="." instance=ExtResource("2_modelo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.233, 0.01, 0.945)
+
+[node name="Colision" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="PuntoEntrada" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 3.6)
+
+[node name="Jugador" parent="." instance=ExtResource("3_jugador")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 3.6)
+
+[node name="SalidaInterior" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.8)
+script = ExtResource("4_salida")

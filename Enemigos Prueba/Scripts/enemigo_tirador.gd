@@ -50,6 +50,10 @@ var _lado_lateral: float = 1.0
 ## Marcador "BocaArma" del arma anclada a la mano derecha (si la lleva).
 var _boca_marcador: Node3D = null
 var _boca_buscada: bool = false
+## Arma anclada a la mano (nodo "ArmaTirador") y si ya se buscó: la usa el disparo
+## para pedirle sus efectos (sonido + fogonazo).
+var _arma: Node = null
+var _arma_buscada: bool = false
 
 func _ready() -> void:
 	super()
@@ -145,6 +149,11 @@ func _fase_recuperar(delta: float) -> void:
 
 ## Crea el proyectil en la boca del arma y lo lanza hacia el pecho del jugador.
 func _disparar(jugador: Node3D) -> void:
+	# EFECTOS DEL DISPARO REAL (Tarea 3): sonido del arma + fogonazo, UNA vez por
+	# disparo, antes de lanzar el proyectil. Van aquí porque este es el ÚNICO punto
+	# del enemigo en el que un disparo ocurre de verdad (el fotograma de impacto del
+	# clip "disparar"): no hay ningún otro sitio desde el que puedan duplicarse.
+	_efectos_del_arma()
 	if ESCENA_PROYECTIL == null or not is_inside_tree():
 		return
 	var padre := get_parent()
@@ -177,6 +186,18 @@ func _disparar(jugador: Node3D) -> void:
 		p.call("lanzar", boca, dir, self, velocidad_proyectil, dano_proyectil)
 	else:
 		p.queue_free()
+
+## Pide al ARMA anclada a la mano sus efectos de disparo (sonido + fogonazo).
+## El arma se busca UNA vez por nombre de nodo ("ArmaTirador") y se comprueba que
+## exponga la API: si no la expone (p. ej. el arma provisional de cajas), el disparo
+## sigue funcionando exactamente igual y sin errores.
+func _efectos_del_arma() -> void:
+	if not _arma_buscada:
+		_arma_buscada = true
+		_arma = find_child("ArmaTirador", true, false)
+	if _arma != null and is_instance_valid(_arma) and _arma.has_method("disparar_efectos"):
+		_arma.call("disparar_efectos")
+
 
 ## Origen real del disparo: la boca del cañón (Marker3D "BocaArma" del arma
 ## anclada a la mano derecha) si el tirador lleva arma; si no, el origen de

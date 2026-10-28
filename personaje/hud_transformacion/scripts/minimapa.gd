@@ -71,6 +71,35 @@ const DINAMICOS := [&"Jugador", &"Barco", &"EnemigosPrueba", &"Peatones"]
 @export var flecha_color: Color = Color(1, 1, 1, 1)
 @export var flecha_borde_color: Color = Color(0, 0, 0, 1)
 
+@export_group("Avisos (marcadores)")
+## Dibuja los marcadores de aviso sobre el mapa (misiones activas, eventos de
+## enemigos y enemigos relevantes). Ver `minimapa_avisos.gd`.
+@export var avisos_activos: bool = true
+## Cada cuánto se REHACE la lista de fuentes de aviso (s). Las posiciones se leen
+## cada fotograma de las referencias ya guardadas: no hay búsquedas por nodo.
+@export var avisos_refresco: float = 0.25
+## Radio (m) alrededor del centro dentro del que se dibujan los enemigos: los
+## avisos de misión/evento sí se muestran lejos (pegados al borde).
+@export_range(20.0, 900.0, 5.0) var avisos_radio_enemigos: float = 90.0
+## Máximo de enemigos dibujados (los más cercanos): el mapa no se satura.
+@export_range(1, 40, 1) var avisos_max_enemigos: int = 14
+## Latidos por segundo de los avisos "vivos" (misión, evento y amenaza).
+@export var avisos_pulso_hz: float = 1.6
+@export var aviso_mision_color: Color = Color(1.0, 0.82, 0.22, 1.0)
+@export var aviso_evento_color: Color = Color(1.0, 0.55, 0.16, 1.0)
+@export var aviso_evento_combate_color: Color = Color(1.0, 0.36, 0.12, 1.0)
+@export var aviso_enemigo_color: Color = Color(0.74, 0.22, 0.22, 1.0)
+@export var aviso_amenaza_color: Color = Color(1.0, 0.26, 0.20, 1.0)
+@export var aviso_tamano_px: float = 8.0
+## Margen (px) al que se pegan los avisos que caen fuera del encuadre.
+@export var aviso_margen_px: float = 7.0
+
+@export_group("Transición (tecla M)")
+## Duración (s) de la transición ANIMADA entre el minimapa y el mapa ampliado.
+## La tecla M ya no cambia de golpe: el marco crece, la cámara vuela del jugador
+## al centro de la isla y el zoom se interpola (en escala geométrica).
+@export_range(0.05, 1.5, 0.05) var transicion_seg: float = 0.35
+
 var _jugador: Node3D
 var _mundo: Node
 var _vuelo: Node3D
@@ -85,7 +114,27 @@ var _mat_redondeo: ShaderMaterial
 var _flecha_base: float = 170.0
 var _acum: float = 0.0
 var _pausado: bool = false
-var _ampliado: bool = false
+## Progreso ANIMADO del modo ampliado: 0 = minimapa normal, 1 = mapa ampliado.
+## `_p_destino` es a donde va: la tecla M sólo cambia el destino y la transición
+## (Tarea 7) lo alcanza suavemente en `_process`.
+var _p: float = 0.0
+var _p_destino: float = 0.0
+## Capa de avisos dibujada sobre la imagen (Tarea 6).
+var _avisos: AvisosMinimapa = null
+var _t_avisos: float = 0.0
+var _t_pulso: float = 0.0
+## Fuentes ya resueltas: misiones [{posicion,id}], eventos [{posicion,estado}] y
+## enemigos [{nodo}]. Se rehacen cada `avisos_refresco` (no por fotograma).
+var _fuente_misiones: Array = []
+var _fuente_eventos: Array = []
+var _fuente_enemigos: Array = []
+## Casa de Leo: la marca del mapa sale de la PUERTA (grupo "puerta_casa_leo"), así
+## que es una sola, la misma que se usa para entrar, y no se duplica ni al entrar
+## ni al salir (la puerta es única en el mundo).
+var _fuente_casa: Array = []
+## Ids de instancia de los enemigos que están ATACANDO ahora mismo (amenazas).
+var _ids_amenaza: Dictionary = {}
+var _director: Node = null
 
 
 func _ready() -> void:
@@ -177,6 +226,19 @@ func _construir_vista() -> void:
 	add_child(_marco)
 	_marco.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+	# 4b) Avisos (Tarea 6): marcadores dibujados POR ENCIMA de la imagen, con los
+	# mismos colores/tamaño configurables del minimapa. Es una capa de dibujo
+	# pura: no busca nada por su cuenta (las fuentes las reúne el minimapa).
+	_avisos = AvisosMinimapa.new()
+	_avisos.name = "Avisos"
+	_avisos.set("color_mision", aviso_mision_color)
+	_avisos.set("color_evento", aviso_evento_color)
+	_avisos.set("color_evento_combate", aviso_evento_combate_color)
+	_avisos.set("color_enemigo", aviso_enemigo_color)
+	_avisos.set("color_amenaza", aviso_amenaza_color)
+	_avisos.set("tamano_px", aviso_tamano_px)
+	add_child(_avisos)
+
 	# 5) Flecha central: relleno BLANCO + contorno NEGRO, en un Node2D que se rota
 	# entero según la mirada. La forma se define UNA vez (base _flecha_base) y se
 	# ESCALA en _aplicar_layout(): no se recrea al alternar de modo.
@@ -217,16 +279,16 @@ func _objetivo() -> Node3D:
 func _actualizar_seguimiento() -> void:
 	if _cam == null:
 		return
-	if _ampliado:
-		# Modo ampliado: la cámara se centra en la ISLA (no sigue al jugador).
-		var c := _centro_isla()
-		_cam.global_position = Vector3(c.x, altura, c.y)
-	else:
-		var obj := _objetivo()
-		if obj == null:
-			return
-		var p := obj.global_position
-		_cam.global_position = Vector3(p.x, p.y + altura, p.z)
+	var obj := _objetivo()
+	var jugador_xz := Vector2(_cam.global_position.x, _cam.global_position.z)
+	if obj != null:
+		jugador_xz = Vector2(obj.global_position.x, obj.global_position.z)
+	elif _p <= 0.0:
+		return
+	# La cámara VUELA del jugador al centro de la isla con la transición: en modo
+	# normal (_p = 0) sigue al jugador como siempre; ampliado (_p = 1) mira la isla.
+	var centro := jugador_xz.lerp(_centro_isla(), _p)
+	_cam.global_position = Vector3(centro.x, altura, centro.y)
 	_cam.global_rotation = Vector3(-PI * 0.5, 0.0, 0.0)
 
 
@@ -270,19 +332,29 @@ func _es_tecla_m(event: InputEvent) -> bool:
 
 
 ## Alterna minimapa normal <-> mapa ampliado de la isla. Reutiliza el MISMO
-## SubViewport, la MISMA cámara y el MISMO marco: sólo cambia el tamaño del
-## control, la cobertura de la cámara y la resolución interna. No duplica nada.
+## SubViewport, la MISMA cámara y el MISMO marco: sólo cambia el destino del
+## progreso. La transición es ANIMADA (Tarea 7) y reversible: volver a pulsar a
+## mitad de camino la invierte desde donde esté.
 func _alternar_ampliado() -> void:
-	_ampliado = not _ampliado
-	_aplicar_layout()
-	_actualizar_seguimiento()
+	_p_destino = 0.0 if _p_destino > 0.5 else 1.0
 	if _sub != null:
 		_sub.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
 func _on_viewport_resized() -> void:
-	if _ampliado:
+	if _p > 0.001 or _p_destino > 0.5:
 		_aplicar_layout()
+
+
+## Rectángulo del minimapa normal y del mapa ampliado en pantalla.
+func _rect_normal(_vp: Vector2) -> Rect2:
+	return Rect2(Vector2(float(margen_px), float(margen_px)),
+			Vector2(float(tamano_px), float(tamano_px)))
+
+
+func _rect_ampliado(vp: Vector2) -> Rect2:
+	var lado := maxf(120.0, minf(vp.x, vp.y) * factor_ampliado)
+	return Rect2((vp - Vector2(lado, lado)) * 0.5, Vector2(lado, lado))
 
 
 ## Aplica tamaño, posición, radio de esquinas, cobertura y resolución interna
@@ -291,13 +363,13 @@ func _aplicar_layout() -> void:
 	if _sub == null:
 		return
 	var vp := get_viewport_rect().size
-	if _ampliado:
-		var lado := maxf(120.0, minf(vp.x, vp.y) * factor_ampliado)
-		size = Vector2(lado, lado)
-		position = (vp - size) * 0.5
-	else:
-		size = Vector2(float(tamano_px), float(tamano_px))
-		position = Vector2(float(margen_px), float(margen_px))
+	# La transición interpola posición y tamaño entre los dos rectángulos: el
+	# minimapa crece hacia el centro de la pantalla en vez de saltar de golpe.
+	var rn := _rect_normal(vp)
+	var ra := _rect_ampliado(vp)
+	var r := Rect2(rn.position.lerp(ra.position, _p), rn.size.lerp(ra.size, _p))
+	size = r.size
+	position = r.position
 
 	# Marco: borde oscuro redondeado, con el MISMO radio que el recorte.
 	var radio := float(int(size.x * radio_esquina))
@@ -313,9 +385,10 @@ func _aplicar_layout() -> void:
 		_mat_redondeo.set_shader_parameter("radio", radio)
 		_mat_redondeo.set_shader_parameter("tam", size)
 
-	# Cobertura de la cámara y resolución interna según el modo.
-	_cam.size = metros_isla if _ampliado else metros_visibles
-	_sub.size = Vector2i(resolucion_ampliada, resolucion_ampliada) if _ampliado \
+	# Cobertura de la cámara y resolución interna según el modo. El zoom se
+	# interpola en escala GEOMÉTRICA (se siente uniforme al ojo).
+	_cam.size = exp(lerpf(log(maxf(1.0, metros_visibles)), log(maxf(1.0, metros_isla)), _p))
+	_sub.size = Vector2i(resolucion_ampliada, resolucion_ampliada) if _p > 0.001 \
 			else Vector2i(resolucion, resolucion)
 
 	# Flecha: escalada al tamaño actual y centrada (sin recrear).
@@ -355,16 +428,190 @@ func _process(delta: float) -> void:
 		return
 	_pausado = false
 
+	# TRANSICIÓN ANIMADA (Tarea 7): el progreso avanza hacia su destino a ritmo
+	# constante y el marco/zoom/viaje de cámara se recalculan con él.
+	var moviendo := not is_equal_approx(_p, _p_destino)
+	if moviendo:
+		_p = move_toward(_p, _p_destino, delta / maxf(0.05, transicion_seg))
+		_aplicar_layout()
+
 	_actualizar_flecha()
-	if fps_actualizacion <= 0.0:
+	_actualizar_avisos(delta)
+
+	if moviendo or fps_actualizacion <= 0.0:
+		# Durante la transición se renderiza TODOS los fotogramas (el mapa se
+		# está moviendo): un salto de cámara se vería a tirones.
 		_actualizar_seguimiento()
 		_sub.render_target_update_mode = SubViewport.UPDATE_ONCE
+		_acum = 0.0
 		return
 	_acum += delta
 	if _acum >= 1.0 / fps_actualizacion:
 		_acum = 0.0
 		_actualizar_seguimiento()
 		_sub.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+# =============================================================== Avisos (Tarea 6)
+## Reúne los avisos y los deja proyectados en la capa de dibujo. Se llama cada
+## fotograma, pero la LISTA de fuentes sólo se rehace cada `avisos_refresco`.
+func _actualizar_avisos(delta: float) -> void:
+	if _avisos == null:
+		return
+	if not avisos_activos:
+		if not _avisos.marcadores.is_empty():
+			_avisos.marcadores = []
+			_avisos.queue_redraw()
+		return
+	_t_pulso += delta
+	_actualizar_amenazas()
+	_t_avisos -= delta
+	if _t_avisos <= 0.0:
+		_t_avisos = maxf(0.05, avisos_refresco)
+		_rehacer_fuentes()
+	var pulso := 0.5 + 0.5 * sin(TAU * avisos_pulso_hz * _t_pulso)
+	var marcas: Array = []
+	# Misiones activas con objetivo en el mundo: rombo dorado que late.
+	for m in _fuente_misiones:
+		_anadir_marca(marcas, m["posicion"], AvisosMinimapa.T_MISION, pulso, true)
+	# Casa de Leo: una casa fija (sin latido) en su puerta, con el mismo icono en el
+	# minimapa y en el mapa ampliado (los dos usan esta misma lista de marcas).
+	for c in _fuente_casa:
+		_anadir_marca(marcas, c["posicion"], AvisosMinimapa.T_CASA, pulso, true)
+	# Eventos: tubo disponible (naranja) o combate en curso (rojo, aviso fuerte).
+	for e in _fuente_eventos:
+		var tipo := AvisosMinimapa.T_EVENTO_COMBATE if int(e["estado"]) == DirectorEventos.Est.COMBATE \
+				else AvisosMinimapa.T_EVENTO
+		_anadir_marca(marcas, e["posicion"], tipo, pulso, true)
+	# Enemigos: los que están ATACANDO laten como amenaza; el resto, punto rojo.
+	# OJO: el nodo puede haberse liberado entre dos refrescos de la lista (un
+	# enemigo que muere), así que se comprueba la VALIDEZ antes de castear.
+	for en in _fuente_enemigos:
+		var valor: Variant = en.get("nodo")
+		if valor == null or not is_instance_valid(valor):
+			continue
+		var nodo: Node3D = valor
+		var tipo := AvisosMinimapa.T_AMENAZA if _ids_amenaza.has(nodo.get_instance_id()) \
+				else AvisosMinimapa.T_ENEMIGO
+		_anadir_marca(marcas, nodo.global_position, tipo, pulso, false)
+	_avisos.marcadores = marcas
+	_avisos.queue_redraw()
+
+
+## Proyecta una posición del mundo a píxeles del mapa. La cámara cenital es
+## ortográfica y el mapa es cuadrado: metros → píxeles es 1:1 y el norte (-Z) es
+## "arriba". Un punto fuera del encuadre se pega al borde (marcado `dentro=false`)
+## si `recortar` es verdadero; si no (enemigos), simplemente se descarta.
+func _anadir_marca(marcas: Array, pos: Vector3, tipo: int, pulso: float, recortar: bool) -> void:
+	var cobertura := maxf(0.001, _cam.size)
+	var centro := Vector2(_cam.global_position.x, _cam.global_position.z)
+	var u := (pos.x - centro.x) / cobertura + 0.5
+	var v := (pos.z - centro.y) / cobertura + 0.5
+	var dentro := u >= 0.0 and u <= 1.0 and v >= 0.0 and v <= 1.0
+	if not dentro and not recortar:
+		# Enemigos: sólo cuentan los que están cerca del JUGADOR (el radio se mide
+		# desde él, no desde el centro del mapa: en el mapa ampliado el centro es
+		# la isla). Fuera del encuadre y del radio, no se dibujan.
+		if _distancia_al_jugador(pos) > avisos_radio_enemigos:
+			return
+	var margen := clampf(aviso_margen_px / maxf(1.0, size.x), 0.0, 0.45)
+	var uc := clampf(u, margen, 1.0 - margen)
+	var vc := clampf(v, margen, 1.0 - margen)
+	marcas.append({
+		"punto": Vector2(uc * size.x, vc * size.y),
+		"tipo": tipo,
+		"dentro": dentro,
+		"pulso": pulso,
+	})
+
+
+## Rehace la lista de FUENTES de aviso (referencias estables, sin búsquedas por
+## fotograma): misiones activas con ancla, eventos del director y enemigos del
+## gestor de combate.
+func _rehacer_fuentes() -> void:
+	_fuente_misiones.clear()
+	_fuente_eventos.clear()
+	_fuente_enemigos.clear()
+	_fuente_casa.clear()
+	# Casa de Leo: la puerta del mundo (su posición ya está puesta en la ciudad).
+	for n in get_tree().get_nodes_in_group("puerta_casa_leo"):
+		var puerta := n as Node3D
+		if puerta == null or not puerta.is_inside_tree():
+			continue
+		_fuente_casa.append({"posicion": puerta.global_position})
+		break
+	# Misiones: sólo las ACTIVAS y con objetivo situado en el mundo.
+	var misiones := get_node_or_null("/root/Misiones")
+	if misiones != null and misiones.has_method("anclas_activas"):
+		for a in misiones.call("anclas_activas"):
+			_fuente_misiones.append({
+				"id": a.get("id", &""),
+				"posicion": a.get("posicion", Vector3.ZERO),
+			})
+	# Eventos de enemigos: tubo disponible o combate en curso.
+	var dir := _director_eventos()
+	if dir != null and dir.has_method("avisos_eventos"):
+		for e in dir.call("avisos_eventos"):
+			_fuente_eventos.append({
+				"id": e.get("id", &""),
+				"posicion": e.get("posicion", Vector3.ZERO),
+				"estado": int(e.get("estado", 0)),
+			})
+	# Enemigos del/los gestores de combate: los más cercanos, con tope.
+	var lista: Array = []
+	for mgr in get_tree().get_nodes_in_group("combat_manager"):
+		if mgr == null or not mgr.has_method("get_active_enemies"):
+			continue
+		for n in mgr.call("get_active_enemies"):
+			if n == null or not is_instance_valid(n):
+				continue
+			var e: Node3D = n
+			var d := _distancia_al_jugador(e.global_position)
+			if d <= avisos_radio_enemigos:
+				lista.append({"nodo": e, "dist": d})
+	lista.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["dist"]) < float(b["dist"]))
+	for i in mini(lista.size(), avisos_max_enemigos):
+		_fuente_enemigos.append({"nodo": lista[i]["nodo"]})
+
+
+## Distancia horizontal (m) del JUGADOR a un punto del mundo. El radio de los
+## avisos de enemigos se mide SIEMPRE desde el jugador (en el mapa ampliado el
+## centro de la cámara es la isla, no el personaje).
+func _distancia_al_jugador(pos: Vector3) -> float:
+	var obj := _objetivo()
+	if obj == null:
+		return 0.0
+	var p := obj.global_position
+	return Vector2(pos.x - p.x, pos.z - p.z).length()
+
+
+## Ids de instancia de los enemigos que están ATACANDO ahora mismo (los que el
+## sistema de amenazas del gestor tiene en cuenta). Es barato: una lista pequeña,
+## sin copias, y se relee cada fotograma para que el aviso salga al instante.
+func _actualizar_amenazas() -> void:
+	if _ids_amenaza.is_empty() and get_tree().get_nodes_in_group("combat_manager").is_empty():
+		return
+	_ids_amenaza.clear()
+	for mgr in get_tree().get_nodes_in_group("combat_manager"):
+		var amenazas: Variant = mgr.get("threats")
+		if amenazas == null or not (amenazas is Object):
+			continue
+		if not amenazas.has_method("get_active"):
+			continue
+		for t in amenazas.call("get_active"):
+			var e: Variant = t.get("enemy")
+			if e == null or not is_instance_valid(e) or not (e is Node3D):
+				continue
+			_ids_amenaza[(e as Node3D).get_instance_id()] = true
+
+
+## Director de eventos del mundo (se busca una vez y se recuerda; si el nodo se
+## libera se vuelve a buscar). No hay ningún nodo nuevo: es el que ya existe.
+func _director_eventos() -> Node:
+	if _director != null and is_instance_valid(_director):
+		return _director
+	_director = get_tree().get_first_node_in_group(&"director_eventos")
+	return _director
 
 
 # =============================================================== Exclusión

@@ -72,11 +72,13 @@ func _fase_cerco(delta: float, jugador: Node3D, jugador_vivo: bool) -> void:
 		# Ya no puede o no quiere atacar: suelta el turno para no bloquear la cola.
 		_soltar_turno()
 
-## ¿El jugador está dentro del alcance VERTICAL del enemigo? Los dos orígenes
-## están a la altura de los pies de cada cuerpo: si el jugador vuela por encima
-## (parte delantera = más alto que alcance_vertical), este enemigo no ataca.
+## ¿El jugador está dentro del alcance VERTICAL del enemigo? Se mide CENTRO DE GOLPE
+## contra CENTRO DE GOLPE (Tarea 6): los dos cuerpos están de pie sobre el suelo, así
+## que el resultado es el de siempre, pero el criterio es el cuerpo y no el origen: si
+## el jugador sube por encima (volando con el águila), este enemigo terrestre no
+## arranca el combo ni conecta el impacto.
 func _en_alcance_vertical(jugador: Node3D) -> bool:
-	return absf(jugador.global_position.y - global_position.y) <= alcance_vertical
+	return absf(ContactoGolpe.centro(jugador).y - ContactoGolpe.centro(self).y) <= alcance_vertical
 
 # =============================================================== Combo
 func _iniciar_golpe(indice: int) -> void:

@@ -654,6 +654,12 @@ func _construir_escalera() -> void:
 	esc.texto_prompt = "Presioná E para subir al barco"
 	esc.texto_prompt_bajada = "Presioná E para bajar al agua"
 	esc.mirada_local = Vector3(1.0, 0.0, 0.0)
+	# El clip de trepada mira al lado CONTRARIO que el resto de la librería (viene
+	# retargeteado de Mixamo): medido con la sonda de la trepada, sin esta
+	# compensación las manos suben 0,26 m del lado del MAR, o sea que el cuerpo
+	# trepa DE ESPALDAS. Con PI las manos quedan del lado del casco, sobre los
+	# peldaños. Al terminar, el controlador gira el cuerpo a la orientación normal.
+	esc.giro_cuerpo = PI
 	var paso := (y_arriba - 0.25 - (y_abajo + 0.25)) / float(n - 1)
 	esc.separacion_peldanos = paso
 	esc.peldanos_por_ciclo = 2.0

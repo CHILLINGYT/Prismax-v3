@@ -61,6 +61,21 @@ const CAPA_VELO := 2
 @export var burbujas_volumen: float = 5.5
 @export var burbujas_tamano: float = 0.055
 
+@export_group("Audio sumergido")
+## Con la cámara bajo el agua TODO suena amortiguado: se le baja el corte al
+## filtro paso-bajo que se añade a los buses de sonido del proyecto. El estado es
+## el MISMO `_inmersion` que tiñe la pantalla (cámara real), así que la imagen y
+## el sonido entran y salen juntos, sin un segundo detector de agua.
+@export var audio_sumergido: bool = true
+## Corte (Hz) del filtro con la cámara FUERA: es el máximo (filtro apagado).
+@export_range(4000.0, 20500.0, 100.0) var audio_corte_fuera: float = 20500.0
+## Corte (Hz) con la cámara bien dentro del agua: sonido apagado, "bajo el agua".
+@export_range(120.0, 4000.0, 20.0) var audio_corte_dentro: float = 700.0
+@export_range(0.0, 4.0, 0.1) var audio_resonancia: float = 0.6
+## Buses del proyecto que se amortiguan (por NOMBRE; los que no existan se omiten
+## sin fallar). No se toca el layout de buses ni los volúmenes de los ajustes.
+@export var audio_buses: PackedStringArray = PackedStringArray(["Efectos", "Musica", "Dialogos"])
+
 var _camara: Camera3D = null
 var _velo: ColorRect = null
 var _mat_velo: ShaderMaterial = null
@@ -72,11 +87,16 @@ var _base_niebla_densidad: float = 0.0
 var _base_niebla_color: Color = Color.WHITE
 var _base_niebla_cielo: float = 1.0
 var _inmersion: float = 0.0
+## Filtros paso-bajo añadidos a los buses: [(bus, índice del efecto, filtro)].
+## Se RETIRAN al salir del árbol, para que recargar la escena no los acumule.
+var _audio: Array = []
+var _audio_aplicado: float = -1.0
 
 
 func _ready() -> void:
 	_montar_velo()
 	_montar_burbujas()
+	_montar_audio()
 	_guardar_entorno()
 	_aplicar()
 
@@ -130,6 +150,62 @@ func _buscar_camara(nodo: Node) -> Camera3D:
 		if hondo != null:
 			return hondo
 	return null
+
+
+# -----------------------------------------------------------------------------
+#  Audio sumergido (Tarea 10)
+# -----------------------------------------------------------------------------
+## Añade un filtro paso-bajo a cada bus de sonido del proyecto. Es ADITIVO: no
+## toca el layout de buses ni los volúmenes que manejan los ajustes de audio.
+## Fuera del agua el corte queda en su MÁXIMO (20500 Hz), que es lo mismo que no
+## filtrar: el audio suena exactamente como si el filtro no estuviera.
+func _montar_audio() -> void:
+	if not audio_sumergido:
+		return
+	for nombre in audio_buses:
+		var bus := AudioServer.get_bus_index(StringName(nombre))
+		if bus < 0:
+			continue
+		var filtro := AudioEffectLowPassFilter.new()
+		filtro.cutoff_hz = audio_corte_fuera
+		filtro.resonance = audio_resonancia
+		AudioServer.add_bus_effect(bus, filtro)
+		_audio.append({"bus": bus, "idx": AudioServer.get_bus_effect_count(bus) - 1, "filtro": filtro})
+
+
+## Aplica la inmersión al audio: fuera del agua el corte vuelve al máximo (sin
+## filtrar); dentro baja hasta `audio_corte_dentro` con la MISMA curva suave que
+## el velo, así que no hay saltos de sonido al cruzar la superficie.
+func _aplicar_audio(a: float) -> void:
+	if _audio.is_empty():
+		return
+	if is_equal_approx(a, _audio_aplicado):
+		return
+	_audio_aplicado = a
+	var corte := lerpf(audio_corte_fuera, audio_corte_dentro, clampf(a, 0.0, 1.0))
+	for e in _audio:
+		var d := e as Dictionary
+		var filtro := d.get("filtro") as AudioEffectLowPassFilter
+		if filtro == null or not is_instance_valid(filtro):
+			continue
+		filtro.cutoff_hz = maxf(20.0, corte)
+
+
+## Estado actual del audio sumergido (para pruebas y para quien quiera consultarlo).
+func audio_inmersion() -> float:
+	return _audio_aplicado
+
+
+func _exit_tree() -> void:
+	for e in _audio:
+		var d := e as Dictionary
+		var bus := int(d.get("bus", -1))
+		var idx := int(d.get("idx", -1))
+		if bus < 0 or idx < 0:
+			continue
+		if bus < AudioServer.bus_count and idx < AudioServer.get_bus_effect_count(bus):
+			AudioServer.remove_bus_effect(bus, idx)
+	_audio.clear()
 
 
 # -----------------------------------------------------------------------------
@@ -237,6 +313,7 @@ func _aplicar() -> void:
 	if _velo != null:
 		_velo.visible = a > 0.004
 	_aplicar_niebla(a)
+	_aplicar_audio(a)
 	if _burbujas != null and is_instance_valid(_burbujas):
 		var cam := _camara_actual()
 		if cam != null and is_instance_valid(cam) and cam.is_inside_tree():
