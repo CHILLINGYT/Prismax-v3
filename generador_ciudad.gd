@@ -107,7 +107,8 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 @export_group("1. Recursos")
 ## Carpeta con los modelos .gltf/.glb. Si no existe se busca automáticamente.
 @export_dir var carpeta_modelos: String = "res://Exports/glTF (Godot)/"
-## Semilla del azar. 0 = distinta en cada generación.
+## Semilla del azar. 0 = la semilla FIJA de `world/semilla_mundo.gd` (el mundo
+## sale siempre igual); con otro valor se fuerza ésa sólo para esta ciudad.
 @export var semilla: int = 0
 
 @export_group("2. Trazado")
@@ -253,6 +254,18 @@ const RUTA_TECHO := "res://assets/generated/techo_grava.png"
 
 # --- Estado interno -----------------------------------------------------------
 var _rng := RandomNumberGenerator.new()
+## Fase de edición en curso (ver `world/ediciones_ciudad.gd`): mientras está
+## activa, las mallas del edificio que se está construyendo NO se añaden al
+## mundo. El azar se consume igual que siempre, así que ocultar una casa no
+## mueve ni un milímetro el resto de la ciudad.
+var _ocultar_actual := false
+## Material con el que pintar TODAS las mallas del edificio en curso (null = el suyo).
+var _material_edificio: Material = null
+## RNG propio de cada edificio: los detalles de ESA casa (ventanas encendidas,
+## aires acondicionados…) se sortean aquí y no en el generador de la ciudad, para
+## que editar una casa (por ejemplo, darle más plantas) no desplace los sorteos
+## de las demás.
+var _rng_edificio := RandomNumberGenerator.new()
 var _vista_editor := false   ## true mientras se genera sólo para el visor 3D
 var _carpeta := ""
 var _modelos := {}          ## nombre -> {escena: PackedScene, caja: AABB, categoria: String}
@@ -546,7 +559,10 @@ func generar_ciudad() -> void:
 	limpiar_ciudad()
 
 	_rng = RandomNumberGenerator.new()
-	_rng.seed = semilla if semilla != 0 else randi()
+	# Semilla FIJA del mundo: la de `world/semilla_mundo.gd` (allí se cambia).
+	# Con `semilla != 0` en el inspector se fuerza otra semilla sólo para esta
+	# ciudad (experimentos); sin tocar nada, el mapa sale siempre idéntico.
+	_rng.seed = semilla if semilla != 0 else SemillaMundo.semilla_de("ciudad")
 	prueba_portales.clear()
 	prueba_portales_dir.clear()
 	prueba_portales_frente.clear()
@@ -646,7 +662,9 @@ func generar_ciudad_por_etapas() -> bool:
 	limpiar_ciudad()
 
 	_rng = RandomNumberGenerator.new()
-	_rng.seed = semilla if semilla != 0 else randi()
+	# Igual que en `generar_ciudad()`: semilla FIJA de `world/semilla_mundo.gd`,
+	# para que la generación por etapas dé EXACTAMENTE la misma ciudad.
+	_rng.seed = semilla if semilla != 0 else SemillaMundo.semilla_de("ciudad")
 	prueba_portales.clear()
 	prueba_portales_dir.clear()
 	prueba_portales_frente.clear()
@@ -757,6 +775,8 @@ func generar_ciudad_por_etapas() -> bool:
 		progreso_generacion.emit(0.82, "vegetación")
 		await get_tree().process_frame
 		_generar_mobiliario_ejes([false])
+	# Objetos puestos a mano (`PROPS_EXTRA`): van siempre, también por etapas.
+	_colocar_props_extra()
 
 	# --- 8) Multimesh de vegetación ---------------------------------------
 	progreso_generacion.emit(0.90, "vegetación (mallas)")
@@ -1106,6 +1126,12 @@ func _construir_listas() -> void:
 	_acera_pavimento.clear() ; _esquinas_acera.clear() ; _esquina_dir.clear()
 	_linea_discontinua.clear() ; _pasos_peatones.clear() ; _pintura_esquinas.clear()
 	_alcantarillas.clear()
+	# Estas dos se LLENAN en este método pero se olvidaban al vaciar: al regenerar
+	# en la misma sesión arrastraban las piezas de la ciudad anterior, `_elegir`
+	# sorteaba entre más candidatas y la ciudad salía distinta de la primera vez
+	# (la raya del eje se teselaba con otra pieza y cambiaba el número de marcas).
+	# Con la semilla fija, las dos generaciones tienen que dar EXACTAMENTE el mundo.
+	_linea_central.clear() ; _pasos_anchos.clear()
 	_sumideros.clear() ; _bolardos.clear() ; _aires.clear() ; _vegetacion.clear()
 
 	for clave in _modelos.keys():
@@ -1670,14 +1696,18 @@ func _elegir(lista: Array) -> String:
 
 ## Coloca una pieza: agrupada en MultiMesh si es posible, si no instanciada.
 ## Con 'limpiar_decal' se instancia suelta y sin su capa de pintura.
+## Si la casa en curso está EDITA A MANO (material propio u oculta), sus piezas se
+## instancian sueltas: el lote compartido de las demás casas no se toca.
 func _colocar(pieza: String, xf: Transform3D, padre: Node3D, limpiar_decal: bool = false) -> void:
 	if pieza == "":
 		# Cualquier celda sin pieza sería un hueco en la fachada: se cuenta para
 		# que el informe final avise si alguna vez pasara.
 		_est["piezas_vacias"] = int(_est.get("piezas_vacias", 0)) + 1
 		return
+	if _ocultar_actual:
+		return                      # casa oculta: su malla no llega al mundo
 	var agrupable := usar_multimesh and not (limpiar_decal and bool(_con_decal.get(pieza, false)))
-	if agrupable and _es_multimesh(pieza):
+	if agrupable and _es_multimesh(pieza) and _material_edificio == null:
 		# La pieza se guarda en el lote de SU sector (bloque). Un sector es la
 		# unidad que después se puede activar, dibujar o descargar por separado;
 		# con agrupar_por_sector apagado todas caen en "0_0" y el resultado es el
@@ -1729,7 +1759,8 @@ func _instanciar_pieza(pieza: String, xf: Transform3D, padre: Node3D, nombre: St
 		limpiar_decal: bool = false) -> Node3D:
 	var escena := _modelos[pieza]["escena"] as PackedScene
 	var nodo := escena.instantiate() as Node3D
-	nodo.name = nombre
+	# Un nombre de nodo no admite ':' (los ids de edición lo usan: "tapa:V3:2").
+	nodo.name = String(nombre).replace(":", "_")
 	nodo.transform = xf
 	if limpiar_decal:
 		_quitar_capas_decal(nodo)
@@ -1739,6 +1770,18 @@ func _instanciar_pieza(pieza: String, xf: Transform3D, padre: Node3D, nombre: St
 		if mat_techo != null:
 			for n in nodo.find_children("*", "MeshInstance3D", true, false):
 				(n as MeshInstance3D).material_override = mat_techo
+	# Edición de material: TODAS las mallas de esta casa llevan el material pedido.
+	# La casa se construye aparte (instanciada), así que el cambio no toca a las
+	# demás casas del mismo tipo.
+	if _material_edificio != null:
+		if nodo is MeshInstance3D:
+			(nodo as MeshInstance3D).material_override = _material_edificio
+		for n in nodo.find_children("*", "MeshInstance3D", true, false):
+			(n as MeshInstance3D).material_override = _material_edificio
+	if _ocultar_actual:
+		# Casa oculta a mano: el nodo se descarta y no entra en el árbol.
+		nodo.free()
+		return null
 	padre.add_child(nodo)
 	return nodo
 
@@ -2304,7 +2347,7 @@ func _generar_manzana(i: int, j: int, parques: Array) -> void:
 
 
 ## Reparte la manzana en solares (1x1, 2x1, 1x2 o 2x2) y edifica cada uno.
-func _poblar_manzana(rect: Rect2, _i: int, _j: int) -> void:
+func _poblar_manzana(rect: Rect2, i: int, j: int) -> void:
 	var div_x := 2
 	var div_z := 2
 	if rect.size.x >= 18.0 and rect.size.y >= 18.0:
@@ -2323,10 +2366,14 @@ func _poblar_manzana(rect: Rect2, _i: int, _j: int) -> void:
 					rect.position.y + rect.size.y * float(b) / float(div_z))
 			var parcela := Rect2(origen, Vector2(rect.size.x / float(div_x), rect.size.y / float(div_z)))
 			_est["parcelas"] = int(_est.get("parcelas", 0)) + 1
+			# Id ESTABLE del solar (depende de su sitio en el mapa, no del azar):
+			# es lo que permite editar UNA casa concreta desde
+			# `world/ediciones_ciudad.gd` sin tocar las demás.
+			var id_solar: String = EdicionesCiudad.id_edificio(Vector2i(i, j), Vector2i(a, b))
 			if _rng.randf() < prob_solar_vacio:
 				_plaza(parcela)
 			else:
-				_poner_edificio(parcela)
+				_poner_edificio(parcela, id_solar)
 
 
 ## Elige las manzanas que serán parque: se prefieren las céntricas (las más
@@ -2554,24 +2601,40 @@ func _plaza(rect: Rect2) -> void:
 			_colocar_arbusto(Vector3(xb, Y_ACERA, zb), 0.8, 1.2)
 
 
-func _poner_edificio(rect: Rect2) -> void:
+func _poner_edificio(rect: Rect2, id_solar: String = "") -> void:
 	var antes := int(_est.get("modulares", 0)) + int(_est.get("prefabs", 0))
+	# Ediciones hechas a mano para ESTE solar (vacío = nada especial). Ver
+	# `world/ediciones_ciudad.gd`: allí se cambia una casa sin tocar las demás.
+	var ed := EdicionesCiudad.edificio(id_solar)
+	# Solar oculto a mano: se construye igual que siempre —el azar del resto de
+	# la ciudad no se mueve ni un número— pero sus mallas no se añaden al mundo.
+	_ocultar_actual = bool(ed.get("ocultar", false))
+	_material_edificio = EdicionesCiudad.material_de(ed)
+	var forzado := String(ed.get("prefab", ""))
+	if forzado != "" and not _modelos.has(forzado):
+		push_warning("[GeneradorCiudad] La edición de %s pide el modelo '%s', que no existe." % [id_solar, forzado])
 	var cabe_prefab := minf(rect.size.x, rect.size.y) >= 13.0
 	# En solares grandes se intenta siempre el edificio completo del kit; si no
 	# encaja (o están desactivados) se cae al edificio modular.
 	var poner_prefab := usar_prefabricados and cabe_prefab
-	if poner_prefab and _poner_prefab(rect):
+	if forzado != "" and _modelos.has(forzado):
+		poner_prefab = true      # la edición manda sobre los interruptores generales
+	if poner_prefab and _poner_prefab(rect, id_solar, forzado, ed):
+		_ocultar_actual = false
+		_material_edificio = null
 		return
 	if usar_modulares:
-		_poner_modular(rect)
+		_poner_modular(rect, id_solar, ed)
 	elif usar_prefabricados:
-		_poner_prefab(rect)
+		_poner_prefab(rect, id_solar, forzado, ed)
 	# Red de seguridad: si pese a todo la parcela quedó sin construcción (p. ej.
 	# una parcela por debajo del mínimo de 6 m), se resuelve como plaza con
 	# vegetación en lugar de dejar un solar pelado sin nada.
 	if int(_est.get("modulares", 0)) + int(_est.get("prefabs", 0)) == antes:
 		_est["parcelas_vacias"] = int(_est.get("parcelas_vacias", 0)) + 1
 		_plaza(rect)
+	_ocultar_actual = false
+	_material_edificio = null
 
 
 ## Coloca uno de los edificios completos del kit (Building_*). Se estira en
@@ -2579,46 +2642,82 @@ func _poner_edificio(rect: Rect2) -> void:
 ## el edificio se pega a los vecinos: no quedan rendijas por las que colarse.
 ## Si el estirón deformaría demasiado el modelo, se descarta y el solar se
 ## resuelve con el edificio modular (que encaja exacto en la retícula de 2 m).
-func _poner_prefab(rect: Rect2) -> bool:
+## Opción de prefab (nombre, giro y escala) para un modelo concreto dentro de una
+## parcela: la MISMA cuenta que usa el generador para todos. Devuelve {} si ese
+## modelo no encaja (se estiraría demasiado).
+func _opcion_prefab(nombre: String, disponible: Vector2) -> Dictionary:
+	if not _modelos.has(nombre):
+		return {}
+	var caja: AABB = _modelos[nombre]["caja"]
+	if caja.size.x < 0.5 or caja.size.z < 0.5:
+		return {}
+	for giro: float in [0.0, PI * 0.5]:
+		# Escalas en los ejes LOCALES del modelo: con el giro de 90° el eje
+		# x local acaba apuntando al z del mundo y al revés.
+		var girado := not is_zero_approx(giro)
+		var esc_local_x := (disponible.x / caja.size.z) if girado else (disponible.x / caja.size.x)
+		var esc_local_z := (disponible.y / caja.size.x) if girado else (disponible.y / caja.size.z)
+		var deforme := maxf(esc_local_x, esc_local_z) / maxf(minf(esc_local_x, esc_local_z), 0.001)
+		if esc_local_x < 0.8 or esc_local_z < 0.8 or esc_local_x > 2.2 or esc_local_z > 2.2 or deforme > 1.35:
+			continue
+		# La altura crece con el menor de los dos estirones (nunca se
+		# deforma más de la cuenta en vertical).
+		return {"nombre": nombre, "giro": giro,
+				"esc": Vector3(esc_local_x, minf(esc_local_x, esc_local_z), esc_local_z)}
+	return {}
+
+
+func _poner_prefab(rect: Rect2, id_solar: String = "", forzado: String = "", ed: Dictionary = {}) -> bool:
 	var disponible := rect.size
 	var opciones: Array = []
 	for nombre in _prefabs:
-		var caja: AABB = _modelos[nombre]["caja"]
-		if caja.size.x < 0.5 or caja.size.z < 0.5:
-			continue
-		for giro: float in [0.0, PI * 0.5]:
-			# Escalas en los ejes LOCALES del modelo: con el giro de 90° el eje
-			# x local acaba apuntando al z del mundo y al revés.
-			var girado := not is_zero_approx(giro)
-			var esc_local_x := (disponible.x / caja.size.z) if girado else (disponible.x / caja.size.x)
-			var esc_local_z := (disponible.y / caja.size.x) if girado else (disponible.y / caja.size.z)
-			var deforme := maxf(esc_local_x, esc_local_z) / maxf(minf(esc_local_x, esc_local_z), 0.001)
-			if esc_local_x < 0.8 or esc_local_z < 0.8 or esc_local_x > 2.2 or esc_local_z > 2.2 or deforme > 1.35:
-				continue
-			# La altura crece con el menor de los dos estirones (nunca se
-			# deforma más de la cuenta en vertical).
-			opciones.append({"nombre": nombre, "giro": giro,
-					"esc": Vector3(esc_local_x, minf(esc_local_x, esc_local_z), esc_local_z)})
+		var opcion := _opcion_prefab(nombre, disponible)
+		if not opcion.is_empty():
+			opciones.append(opcion)
 	if opciones.is_empty():
 		return false
+	# El sorteo se hace SIEMPRE entre las mismas opciones que antes de existir las
+	# ediciones, aunque luego la edición pida otro modelo: así el azar de la
+	# ciudad no se altera y las demás casas quedan exactamente donde estaban.
 	var op: Dictionary = opciones[_rng.randi_range(0, opciones.size() - 1)]
+	if forzado != "" and _modelos.has(forzado):
+		var forzada := _opcion_prefab(forzado, disponible)
+		if not forzada.is_empty():
+			op = forzada
+		else:
+			push_warning("[GeneradorCiudad] El modelo '%s' pedido para %s no encaja en su parcela: se deja el que tocó por sorteo." % [forzado, id_solar])
 	var nombre_op: String = op.nombre
 	var caja_op: AABB = _modelos[nombre_op]["caja"]
-	var giro_op: float = op.giro
+	var giro_op: float = float(op.giro)
 	var esc_op: Vector3 = op.esc
+	# Ediciones de esta casa: giro, tamaño y desplazamiento extra.
+	if ed.has("giro_grados"):
+		giro_op += deg_to_rad(float(ed["giro_grados"]))
+	var esc_ed := float(ed.get("escala", 1.0))
+	esc_op = esc_op * esc_ed
+	var despl: Vector3 = ed.get("desplazamiento", Vector3.ZERO)
 	var base := Basis(Vector3.UP, giro_op).scaled(esc_op)
 	var centro := Vector3(caja_op.get_center().x, 0.0, caja_op.get_center().z)
-	var origen := Vector3(rect.get_center().x, 0.0, rect.get_center().y) - base * centro
-	origen.y = -caja_op.position.y * esc_op.y   # apoyo exacto sobre la acera
-	var nodo := _instanciar_pieza(nombre_op, Transform3D(base, origen), _cont["Prefabricados"], nombre_op)
-	if colisiones_edificios and not _tiene_colision(nodo):
+	var origen := Vector3(rect.get_center().x, 0.0, rect.get_center().y) - base * centro + despl
+	origen.y = -caja_op.position.y * esc_op.y + despl.y   # apoyo exacto sobre la acera
+	# El nodo lleva el ID del solar: así la casa se encuentra en el árbol del juego
+	# y se puede editar sin tocar a las demás.
+	var nombre_nodo := id_solar if id_solar != "" else nombre_op
+	var nodo := _instanciar_pieza(nombre_op, Transform3D(base, origen), _cont["Prefabricados"], nombre_nodo)
+	if nodo == null:
+		# Solar oculto a mano: la casa se contó y consumió su azar como cualquier
+		# otra, pero su malla no llegó al mundo. Se da por puesta.
+		_est["prefabs"] = int(_est.get("prefabs", 0)) + 1
+		return true
+	if not _ocultar_actual and colisiones_edificios and not _tiene_colision(nodo):
 		# Caja de colisión como hermana del edificio: así no hereda la escala no
 		# uniforme (que Jolt no admite) y mide exactamente la parcela, que es
 		# justo lo que ocupa el edificio.
 		var alto_mundo := caja_op.size.y * esc_op.y
 		var cuerpo := StaticBody3D.new()
 		cuerpo.name = "Colision"
-		cuerpo.position = Vector3(rect.get_center().x, alto_mundo * 0.5, rect.get_center().y)
+		cuerpo.position = Vector3(rect.get_center().x + despl.x, alto_mundo * 0.5 + despl.y,
+				rect.get_center().y + despl.z)
 		var forma := CollisionShape3D.new()
 		var caja_col := BoxShape3D.new()
 		caja_col.size = Vector3(disponible.x, alto_mundo, disponible.y)
@@ -2631,7 +2730,7 @@ func _poner_prefab(rect: Rect2) -> bool:
 
 ## Compone un edificio con módulos del kit: perímetro de muros (2x3 m) con
 ## ventanas, marco y hoja de puerta, cornisa perimetral y azotea plana.
-func _poner_modular(rect: Rect2) -> void:
+func _poner_modular(rect: Rect2, id_solar: String = "", ed: Dictionary = {}) -> void:
 	if _paredes.is_empty():
 		return
 	# El edificio ocupa TODA la parcela: así los edificios vecinos se tocan y la
@@ -2641,6 +2740,15 @@ func _poner_modular(rect: Rect2) -> void:
 	if minf(ancho, fondo) < 6.0:
 		return
 	var fam := _familia_aleatoria()
+	# Edición de ESTA casa: familia de módulos y número de plantas. Los sorteos se
+	# hacen igual que siempre (aquí y unas líneas más abajo) y luego se sustituye
+	# el resultado: así cambiar una casa no desplaza a ninguna de las demás.
+	if ed.has("familia"):
+		var fam_ed := String(ed["familia"])
+		if _familias.has(fam_ed):
+			fam = fam_ed
+		else:
+			push_warning("[GeneradorCiudad] La edición de %s pide la familia '%s', que no existe." % [id_solar, fam_ed])
 	# Evitamos bloques de esquina decorativos: algunos son columnas abiertas y
 	# dejan un hueco oscuro en el encuentro. Los paños rectos de la misma familia
 	# llegan hasta cada vértice y se encuentran allí, cerrando la fachada.
@@ -2648,6 +2756,8 @@ func _poner_modular(rect: Rect2) -> void:
 	var pisos := _rng.randi_range(pisos_min, pisos_max)
 	if _rng.randf() < prob_torre:
 		pisos += _rng.randi_range(1, 4)      # torre: rompe la línea del skyline
+	if ed.has("pisos"):
+		pisos = maxi(1, int(ed["pisos"]))
 	# "Vida nocturna" del edificio: unas fachadas quedan casi a oscuras y otras
 	# con bastantes ventanas encendidas. La usa `_quizas_ventana` para decidir,
 	# ventana a ventana, cuáles se iluminan de noche (irregular A PROPÓSITO).
@@ -2656,6 +2766,25 @@ func _poner_modular(rect: Rect2) -> void:
 		_factor_ventanas_edificio = _rng.randf_range(0.03, 0.12)
 	var centro := Vector3(rect.get_center().x, 0.0, rect.get_center().y)
 	var alto := float(pisos) * PLANTA_ALTO
+	# Nodo con el ID del solar: es el nombre que se busca en el árbol del juego
+	# para editar ESTA casa. Va en el ORIGEN (es una carpeta con nombre: las
+	# piezas usan coordenadas de mundo, así que colgarlas de aquí las deja donde
+	# les toca) y las piezas de una casa EDITADA se instancian dentro, en vez de
+	# ir al lote compartido: así la edición no toca a las demás del mismo tipo.
+	var cont_ed: Node3D = null
+	var cont_comun: Node3D = _cont["Modulares"]
+	var padre_piezas: Node3D = cont_comun
+	if id_solar != "":
+		cont_ed = Node3D.new()
+		cont_ed.name = id_solar
+		cont_ed.position = Vector3.ZERO
+		cont_comun.add_child(cont_ed)
+		_marcar_owner(cont_ed)
+		var piezas := Node3D.new()
+		piezas.name = "Piezas"
+		cont_ed.add_child(piezas)
+		padre_piezas = piezas
+		_cont["Modulares"] = piezas
 
 	# --- Perímetro: muros de 2x3 m (y bloques de esquina, si la familia los trae)
 	var modulos := _fachadas(ancho, fondo, false)
@@ -2684,6 +2813,12 @@ func _poner_modular(rect: Rect2) -> void:
 	var m_ventana := _pieza_familia(fam, "ventanas", ["muros"])
 	var m_esquina := _pieza_familia(fam, "esquinas", ["muros"])
 	var marco := _marco_puerta(fam)
+	# A partir de aquí los sorteos son de ESTA casa (ventanas encendidas, aires
+	# acondicionados…): van en su propio RNG, sembrado con su id, así que editar
+	# una casa no desplaza el azar de las demás.
+	var rng_ciudad := _rng
+	_rng_edificio.seed = SemillaMundo.semilla_de("edificio_" + (id_solar if id_solar != "" else "libre"))
+	_rng = _rng_edificio
 	for piso in pisos:
 		var y := float(piso) * PLANTA_ALTO
 		var es_top := piso == pisos - 1
@@ -2711,12 +2846,15 @@ func _poner_modular(rect: Rect2) -> void:
 					for mitad in 2:
 						var pos_hoja: Vector3 = p_marco + b * Vector3(float(mitad), 0.0, z_hoja)
 						_colocar(hoja, _t(pos_hoja, giro), _cont["Modulares"])
-					prueba_portales.append(_t(p_marco, giro).origin)
-					prueba_portales_dir.append(b * Vector3(0.0, 0.0, 1.0))
-					# Cara exterior del marco medida con su caja real: es la referencia de
-					# "dónde está la puerta" para el ciudadano que va a entrar en la casa.
-					prueba_portales_frente.append(maxf(caja_marco.end.z, 0.0))
-					_est["portales"] = int(_est.get("portales", 0)) + 1
+					# Los portales son datos del MUNDO (los peatones los usan para
+					# entrar en las casas): una casa oculta a mano no aporta ninguno.
+					if not _ocultar_actual:
+						prueba_portales.append(_t(p_marco, giro).origin)
+						prueba_portales_dir.append(b * Vector3(0.0, 0.0, 1.0))
+						# Cara exterior del marco medida con su caja real: es la referencia de
+						# "dónde está la puerta" para el ciudadano que va a entrar en la casa.
+						prueba_portales_frente.append(maxf(caja_marco.end.z, 0.0))
+						_est["portales"] = int(_est.get("portales", 0)) + 1
 				else:
 					_colocar(m_baja, _t(pos, giro), _cont["Modulares"])
 			elif piso == 0:
@@ -2779,8 +2917,12 @@ func _poner_modular(rect: Rect2) -> void:
 			_instanciar_pieza(_elegir(_aires),
 					_t(Vector3(x, alto + 0.2, z), _rng.randf_range(0.0, TAU)), _cont["Props"], "AireAcondicionado")
 
+	_rng = rng_ciudad          # se devuelve el generador de la ciudad
 	# --- Colisión envolvente del edificio ---
-	if colisiones_edificios:
+	# La caja va DENTRO del nodo con el ID del solar cuando existe (así se ve de
+	# qué casa es) y en el contenedor común cuando no; siempre con coordenadas de
+	# mundo, porque el nodo del id está en el origen.
+	if colisiones_edificios and not _ocultar_actual:
 		var cuerpo := StaticBody3D.new()
 		cuerpo.name = "Edificio_modular_%d" % int(_est.get("modulares", 0))
 		cuerpo.position = Vector3(centro.x, Y_ACERA + alto * 0.5, centro.z)
@@ -2789,15 +2931,23 @@ func _poner_modular(rect: Rect2) -> void:
 		caja_col.size = Vector3(ancho, alto, fondo)
 		forma.shape = caja_col
 		cuerpo.add_child(forma)
-		_cont["Modulares"].add_child(cuerpo)
+		if cont_ed != null:
+			cont_ed.add_child(cuerpo)
+		else:
+			cont_comun.add_child(cuerpo)
 
-	prueba_esquinas.append(centro + Vector3(ancho * 0.5, 0.0, fondo * 0.5))
-	prueba_esquinas_dir.append(Vector3(0.7071068, 0.0, 0.7071068))
+	if not _ocultar_actual:
+		prueba_esquinas.append(centro + Vector3(ancho * 0.5, 0.0, fondo * 0.5))
+		prueba_esquinas_dir.append(Vector3(0.7071068, 0.0, 0.7071068))
 
 	# --- Relleno interior: suficientemente retraído para que no cruce el vano
 	# de la puerta ni se vea desde los laterales/esquinas de la fachada, y con
 	# el techo 0.5 m por debajo de la losa para no asomar por la azotea ---
-	_relleno_interior(_cont["Modulares"], centro, ancho, fondo, alto - 0.5, 1.25)
+	if not _ocultar_actual:
+		_relleno_interior(_cont["Modulares"], centro, ancho, fondo, alto - 0.5, 1.25)
+	# El contenedor común vuelve a su sitio (ver el principio de la función): el
+	# desvío a las piezas de ESTA casa dura sólo mientras se construye.
+	_cont["Modulares"] = cont_comun
 	_est["modulares"] = int(_est.get("modulares", 0)) + 1
 
 
@@ -3090,6 +3240,9 @@ func _crear_multi(malla: Mesh, pistas: Array, colores: Array,
 
 
 func _generar_mobiliario() -> void:
+	# Los objetos puestos A MANO (`PROPS_EXTRA` de `world/ediciones_ciudad.gd`) van
+	# siempre, aunque el mobiliario procedural esté apagado: son ediciones del mundo.
+	_colocar_props_extra()
 	if not generar_props and not generar_vegetacion:
 		return
 	_generar_mobiliario_ejes([true, false])
@@ -3111,6 +3264,10 @@ func _generar_mobiliario_ejes(verticales: Array) -> void:
 		prob_arbol = clampf(6.0 / arboles_calle, 0.0, 1.0)
 
 	for vertical: bool in verticales:
+		# Etiqueta del eje: entra en los ids ESTABLES de tapas y sumideros
+		# ("tapa:V3:2", "sumidero:H0:1:0"), que son los que admite
+		# `world/ediciones_ciudad.gd` para cambiar o quitar una pieza concreta.
+		var eje := "V" if vertical else "H"
 		var n_lineas: int = (manzanas_x + 1) if vertical else (manzanas_z + 1)
 		var n_cruces: int = (manzanas_z + 1) if vertical else (manzanas_x + 1)
 		var d0: float = off.y if vertical else off.x
@@ -3153,13 +3310,16 @@ func _generar_mobiliario_ejes(verticales: Array) -> void:
 					if fin - ini < 6.0:
 						continue
 					# Sumideros: rejas junto al bordillo, repartidas a lo largo de la
-					# cuadra (sin cambios).
+					# cuadra (mismo reparto de siempre; ahora llevan id estable para
+					# poder cambiar su modelo o quitarlos desde la tabla de ediciones).
 					for lado: float in [-1.0, 1.0]:
 						if not _sumideros.is_empty() and _rng.randf() < 0.6:
 							var c := _rng.randf_range(ini + 1.5, fin - 1.5)
+							var pieza_s := _elegir(_sumideros)
+							var id_s := "sumidero:%s%d:%d:%d" % [eje, i, k, 0 if lado < 0.0 else 1]
 							var lat := p + lado * (calzada * 0.5 - 0.5)
 							var pos := Vector3(lat, 0.0, c) if vertical else Vector3(c, 0.0, lat)
-							_colocar_prop(_elegir(_sumideros), pos, false, 1.0)
+							_colocar_prop(pieza_s, pos, false, 1.0, -1.0, id_s)
 					# Tapa de alcantarilla: UNA por cuadra, calculada con la geometría
 					# REAL de esa cuadra (nunca una separación fija ni una posición al
 					# azar):
@@ -3174,25 +3334,81 @@ func _generar_mobiliario_ejes(verticales: Array) -> void:
 					if not _alcantarillas.is_empty():
 						var c_t := (ini + fin) * 0.5
 						var pos_t := Vector3(p, Y_CALZADA, c_t) if vertical else Vector3(c_t, Y_CALZADA, p)
-						_colocar_prop(_elegir(_alcantarillas), pos_t, false, 1.0, 0.0)
+						var id_t := "tapa:%s%d:%d" % [eje, i, k]
+						_colocar_prop(_elegir(_alcantarillas), pos_t, false, 1.0, 0.0, id_t)
 
 
 ## Coloca un prop apoyado exactamente en su superficie (acera o calzada).
 ## Giro: por defecto (-1) al azar, como el mobiliario suelto; con un giro fijo se alinea
 ## a lo que corresponda (las tapas de alcantarilla van alineadas con el pavimento, que
 ## está teselado en los ejes de la ciudad).
-func _colocar_prop(pieza: String, pos: Vector3, en_acera: bool, escala: float, giro: float = -1.0) -> void:
+## 'id' es el identificador ESTABLE del prop (ver `world/ediciones_ciudad.gd`): con él
+## se puede cambiar su modelo, su tamaño o esconderlo sin tocar los demás.
+func _colocar_prop(pieza: String, pos: Vector3, en_acera: bool, escala: float, giro: float = -1.0,
+		id: String = "") -> void:
 	if pieza == "":
 		return
+	var ed: Dictionary = EdicionesCiudad.prop(id) if id != "" else {}
+	if bool(ed.get("ocultar", false)):
+		return
+	if ed.has("pieza"):
+		var otra := String(ed["pieza"])
+		if _modelos.has(otra):
+			pieza = otra
+		else:
+			push_warning("[GeneradorCiudad] La edición de %s pide el modelo '%s', que no existe." % [id, otra])
+	escala = escala * float(ed.get("escala", 1.0))
 	var caja: AABB = _modelos[pieza]["caja"]
 	var p := pos
 	# La pieza se apoya sobre la superficie: se compensa el mínimo de su caja.
 	p.y = (Y_ACERA if en_acera else Y_CALZADA) - caja.position.y * escala
-	var g := giro if giro >= 0.0 else _rng.randf_range(0.0, TAU)
-	var nodo := _instanciar_pieza(pieza, _t(p, g, escala), _cont["Props"], pieza)
-	if colisiones_props:
+	# El giro al azar se sortea SIEMPRE, aunque la edición fije otro: así el azar
+	# del resto de la ciudad no se desplaza por editar un prop suelto.
+	var g := giro
+	if giro < 0.0:
+		var sorteo := _rng.randf_range(0.0, TAU)
+		g = deg_to_rad(float(ed["giro_grados"])) if ed.has("giro_grados") else sorteo
+	elif ed.has("giro_grados"):
+		g = deg_to_rad(float(ed["giro_grados"]))
+	var nodo := _instanciar_pieza(pieza, _t(p, g, escala), _cont["Props"], id if id != "" else pieza)
+	if colisiones_props and nodo != null:
 		_anadir_colision_caja(nodo, caja)
 	_est["props"] = int(_est.get("props", 0)) + 1
+
+
+## Objetos colocados A MANO en una posición exacta (`PROPS_EXTRA` de
+## `world/ediciones_ciudad.gd`): farolas, bancos, señales… en el sitio elegido.
+## La generación no los recalcula nunca: se añaden enteros en cada regeneración.
+func _colocar_props_extra() -> void:
+	var lista := EdicionesCiudad.props_extra()
+	for ed: Dictionary in lista:
+		var pieza := String(ed.get("pieza", ""))
+		if pieza == "" or not _modelos.has(pieza):
+			push_warning("[GeneradorCiudad] PROPS_EXTRA pide el modelo '%s', que no existe: se salta." % pieza)
+			continue
+		var en_acera := bool(ed.get("en_acera", true))
+		var escala := float(ed.get("escala", 1.0))
+		var pos: Vector3 = ed.get("pos", Vector3.ZERO)
+		var caja: AABB = _modelos[pieza]["caja"]
+		var p := pos
+		if bool(ed.get("apoyar", true)):
+			p.y = (Y_ACERA if en_acera else Y_CALZADA) - caja.position.y * escala
+		var giro := deg_to_rad(float(ed.get("giro_grados", 0.0)))
+		# La clave puede ser 'nombre' (para encontrarlo en el árbol) o el propio id.
+		var nombre := String(ed.get("nombre", id_de_props_extra(ed)))
+		var nodo := _instanciar_pieza(pieza, _t(p, giro, escala), _cont["Props"], nombre)
+		if nodo == null:
+			continue
+		if bool(ed.get("colision", colisiones_props)):
+			_anadir_colision_caja(nodo, caja)
+		_est["props_extra"] = int(_est.get("props_extra", 0)) + 1
+
+
+## Nombre por defecto de un objeto de `PROPS_EXTRA` sin 'nombre': su posición, que
+## es lo que lo identifica y lo hace fácil de localizar en el árbol del juego.
+func id_de_props_extra(ed: Dictionary) -> String:
+	var pos: Vector3 = ed.get("pos", Vector3.ZERO)
+	return "Extra_%d_%d" % [int(round(pos.x)), int(round(pos.z))]
 
 
 # =============================================================================
@@ -3907,6 +4123,8 @@ func _hash_transformaciones(raiz: Node, excluir: Array = []) -> Array:
 func _informe(ms: int) -> void:
 	print("[GeneradorCiudad] ------------------------------------------------")
 	print("[GeneradorCiudad] Carpeta: %s  (semilla %d)" % [_carpeta, _rng.seed])
+	print("[GeneradorCiudad] Semilla del mundo: %s | ediciones a mano: %s" % [
+			SemillaMundo.descripcion(), EdicionesCiudad.resumen()])
 	print("[GeneradorCiudad] Modelos escaneados: %d" % _modelos.size())
 	for cat in _categorias.keys():
 		var nombres: Array = _categorias[cat]
