@@ -63,15 +63,26 @@ func _ready() -> void:
 	var flecha := _puerta.flecha()
 	_check(flecha != null, "la puerta tiene su flecha de aviso")
 	if flecha != null:
-		_check(flecha.position.y > 2.0 and flecha.position.y < 3.2,
-				"la flecha va encima del portal (y %.2f)" % flecha.position.y)
-		var punta := flecha.get_node_or_null("Punta") as MeshInstance3D
-		var cono := punta.mesh as CylinderMesh if punta != null else null
-		_check(cono != null and cono.top_radius > 0.05 and is_zero_approx(cono.bottom_radius),
-				"apunta hacia abajo (cono con la punta abajo)")
-		var mat := punta.material_override as StandardMaterial3D if punta != null else null
-		_check(mat != null and mat.albedo_color.r > 0.9 and mat.albedo_color.g > 0.7 and mat.albedo_color.b < 0.2,
-				"es amarilla como las flechas del juego (%s)" % (str(mat.albedo_color) if mat != null else "sin material"))
+		# Marcador DoorMarker (estilo GTA SA): la punta flota sobre el portal.
+		var marcador := flecha as DoorMarker
+		_check(marcador != null, "la flecha es el marcador reutilizable DoorMarker")
+		if marcador != null:
+			var y0 := marcador.altura_flecha()
+			_check(y0 > 2.0 and y0 < 3.2, "la punta va encima del portal (y %.2f)" % y0)
+			var malla := (marcador.get_node("_DMPivote/_DMFlecha") as MeshInstance3D).mesh
+			var caja := malla.get_aabb()
+			_check(caja.position.y > -0.01 and caja.position.y < 0.05 and caja.end.y > 0.8,
+					"apunta hacia abajo (punta en la base de su malla, cola arriba: %.2f..%.2f)" % [caja.position.y, caja.end.y])
+			var c := marcador.color
+			_check(c.r > 0.9 and c.g > 0.6 and c.b < 0.2 and c.s > 0.9, "amarillo saturado (%s)" % str(c))
+			var g0 := marcador.giro_flecha()
+			var alturas := [y0]
+			for k in 40:
+				await get_tree().process_frame
+				alturas.append(marcador.altura_flecha())
+			var g1 := marcador.giro_flecha()
+			_check(absf(wrapf(g1 - g0, -PI, PI)) > 0.01, "gira sobre su eje vertical (%.3f → %.3f rad)" % [g0, g1])
+			_check(alturas.max() - alturas.min() > 0.005, "sube y baja (vaivén %.3f m)" % (alturas.max() - alturas.min()))
 
 	# 3. Radio: lejos no hay aviso; cerca sí, por el canal del HUD.
 	_jug.global_position = Vector3(0.0, 0.2, 12.0)

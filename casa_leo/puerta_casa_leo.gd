@@ -37,6 +37,14 @@ const FLECHA_ALTURA := 2.6
 const FLECHA_AMPLITUD := 0.16
 const FLECHA_VELOCIDAD := 2.2
 const FLECHA_COLOR := Color(1.0, 0.84, 0.05)
+## Marcador nuevo estilo GTA San Andreas (DoorMarker). `false` = la flecha de
+## cono + vástago anterior, para comparar.
+const MARCADOR_NUEVO := true
+const ESCENA_MARCADOR := preload("res://world/marcadores/door_marker.tscn")
+## Altura (m) de la PUNTA de la flecha sobre el suelo (encima del dintel).
+const MARCADOR_ALTURA := 2.25
+## Tamaño: visible desde la vereda de enfrente (≈1,4 m de alto).
+const MARCADOR_ESCALA := 1.4
 ## Al volver hay que alejarse este margen (además del radio) para que vuelva a
 ## ofrecerse la entrada.
 const MARGEN_ALEJARSE := 1.2
@@ -76,7 +84,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	if _flecha != null:
+	if _flecha != null and not MARCADOR_NUEVO:
 		_flecha.position.y = FLECHA_ALTURA + sin(_t * FLECHA_VELOCIDAD) * FLECHA_AMPLITUD
 	if not _marcada:
 		_buscar_puerta()
@@ -205,6 +213,16 @@ func _portal_accesible(p: Vector3, dir: Vector3) -> bool:
 ## sombreado que las flechas que ya usa el juego, a un tercio de tamaño.
 func _montar_flecha() -> void:
 	if _flecha != null:
+		return
+	if MARCADOR_NUEVO:
+		# Marcador reutilizable (res://world/marcadores/door_marker.tscn): va a ras
+		# de suelo en la puerta; gira, sube y baja, halo y anillo por cercanía.
+		var marcador := ESCENA_MARCADOR.instantiate() as Node3D
+		marcador.name = "FlechaPuerta"
+		marcador.set("altura", MARCADOR_ALTURA)
+		marcador.set("escala", MARCADOR_ESCALA)
+		_flecha = marcador
+		add_child(marcador)
 		return
 	_flecha = Node3D.new()
 	_flecha.name = "FlechaPuerta"

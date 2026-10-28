@@ -50,6 +50,12 @@ func _arrancar() -> void:
 	# Desde la calle, a 12 m, con la cámara mirando la puerta.
 	var lateral := afuera.cross(Vector3.UP).normalized()
 	jug.call("colocar_en", puerta.global_position + afuera * 12.0 + lateral * 2.0 + Vector3.UP * 0.1, puerta.portal())
+	# Cámara fija de calle (la del jugador quedaba detrás de un árbol de la vereda).
+	var cam := Camera3D.new()
+	get_tree().current_scene.add_child(cam)
+	cam.look_at_from_position(puerta.global_position + afuera * 14.0 - lateral * 4.0 + Vector3.UP * 1.7,
+			puerta.global_position + Vector3.UP * 2.2)
+	cam.current = true
 	await _esperar(60)
 	await _foto("mundo_puerta_lejos")
 	if ciclo != null and ciclo.has_method("poner_fase"):
