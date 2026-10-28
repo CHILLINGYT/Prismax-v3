@@ -198,6 +198,7 @@ var _indicadores := {}   ## enemigo (instance_id) -> MeshInstance3D
 @export var contador_ventana := 2.0
 @export var contador_minimo := 2
 const CAPA_CONTADOR := 15   ## por encima del HUD (10), por debajo del panel de misión (20)
+const TEMA_HUD := "res://ui/tema/tema_juego.tres"
 var _combo_n := 0
 var _combo_t := 0.0
 var _capa_contador: CanvasLayer = null
@@ -615,8 +616,13 @@ func _preparar_contador() -> void:
 	_lbl_texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_lbl_texto.theme_type_variation = &"ComboTexto"
 	_caja_contador.add_child(_lbl_texto)
-	# Estilo de respaldo legible sobre cualquier fondo (contorno + sombra). Si el
-	# proyecto define las variaciones ComboNumero/ComboTexto en su tema, mandan.
+	# Estilo del TEMA central del HUD (variantes ComboNumero / ComboTexto).
+	if ResourceLoader.exists(TEMA_HUD):
+		_caja_contador.theme = load(TEMA_HUD) as Theme
+		_caja_contador.modulate.a = 0.0
+		_caja_contador.pivot_offset = Vector2(228.0, 40.0)
+		return
+	# Respaldo (sin tema): legible sobre cualquier fondo (contorno + sombra).
 	for l: Label in [_lbl_numero, _lbl_texto]:
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.08))

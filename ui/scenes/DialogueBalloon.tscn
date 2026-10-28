@@ -1,35 +1,33 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://ui/scripts/dialogue_balloon.gd" id="1_globo"]
 [ext_resource type="PackedScene" path="res://addons/dialogue_manager/nodes/dialogue_label/dialogue_label.tscn" id="2_texto"]
+[ext_resource type="Theme" path="res://ui/tema/tema_juego.tres" id="3_tema"]
 
 [sub_resource type="StyleBoxFlat" id="Estilo_marco"]
 content_margin_left = 14.0
 content_margin_top = 10.0
 content_margin_right = 14.0
 content_margin_bottom = 10.0
-bg_color = Color(0.05, 0.07, 0.1, 0.82)
-border_width_left = 2
+bg_color = Color(0.015, 0.02, 0.04, 0.78)
 border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.45, 0.82, 1, 0.9)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+border_color = Color(1, 0.72, 0.25, 0.95)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="Estilo_boton_normal"]
 content_margin_left = 10.0
 content_margin_top = 3.0
 content_margin_right = 10.0
 content_margin_bottom = 3.0
-bg_color = Color(0.11, 0.16, 0.22, 0.95)
+bg_color = Color(0.06, 0.07, 0.1, 0.92)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.45, 0.82, 1, 0.9)
+border_color = Color(1, 0.72, 0.25, 0.7)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -40,12 +38,12 @@ content_margin_left = 10.0
 content_margin_top = 3.0
 content_margin_right = 10.0
 content_margin_bottom = 3.0
-bg_color = Color(0.2, 0.42, 0.58, 0.95)
+bg_color = Color(0.32, 0.22, 0.06, 0.95)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.75, 0.93, 1, 1)
+border_color = Color(1, 0.8, 0.4, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -64,6 +62,7 @@ grow_horizontal = 2
 grow_vertical = 2
 focus_mode = 2
 mouse_filter = 0
+theme = ExtResource("3_tema")
 
 [node name="PanelInferior" type="VBoxContainer" parent="Catcher"]
 layout_mode = 1
