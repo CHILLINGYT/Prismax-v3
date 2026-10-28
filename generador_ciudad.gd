@@ -1144,8 +1144,13 @@ func _construir_listas() -> void:
 		# --- Marcas viales ---
 		if ln.contains("brokenline"):
 			_linea_discontinua.append(nombre)
-		# Raya doble amarilla del eje de la calzada (avenidas de varios carriles).
-		if ln.contains("doubleyellow"):
+		# Raya doble amarilla del eje de la calzada (avenidas de varios carriles):
+		# SÓLO la pieza RECTA y estrecha (6 x 0.39 m). Las piezas "Curve_..._DoubleYellow"
+		# del kit son cuadrantes de 9.2 x 9.2 m pensados para los giros: si se cuelan en
+		# esta lista, `_elegir` las sortea entre las rectas y la raya del eje sale
+		# torcida, con tramos pegados, cortes en diagonal y superposiciones.
+		if ln.contains("doubleyellow") and not ln.contains("curve") \
+				and s.z < 1.0 and s.x > 1.0:
 			_linea_central.append(nombre)
 		# Pasos de peatones: el normal (4.5 x 5.4 m) y el ancho (3.1 x 11.4 m),
 		# que es el que cubre la calzada entera en las avenidas.
@@ -1916,6 +1921,35 @@ func _generar_calles() -> void:
 			_interseccion(off.x + i * paso, off.y + j * paso, i, j)
 
 
+## Distancia (m) desde el borde de un cruce hasta donde puede empezar la pintura de un
+## tramo: los pasos de peatones se colocan a 2.27 m del borde del cruce y miden lo que
+## mida la pieza (se toma la más profunda de las que se pueden usar con esta calzada),
+## más 15 cm de holgura. No es una constante inventada: sale de la geometría real de las
+## piezas y de dónde las coloca `_interseccion`.
+func _margen_pasos() -> float:
+	var prof := 4.5
+	var lista: Array = _pasos_peatones
+	if float(_trazado.calzada) >= 9.0 and not _pasos_anchos.is_empty():
+		lista = _pasos_anchos
+	for nombre_p in lista:
+		var caja_p: AABB = _modelos[nombre_p]["caja"]
+		prof = maxf(prof, minf(caja_p.size.x, caja_p.size.z))
+	return 2.27 + prof * 0.5 + 0.15
+
+
+## Largo (m) de una pieza de marca a lo largo de la calle. Las rayas del kit están
+## modeladas sobre su eje X local (la colocación las gira 90° en las calles que van en
+## Z), así que el largo es `size.x`; una pieza más larga en Z se descarta, porque
+## teselarla daría pasos equivocados.
+func _largo_pieza_marca(pieza: String) -> float:
+	if pieza == "" or not _modelos.has(pieza):
+		return 0.0
+	var caja: AABB = _modelos[pieza]["caja"]
+	if caja.size.z > caja.size.x:
+		return 0.0
+	return caja.size.x
+
+
 ## Corredor viario: p = línea de calle, d0..d1 = extensión del núcleo urbano.
 ## Sección: acera + calzada + acera. La acera se compone con piezas macizas de
 ## 3x3 m (su bordillo mira a la calzada) y la calzada con planchas planas de
@@ -1929,6 +1963,15 @@ func _corredor(vertical: bool, p: float, d0: float, d1: float) -> void:
 	var cont_calles: Node3D = _cont["Calles"]
 	var cont_marcas: Node3D = _cont["MarcasViales"]
 	var cont_acera: Node3D = _cont["Aceras"]
+	# Piezas de marca de ESTA calle: se eligen una sola vez por calle (no por celda ni
+	# por tramo) para que toda la calle lleve la misma raya: mismo ancho, misma
+	# separación entre las dos líneas y mismo color, en toda la ciudad.
+	var pieza_eje := _elegir(_linea_central)
+	var pieza_lateral := _elegir(_linea_discontinua)
+	var giro_m := PI * 0.5 if vertical else 0.0
+	# Franja libre de pintura dentro de cada cuadra: entre los pasos de peatones de los
+	# dos cruces que la cierran (los pasos van a 2.27 m del borde del cruce).
+	var margen_m := _margen_pasos()
 
 	# Aceras: superficie peatonal y colisión a ambos lados del vial, POR TRAMOS.
 	# La colisión se corta en cada cruce para no atravesar la calzada transversal
@@ -1960,24 +2003,30 @@ func _corredor(vertical: bool, p: float, d0: float, d1: float) -> void:
 					_colocar(_elegir(_tramo_calle), _t(pos, 0.0 if vertical else PI * 0.5),
 							cont_calles, true)
 				_est["tramos"] = int(_est.get("tramos", 0)) + 1
-			# Marcas viales: doble amarilla en el eje y una discontinua por cada
-			# separación de carriles. OJO: las rayas del kit corren en X, así que
-			# en las calles que van en Z hay que girarlas 90°.
-			if generar_marcas_viales:
-				var giro_m := PI * 0.5 if vertical else 0.0
-				var ejes: Array[float] = [0.0]
-				if calzada >= 9.0:
-					ejes.append(-calzada * 0.25)
-					ejes.append(calzada * 0.25)
-				for e: float in ejes:
-					var lista_m: Array = _linea_discontinua
-					if is_zero_approx(e) and not _linea_central.is_empty():
-						lista_m = _linea_central
-					if lista_m.is_empty():
-						continue
+			# Marcas viales del tramo: doble amarilla en el eje y una discontinua por cada
+		# separación de carriles (calles de 9 m o más). Se pintan SÓLO en la franja
+		# libre de la cuadra —entre los pasos de peatones de los dos cruces que la
+		# cierran— y se teselan con el largo REAL de la pieza, centradas: así la raya es
+		# continua, paralela y uniforme, no invade el paso de peatones ni el cruce, y no
+		# quedan piezas superpuestas, ni desplazadas, ni cortes en diagonal.
+		if generar_marcas_viales:
+			var libre_m := largo - 2.0 * margen_m
+			var ejes: Array[float] = [0.0]
+			if calzada >= 9.0:
+				ejes.append(-calzada * 0.25)
+				ejes.append(calzada * 0.25)
+			for e: float in ejes:
+				var pieza_m := pieza_eje if is_zero_approx(e) else pieza_lateral
+				var largo_m := _largo_pieza_marca(pieza_m)
+				var n_m := int(floor(libre_m / largo_m)) if largo_m > 0.0 else 0
+				if n_m < 1:
+					continue
+				var arranque := ini + largo * 0.5 - largo_m * float(n_m) * 0.5
+				for t_m in n_m:
+					var c_m := arranque + largo_m * (float(t_m) + 0.5)
 					var lat_m: float = p + e
-					var pos_m := Vector3(lat_m, Y_ACERA, c) if vertical else Vector3(c, Y_ACERA, lat_m)
-					_colocar(_elegir(lista_m), _t(pos_m, giro_m), cont_marcas)
+					var pos_m := Vector3(lat_m, Y_ACERA, c_m) if vertical else Vector3(c_m, Y_ACERA, lat_m)
+					_colocar(pieza_m, _t(pos_m, giro_m), cont_marcas)
 					_est["marcas"] = int(_est.get("marcas", 0)) + 1
 		# Aceras del tramo: piezas de 3x3 m, 1 cm metidas bajo el bordillo de la
 		# calzada y 1 cm antes del borde de la manzana (evita caras coplanares).
@@ -3103,28 +3152,44 @@ func _generar_mobiliario_ejes(verticales: Array) -> void:
 					var fin := d0 + paso * float(k + 1) - hw
 					if fin - ini < 6.0:
 						continue
+					# Sumideros: rejas junto al bordillo, repartidas a lo largo de la
+					# cuadra (sin cambios).
 					for lado: float in [-1.0, 1.0]:
 						if not _sumideros.is_empty() and _rng.randf() < 0.6:
 							var c := _rng.randf_range(ini + 1.5, fin - 1.5)
 							var lat := p + lado * (calzada * 0.5 - 0.5)
 							var pos := Vector3(lat, 0.0, c) if vertical else Vector3(c, 0.0, lat)
 							_colocar_prop(_elegir(_sumideros), pos, false, 1.0)
-						if not _alcantarillas.is_empty() and _rng.randf() < 0.35:
-							var c2 := _rng.randf_range(ini + 1.5, fin - 1.5)
-							var lat2 := p + _rng.randf_range(-1.0, 1.0) * (calzada * 0.5 - 0.8)
-							var pos2 := Vector3(lat2, 0.0, c2) if vertical else Vector3(c2, 0.0, lat2)
-							_colocar_prop(_elegir(_alcantarillas), pos2, false, 1.0)
+					# Tapa de alcantarilla: UNA por cuadra, calculada con la geometría
+					# REAL de esa cuadra (nunca una separación fija ni una posición al
+					# azar):
+					#   · longitudinal: el centro exacto entre los dos cruces que la
+					#     cierran, (ini + fin) / 2 = d0 + paso·(k + 0.5); con una cuadra
+					#     de 100 m la tapa queda a 50 m de cada extremo, y con una de
+					#     24 m a 12 m, porque sale de ini y fin, no de una constante;
+					#   · transversal: el eje de la calzada (p), que es el centro de la
+					#     calzada porque las planchas se teselan a p ± calzada/2;
+					#   · giro 0: alineada con el pavimento y con la calle.
+					# Cada cuadra recibe exactamente una, larga o corta.
+					if not _alcantarillas.is_empty():
+						var c_t := (ini + fin) * 0.5
+						var pos_t := Vector3(p, Y_CALZADA, c_t) if vertical else Vector3(c_t, Y_CALZADA, p)
+						_colocar_prop(_elegir(_alcantarillas), pos_t, false, 1.0, 0.0)
 
 
 ## Coloca un prop apoyado exactamente en su superficie (acera o calzada).
-func _colocar_prop(pieza: String, pos: Vector3, en_acera: bool, escala: float) -> void:
+## Giro: por defecto (-1) al azar, como el mobiliario suelto; con un giro fijo se alinea
+## a lo que corresponda (las tapas de alcantarilla van alineadas con el pavimento, que
+## está teselado en los ejes de la ciudad).
+func _colocar_prop(pieza: String, pos: Vector3, en_acera: bool, escala: float, giro: float = -1.0) -> void:
 	if pieza == "":
 		return
 	var caja: AABB = _modelos[pieza]["caja"]
 	var p := pos
 	# La pieza se apoya sobre la superficie: se compensa el mínimo de su caja.
 	p.y = (Y_ACERA if en_acera else Y_CALZADA) - caja.position.y * escala
-	var nodo := _instanciar_pieza(pieza, _t(p, _rng.randf_range(0.0, TAU), escala), _cont["Props"], pieza)
+	var g := giro if giro >= 0.0 else _rng.randf_range(0.0, TAU)
+	var nodo := _instanciar_pieza(pieza, _t(p, g, escala), _cont["Props"], pieza)
 	if colisiones_props:
 		_anadir_colision_caja(nodo, caja)
 	_est["props"] = int(_est.get("props", 0)) + 1
