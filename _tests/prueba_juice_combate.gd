@@ -91,7 +91,45 @@ func _ready() -> void:
 
 ## Punto de extensión: las mejoras siguientes añaden aquí sus comprobaciones.
 func _secciones_extra() -> void:
-	pass
+	await _seccion_camara()
+
+
+func _golpe_y_maximos(lectura: Callable) -> float:
+	var maximo := 0.0
+	Input.action_press("atacar")
+	await get_tree().physics_frame
+	Input.action_release("atacar")
+	var visto := false
+	for _i in 200:
+		await get_tree().process_frame
+		maximo = maxf(maximo, float(lectura.call()))
+		var e := int(_jug.get("c_estado"))
+		if e != C_LIBRE:
+			visto = true
+		elif visto:
+			break
+	await get_tree().create_timer(0.15).timeout
+	return maximo
+
+
+func _seccion_camara() -> void:
+	var piv: Node = _jug.get_node("PivoteCamara")
+	await get_tree().create_timer(2.6).timeout   # cadena a 0 → jab
+	var trauma := await _golpe_y_maximos(func() -> float: return float(piv.call("trauma_actual")))
+	_check(trauma > 0.2, "sacudida: el impacto suma trauma a la cámara (máx %.2f)" % trauma)
+	var fov := await _golpe_y_maximos(func() -> float: return -float(piv.call("fov_extra_actual")))
+	_check(fov > 0.5, "FOV punch: la cámara se acerca un instante (máx %.2f°)" % fov)
+	await get_tree().create_timer(1.0).timeout
+	var cam := piv.get_node("Brazo/Camara") as Camera3D
+	_check(absf(cam.rotation.z) < 0.002 and absf(cam.h_offset) < 0.01,
+			"la cámara vuelve a reposo (roll %.4f, h_offset %.4f)" % [cam.rotation.z, cam.h_offset])
+	_juice.set("sacudida_activa", false)
+	_juice.set("fov_punch_activo", false)
+	var t_off := await _golpe_y_maximos(func() -> float: return float(piv.call("trauma_actual")))
+	var f_off := await _golpe_y_maximos(func() -> float: return absf(float(piv.call("fov_extra_actual"))))
+	_check(t_off < 0.001 and f_off < 0.01, "interruptores apagados: ni sacudida ni FOV (%.3f / %.3f)" % [t_off, f_off])
+	_juice.set("sacudida_activa", true)
+	_juice.set("fov_punch_activo", true)
 
 
 func _process(_delta: float) -> void:

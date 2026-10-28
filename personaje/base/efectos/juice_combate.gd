@@ -26,6 +26,18 @@ extends Node
 ## note el "temblor" de la pose sin parecer un corte).
 @export_range(0.0, 0.5, 0.01) var hitstop_escala := 0.04
 
+# ------------------------------------------------------- CÁMARA: SACUDIDA + FOV
+@export_group("Camara")
+## Sacudida por trauma (ruido coherente, trauma²) en cada impacto confirmado.
+@export var sacudida_activa := true
+## Trauma que suma cada eslabón (jab, cros, gancho) y el remate. 0..1.
+@export var trauma_por_golpe := PackedFloat32Array([0.28, 0.36, 0.5])
+@export var trauma_remate := 0.62
+## Golpe de FOV ("punch-in", grados; negativo = la cámara se acerca un instante).
+@export var fov_punch_activo := true
+@export var fov_punch_por_golpe := PackedFloat32Array([-0.8, -1.2, -2.4])
+@export var fov_punch_remate := -4.0
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -68,6 +80,26 @@ func _on_golpe_conectado(objetivo: Node3D, _dir: Vector3, indice: int, remate: b
 	if hitstop_activo:
 		var dur := hitstop_remate if remate else _valor_por_golpe(hitstop_por_golpe, indice, 0.05)
 		_hitstop(dur)
+	_camara_golpe(indice, remate)
+
+
+# ------------------------------------------------------------------ cámara
+func _pivote_camara() -> Node:
+	return _jugador.get_node_or_null("PivoteCamara") if _jugador != null else null
+
+
+func _camara_golpe(indice: int, remate: bool) -> void:
+	var piv := _pivote_camara()
+	if piv == null or not piv.has_method("impulso_golpe"):
+		return
+	var trauma := 0.0
+	var fov := 0.0
+	if sacudida_activa:
+		trauma = trauma_remate if remate else _valor_por_golpe(trauma_por_golpe, indice, 0.3)
+	if fov_punch_activo:
+		fov = fov_punch_remate if remate else _valor_por_golpe(fov_punch_por_golpe, indice, -1.0)
+	if trauma > 0.0 or not is_zero_approx(fov):
+		piv.call("impulso_golpe", trauma, fov)
 
 
 # ------------------------------------------------------------------ tiempo
