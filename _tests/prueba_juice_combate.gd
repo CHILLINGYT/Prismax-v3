@@ -102,7 +102,63 @@ func _secciones_extra() -> void:
 	await _seccion_reaccion()
 	await _seccion_pantalla()
 	await _seccion_vibracion()
+	await _seccion_timing()
 	await _seccion_camara_lenta()
+
+
+## Pulsa al EMPEZAR el gancho y no vuelve a pulsar: ¿sale otro golpe después?
+func _pulsar_al_inicio_del_gancho() -> int:
+	await _nueva_seccion()
+	await _lanzar_golpe()   # jab
+	await _lanzar_golpe()   # cros
+	Input.action_press("atacar")
+	await get_tree().physics_frame
+	Input.action_release("atacar")
+	# Espera a que el gancho arranque y vuelve a pulsar JUSTO al empezar.
+	for _i in 60:
+		await get_tree().physics_frame
+		if int(_jug.get("c_estado")) == 2 and int(_jug.get("c_cadena")) == 2:
+			break
+	await get_tree().physics_frame
+	var lanzados0 := _lanzados
+	Input.action_press("atacar")
+	await get_tree().physics_frame
+	Input.action_release("atacar")
+	for _i in 120:
+		await get_tree().physics_frame
+	return _lanzados - lanzados0
+
+
+func _seccion_timing() -> void:
+	_juice.set("buffer_permisivo_activo", false)
+	var sin := await _pulsar_al_inicio_del_gancho()
+	_juice.set("buffer_permisivo_activo", true)
+	var con := await _pulsar_al_inicio_del_gancho()
+	_check(sin == 0, "buffer original (0,2 s): pulsar al inicio del gancho se PIERDE (%d golpes)" % sin)
+	_check(con == 1, "buffer permisivo (0,4 s): la misma pulsación encadena UN golpe (%d)" % con)
+	# Acercamiento: enemigo a 5 m; tiempo hasta empezar el golpe.
+	var tiempos := []
+	for activo in [false, true]:
+		_juice.set("lunge_activo", activo)
+		await _nueva_seccion()
+		var adelante := (_jug.get("ataque_visual") as Node3D).global_transform.basis * Vector3(0.0, 0.0, -5.0)
+		_enemigo.global_position = _jug.global_position + adelante
+		await get_tree().create_timer(0.3).timeout
+		var t0 := Time.get_ticks_msec()
+		Input.action_press("atacar")
+		await get_tree().physics_frame
+		Input.action_release("atacar")
+		var t := -1.0
+		for _i in 200:
+			await get_tree().physics_frame
+			if int(_jug.get("c_estado")) == 2:
+				t = float(Time.get_ticks_msec() - t0) / 1000.0
+				break
+		tiempos.append(t)
+		for _i in 90:
+			await get_tree().physics_frame
+	_check(tiempos[0] > 0.0 and tiempos[1] > 0.0 and tiempos[1] < tiempos[0],
+			"snap: acercarse a 5 m es más rápido (%.2f s → %.2f s)" % [tiempos[0], tiempos[1]])
 
 
 ## No hay mando en la prueba: se comprueba que la orden se PIDE una vez por

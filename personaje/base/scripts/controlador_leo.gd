@@ -43,6 +43,10 @@ signal golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bool
 ## `false` = comportamiento anterior (para comparar).
 const C_SONIDO_SOLO_AL_CONECTAR := true
 
+## Aceleración (m/s²) del "acercarse" del FreeFlow hacia el objetivo. Por defecto
+## la de siempre (C_ACELERACION); JuiceCombate la sube si `lunge_activo`.
+var c_aceleracion_acercar: float = 30.0
+
 # ------------------------------------------------------------------ Leo: forma humana
 const H_VEL_CAMINAR := 3.0
 const H_VEL_CORRER := 5.5
@@ -4659,6 +4663,10 @@ func _combo_combate() -> Variant:
 		_c_combo = ComboSystem.new(keep, buf)
 	return _c_combo
 
+## Lectura pública del buffer/combo vigente (para la capa de pulido).
+func combo_actual() -> Variant:
+	return _combo_combate()
+
 ## Enemigos del banco de encuentro (vacío si la partida aún no registra ninguno:
 ## el golpe sale igual y conecta con lo que alcance en el mundo).
 func _enemigos_combate() -> Array:
@@ -4764,8 +4772,8 @@ func _c_estado_acercarse(delta: float) -> void:
 	_c_girar_hacia_objetivo(delta)
 	var spd := c_golpe.approach_speed if c_golpe != null else C_VEL_CAMINAR
 	var dirn := _dir_plana(c_objetivo)
-	velocity.x = move_toward(velocity.x, dirn.x * spd, C_ACELERACION * delta)
-	velocity.z = move_toward(velocity.z, dirn.z * spd, C_ACELERACION * delta)
+	velocity.x = move_toward(velocity.x, dirn.x * spd, c_aceleracion_acercar * delta)
+	velocity.z = move_toward(velocity.z, dirn.z * spd, c_aceleracion_acercar * delta)
 	if not is_on_floor():
 		velocity.y -= C_GRAVEDAD * delta
 	elif velocity.y < 0.0:

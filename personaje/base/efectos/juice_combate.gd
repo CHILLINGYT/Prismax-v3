@@ -155,6 +155,24 @@ var _t_pantalla_us := 0
 @export var vibracion_dano := Vector3(0.6, 0.5, 0.18)
 var _vibraciones := 0
 
+# ------------------------------------------------- TIMING Y "SNAP" (tuning)
+@export_group("Timing")
+## Buffer de entrada más permisivo. El gancho no se puede encadenar hasta pasados
+## 0,284 s (preparación) + 0,10 s (activo) = 0,384 s, pero el buffer del módulo
+## guardaba la pulsación 0,2 s: pulsar al principio del gancho se PERDÍA y la
+## cadena parecía "trabarse". Con 0,40 s cualquier pulsación hecha durante un
+## golpe sale en cuanto ese golpe lo permite. Una pulsación = un golpe, igual.
+@export var buffer_permisivo_activo := true
+@export_range(0.1, 0.8, 0.01) var buffer_segundos := 0.40
+## "Snap" del acercamiento al objetivo: la misma velocidad máxima del módulo
+## (approach_speed 9 m/s), pero alcanzada antes. Con 30 m/s² tardaba 0,3 s en
+## llegar a velocidad (la mitad de un acercamiento corto); con 75, 0,12 s: el
+## personaje "salta" hacia el enemigo como en Arkham, sin teletransportarse.
+@export var lunge_activo := true
+@export var lunge_aceleracion := 75.0
+const ACELERACION_ORIGINAL := 30.0
+var _buffer_original := -1.0
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -190,6 +208,24 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	_actualizar_tiempo()
 	_actualizar_pantalla(delta)
+	_aplicar_timing()
+
+
+## Se reaplica cada fotograma (barato): el combo puede ser el del gestor del
+## encuentro o el propio del controlador, y ambos pueden aparecer más tarde.
+func _aplicar_timing() -> void:
+	if _jugador == null:
+		return
+	if "c_aceleracion_acercar" in _jugador:
+		_jugador.set("c_aceleracion_acercar", lunge_aceleracion if lunge_activo else ACELERACION_ORIGINAL)
+	if not _jugador.has_method("combo_actual"):
+		return
+	var combo: Variant = _jugador.call("combo_actual")
+	if combo == null:
+		return
+	if _buffer_original < 0.0:
+		_buffer_original = float(combo.buffer_time)
+	combo.buffer_time = buffer_segundos if buffer_permisivo_activo else _buffer_original
 
 
 # ------------------------------------------------------------------ eventos
