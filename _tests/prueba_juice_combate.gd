@@ -104,7 +104,35 @@ func _secciones_extra() -> void:
 	await _seccion_vibracion()
 	await _seccion_timing()
 	await _seccion_amenaza()
+	await _seccion_contador()
 	await _seccion_camara_lenta()
+
+
+func _seccion_contador() -> void:
+	await _nueva_seccion()
+	_check(int(_juice.call("combo_visible")) == 0, "contador: oculto antes de empezar")
+	await _lanzar_golpe()
+	_check(int(_juice.call("combo_visible")) == 0, "contador: con 1 golpe todavía no se muestra")
+	await _lanzar_golpe()
+	await _lanzar_golpe()
+	var n := int(_juice.call("combo_visible"))
+	_check(n == 3, "contador: tres impactos → ×3 (%d)" % n)
+	await RenderingServer.frame_post_draw
+	_foto("juice_contador")
+	# Golpe al aire: no suma.
+	var pos := _enemigo.global_position
+	_enemigo.global_position = pos + Vector3(30, 0, 30)
+	await _lanzar_golpe()
+	_check(int(_juice.call("combo_visible")) == 3, "contador: un golpe al aire no suma (%d)" % int(_juice.call("combo_visible")))
+	_enemigo.global_position = pos
+	await get_tree().create_timer(2.6).timeout
+	_check(int(_juice.call("combo_visible")) == 0, "contador: se rompe tras 2 s sin acertar")
+	await _nueva_seccion()
+	await _lanzar_golpe()
+	await _lanzar_golpe()
+	(_jug.get_node("Estadisticas")).call("recibir_danio", 1.0)
+	await get_tree().create_timer(0.5).timeout
+	_check(int(_juice.call("combo_visible")) == 0, "contador: recibir daño rompe el combo")
 
 
 ## Se deja atacar al enemigo (alcance real 2,9 m): mientras ataca, aviso encima.

@@ -188,6 +188,24 @@ var _buffer_original := -1.0
 const SHADER_AMENAZA := preload("res://personaje/base/efectos/shaders/juice_indicador_amenaza.gdshader")
 var _indicadores := {}   ## enemigo (instance_id) -> MeshInstance3D
 
+# ---------------------------------------------------------- CONTADOR DE COMBO
+@export_group("Contador de combo")
+## "×N  COMBO" arriba a la derecha. Cuenta SOLO impactos confirmados (el
+## `count` del ComboSystem del módulo también suma golpes al aire; no se toca
+## porque lo usa su lógica). Se rompe al pasar `contador_ventana` s sin acertar
+## o al recibir daño, como en Arkham. Aparece a partir de 2 golpes.
+@export var contador_combo_activo := true
+@export var contador_ventana := 2.0
+@export var contador_minimo := 2
+const CAPA_CONTADOR := 15   ## por encima del HUD (10), por debajo del panel de misión (20)
+var _combo_n := 0
+var _combo_t := 0.0
+var _capa_contador: CanvasLayer = null
+var _caja_contador: Control = null
+var _lbl_numero: Label = null
+var _lbl_texto: Label = null
+var _tw_contador: Tween = null
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -204,6 +222,7 @@ func _ready() -> void:
 		return
 	_preparar_audio()
 	_preparar_pantalla()
+	_preparar_contador()
 	var stats := _jugador.get_node_or_null("Estadisticas")
 	if stats != null and stats.has_signal("danio_recibido"):
 		stats.connect("danio_recibido", _on_danio_recibido)
@@ -230,6 +249,7 @@ func _process(delta: float) -> void:
 	_actualizar_pantalla(delta)
 	_aplicar_timing()
 	_actualizar_indicadores()
+	_actualizar_contador(delta)
 
 
 ## Se reaplica cada fotograma (barato): el combo puede ser el del gestor del
@@ -271,6 +291,8 @@ func _on_golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bo
 		_estallido(objetivo, dir, indice, remate)
 	if reaccion_activa:
 		_reaccion(objetivo, dir, indice, remate)
+	if contador_combo_activo:
+		_sumar_combo()
 	if vibracion_activa:
 		var v: Vector3 = vibracion_remate
 		if not remate and not vibracion_por_golpe.is_empty():
@@ -500,6 +522,7 @@ func vibraciones_pedidas() -> int:
 
 
 func _on_danio_recibido(_cantidad: float) -> void:
+	_romper_combo()
 	if vibracion_activa:
 		_vibrar(vibracion_dano)
 	if aberracion_dano_activa:
@@ -550,6 +573,95 @@ func pantalla_pico_y_reset() -> float:
 
 func pantalla_visible() -> bool:
 	return _rect_pantalla != null and _rect_pantalla.visible
+
+
+# ------------------------------------------------------- contador de combo
+func _preparar_contador() -> void:
+	_capa_contador = CanvasLayer.new()
+	_capa_contador.name = "JuiceContadorCombo"
+	_capa_contador.layer = CAPA_CONTADOR
+	add_child(_capa_contador)
+	# Caja anclada arriba a la derecha (se adapta a cualquier resolución).
+	_caja_contador = VBoxContainer.new()
+	_caja_contador.name = "Caja"
+	_caja_contador.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_caja_contador.offset_left = -260.0
+	_caja_contador.offset_right = -32.0
+	_caja_contador.offset_top = 120.0
+	_caja_contador.offset_bottom = 230.0
+	_caja_contador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_caja_contador.add_theme_constant_override("separation", -10)
+	_capa_contador.add_child(_caja_contador)
+	_lbl_numero = Label.new()
+	_lbl_numero.name = "Numero"
+	_lbl_numero.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_lbl_numero.theme_type_variation = &"ComboNumero"
+	_caja_contador.add_child(_lbl_numero)
+	_lbl_texto = Label.new()
+	_lbl_texto.name = "Texto"
+	_lbl_texto.text = "COMBO"
+	_lbl_texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_lbl_texto.theme_type_variation = &"ComboTexto"
+	_caja_contador.add_child(_lbl_texto)
+	# Estilo de respaldo legible sobre cualquier fondo (contorno + sombra). Si el
+	# proyecto define las variaciones ComboNumero/ComboTexto en su tema, mandan.
+	for l: Label in [_lbl_numero, _lbl_texto]:
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.08))
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+		l.add_theme_constant_override("shadow_offset_y", 3)
+	_lbl_numero.add_theme_font_size_override("font_size", 64)
+	_lbl_numero.add_theme_constant_override("outline_size", 12)
+	_lbl_numero.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45))
+	_lbl_texto.add_theme_font_size_override("font_size", 20)
+	_lbl_texto.add_theme_constant_override("outline_size", 6)
+	_lbl_texto.add_theme_color_override("font_color", Color(0.92, 0.94, 1.0))
+	_caja_contador.modulate.a = 0.0
+	_caja_contador.pivot_offset = Vector2(228.0, 40.0)
+
+
+func _sumar_combo() -> void:
+	_combo_n += 1
+	_combo_t = contador_ventana
+	if _lbl_numero == null or _combo_n < contador_minimo:
+		return
+	_lbl_numero.text = "×%d" % _combo_n
+	if _tw_contador != null and _tw_contador.is_valid():
+		_tw_contador.kill()
+	# "Punch": crece y vuelve; aparece de golpe y se apaga suave al romperse.
+	_caja_contador.modulate.a = 1.0
+	_caja_contador.scale = Vector2.ONE * 1.35
+	_tw_contador = _caja_contador.create_tween()
+	_tw_contador.set_ignore_time_scale(true)
+	_tw_contador.tween_property(_caja_contador, "scale", Vector2.ONE, 0.18) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _romper_combo() -> void:
+	if _combo_n == 0:
+		return
+	_combo_n = 0
+	_combo_t = 0.0
+	if _caja_contador == null or _caja_contador.modulate.a <= 0.0:
+		return
+	if _tw_contador != null and _tw_contador.is_valid():
+		_tw_contador.kill()
+	_tw_contador = _caja_contador.create_tween()
+	_tw_contador.set_ignore_time_scale(true)
+	_tw_contador.tween_property(_caja_contador, "modulate:a", 0.0, 0.35)
+
+
+func _actualizar_contador(delta: float) -> void:
+	if _caja_contador != null:
+		_caja_contador.visible = contador_combo_activo
+	if _combo_t > 0.0:
+		_combo_t -= delta
+		if _combo_t <= 0.0:
+			_romper_combo()
+
+
+func combo_visible() -> int:
+	return _combo_n if (_caja_contador != null and _caja_contador.modulate.a > 0.5 and _caja_contador.visible) else 0
 
 
 # ------------------------------------------------------- indicador de amenaza
