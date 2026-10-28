@@ -117,8 +117,7 @@ func _physics_process(delta: float) -> void:
 ## Quién NO debe ser golpeado: quien lo lanzó y cualquier enemigo (grupo
 ## "damageable"). Así no hay fuego amigo entre enemigos ni auto-daño.
 func _exclusiones() -> Array[RID]:
-	var excluir: Array[RID] = []
-	if _duenio is CollisionObject3D:
+	var excluir: Array[RID] = []	if _duenio is CollisionObject3D:
 		excluir.append((_duenio as CollisionObject3D).get_rid())
 	for e in get_tree().get_nodes_in_group(&"damageable"):
 		if e is CollisionObject3D:
