@@ -144,6 +144,17 @@ var _aberr := 0.0
 var _pantalla_max := 0.0
 var _t_pantalla_us := 0
 
+# ---------------------------------------------------------------- VIBRACIÓN
+@export_group("Vibracion")
+## Vibración de todos los mandos conectados (motor débil = "zumbido" agudo,
+## fuerte = golpe grave). Sin mando conectado no hace nada.
+@export var vibracion_activa := true
+## [débil, fuerte, segundos] por eslabón; el remate y el daño recibido aparte.
+@export var vibracion_por_golpe: Array[Vector3] = [Vector3(0.25, 0.10, 0.08), Vector3(0.30, 0.25, 0.10), Vector3(0.35, 0.55, 0.14)]
+@export var vibracion_remate := Vector3(0.45, 0.9, 0.22)
+@export var vibracion_dano := Vector3(0.6, 0.5, 0.18)
+var _vibraciones := 0
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -203,6 +214,11 @@ func _on_golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bo
 		_estallido(objetivo, dir, indice, remate)
 	if reaccion_activa:
 		_reaccion(objetivo, dir, indice, remate)
+	if vibracion_activa:
+		var v: Vector3 = vibracion_remate
+		if not remate and not vibracion_por_golpe.is_empty():
+			v = vibracion_por_golpe[clampi(indice, 0, vibracion_por_golpe.size() - 1)]
+		_vibrar(v)
 	if pantalla_golpe_activa and (indice >= 2 or remate):
 		_pulso_pantalla(blur_remate if remate else blur_gancho, aberracion_golpe,
 				_punto_contacto(objetivo, dir))
@@ -415,7 +431,20 @@ func _preparar_pantalla() -> void:
 	_capa_pantalla.add_child(_rect_pantalla)
 
 
+## Vibra todos los mandos conectados. `v` = (débil, fuerte, segundos).
+func _vibrar(v: Vector3) -> void:
+	_vibraciones += 1
+	for dispositivo in Input.get_connected_joypads():
+		Input.start_joy_vibration(dispositivo, clampf(v.x, 0.0, 1.0), clampf(v.y, 0.0, 1.0), maxf(v.z, 0.0))
+
+
+func vibraciones_pedidas() -> int:
+	return _vibraciones
+
+
 func _on_danio_recibido(_cantidad: float) -> void:
+	if vibracion_activa:
+		_vibrar(vibracion_dano)
 	if aberracion_dano_activa:
 		_pulso_pantalla(0.0, aberracion_dano, Vector3.INF)
 

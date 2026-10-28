@@ -101,7 +101,22 @@ func _secciones_extra() -> void:
 	await _seccion_destello()
 	await _seccion_reaccion()
 	await _seccion_pantalla()
+	await _seccion_vibracion()
 	await _seccion_camara_lenta()
+
+
+## No hay mando en la prueba: se comprueba que la orden se PIDE una vez por
+## impacto confirmado (y ninguna con el interruptor apagado).
+func _seccion_vibracion() -> void:
+	await _nueva_seccion()
+	var v0 := int(_juice.call("vibraciones_pedidas"))
+	await _lanzar_golpe()
+	_check(int(_juice.call("vibraciones_pedidas")) == v0 + 1, "vibración: una orden por impacto confirmado")
+	_juice.set("vibracion_activa", false)
+	var v1 := int(_juice.call("vibraciones_pedidas"))
+	await _lanzar_golpe()
+	_check(int(_juice.call("vibraciones_pedidas")) == v1, "vibracion_activa=false: ninguna orden")
+	_juice.set("vibracion_activa", true)
 
 
 func _seccion_pantalla() -> void:
