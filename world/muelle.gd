@@ -279,6 +279,9 @@ func _construir_escalera() -> void:
 	esc.texto_prompt = "Presioná E para subir al muelle"
 	esc.texto_prompt_bajada = "Presioná E para bajar al agua"
 	esc.mirada_local = Vector3(-1.0, 0.0, 0.0)
+	# Misma compensación que la escalera del barco: el clip de trepada está espejado
+	# (retarget de Mixamo) y sin el PI el cuerpo sube de espaldas al muelle.
+	esc.giro_cuerpo = PI
 	var paso := (y_arriba - 0.2 - (y_abajo + 0.2)) / float(n - 1)
 	esc.separacion_peldanos = paso
 	esc.peldanos_por_ciclo = 2.0

@@ -63,6 +63,12 @@ const GRUPO_DANIO := &"damageable"
 @export var clip_idle: StringName = &"idle_combate"
 @export var clip_andar: StringName = &"caminar_combate"
 @export var clip_muerte: StringName = &"muerte_1"
+## Animación de REACCIÓN al recibir un golpe (la librería horneada del enemigo ya
+## trae `recibir_combate`/`recibir_arma`): se reproduce UNA vez por impacto y
+## durante `duracion_recibir` manda sobre la locomoción, para que el golpe se
+## sienta en el cuerpo del enemigo.
+@export var clip_recibir: StringName = &"recibir_combate"
+@export_range(0.05, 1.0, 0.05) var duracion_recibir: float = 0.35
 ## Mezcla (s) al cambiar de clip.
 @export var mezcla: float = 0.2
 ## Velocidad horizontal (m/s) a partir de la cual se considera que anda.
@@ -80,6 +86,9 @@ var _vida: float = 0.0
 var _t_fase: float = 0.0
 var _espera: float = 0.0
 var _t_empuje: float = 0.0
+## Tiempo que queda de la animación de reacción al golpe (manda sobre la
+## locomoción mientras dura; se rearma con cada impacto).
+var _t_recibir: float = 0.0
 var _flash: float = 0.0
 var _muerto: bool = false
 var _velocidad_propia: float = 0.0
@@ -120,6 +129,7 @@ func _physics_process(delta: float) -> void:
 	_actualizar_flash(delta)
 	_actualizar_barra_por_camara()
 	_espera = maxf(0.0, _espera - delta)
+	_t_recibir = maxf(0.0, _t_recibir - delta)
 
 	var jugador: Node3D = _obtener_jugador()
 	if jugador == null:
@@ -273,6 +283,9 @@ func _duracion_clip(clip: StringName) -> float:
 func _actualizar_animacion() -> void:
 	if _estado == Estado.ATACAR:
 		return
+	# Mientras dura la reacción al golpe, la locomoción NO pisa ese clip.
+	if _t_recibir > 0.0:
+		return
 	var sp := Vector2(velocity.x, velocity.z).length()
 	_animar(clip_andar if sp > umbral_andar else clip_idle)
 
@@ -328,6 +341,12 @@ func _aplicar_dano(cantidad: float, dir: Vector3, empuje: float, aturde: float) 
 		return
 	_vida = maxf(0.0, _vida - cantidad)
 	_flash = 1.0
+	# REACCIÓN al golpe (animación REAL del enemigo, una vez por impacto) y
+	# EFECTO de impacto en el punto de contacto. Las dos cosas van aquí, donde el
+	# daño YA está confirmado: un golpe que no conecta no llega a este punto.
+	_t_recibir = duracion_recibir
+	_animar_una_vez(clip_recibir)
+	VfxImpacto.reproducir(self, dir, cantidad)
 	if empuje > 0.0 and dir.length_squared() > 0.0001:
 		velocity.x += dir.x * empuje
 		velocity.z += dir.z * empuje
@@ -403,11 +422,17 @@ func _dir_plano_hacia(objetivo: Node3D) -> Vector3:
 	dif.y = 0.0
 	return dif.normalized() if dif.length_squared() > 0.0001 else Vector3.ZERO
 
+## ¿El jugador está dentro del arco frontal? El vector se mide contra el CENTRO DE
+## GOLPE del jugador (contrato `get_hit_center`, Tarea 6): cuerpo contra cuerpo, no
+## origen contra origen. Para un cuerpo de pie el resultado es el mismo de siempre
+## (el centro cae en la misma vertical que los pies); con el cuerpo desplazado,
+## agachado o volando, es el criterio correcto.
 func _en_arco(jugador: Node3D, minimo: float) -> bool:
-	var hacia := _dir_plano_hacia(jugador)
+	var c := ContactoGolpe.centro(jugador)
+	var hacia := Vector3(c.x - global_position.x, 0.0, c.z - global_position.z)
 	if hacia.length_squared() <= 0.0001:
 		return false
-	return (-global_transform.basis.z).normalized().dot(hacia) >= minimo
+	return (-global_transform.basis.z).normalized().dot(hacia.normalized()) >= minimo
 
 ## ¿Hay línea de visión clara hasta el jugador (sin paredes de por medio)?
 func _con_linea_de_vision(jugador: Node3D, altura: float) -> bool:

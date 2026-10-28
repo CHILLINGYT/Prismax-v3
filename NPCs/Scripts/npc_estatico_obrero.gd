@@ -364,13 +364,17 @@ func _cargar_dialogo() -> DialogueResource:
 		for e in resultado.errors:
 			push_error("[Obrero] Error en %s: %s" % [RUTA_DIALOGO, str(e)])
 		return null
-	var recurso := DialogueResource.new()
-	recurso.using_states = resultado.using_states
-	recurso.cues = resultado.cues
-	recurso.first_cue = resultado.first_cue
-	recurso.character_names = resultado.character_names
-	recurso.lines = resultado.lines
-	return recurso
+	# Nombre propio para el recurso compilado: el `var recurso` de arriba (el del
+	# `load`) ya vive en este mismo ámbito y GDScript rechaza redeclararlo
+	# ("is declared below in the parent block"), que dejaba el script SIN COMPILAR.
+	# (Recurso de respaldo: sólo se usa si el importador del addon aún no lo hizo.)
+	var recurso_compilado := DialogueResource.new()
+	recurso_compilado.using_states = resultado.using_states
+	recurso_compilado.cues = resultado.cues
+	recurso_compilado.first_cue = resultado.first_cue
+	recurso_compilado.character_names = resultado.character_names
+	recurso_compilado.lines = resultado.lines
+	return recurso_compilado
 
 ## Indicador contextual "E — Hablar con Iván": una capa de interfaz propia (no toca el
 ## HUD del juego), centrada abajo y por encima de la banda del diálogo. Mismo lenguaje

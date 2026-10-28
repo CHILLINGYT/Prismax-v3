@@ -110,6 +110,7 @@ var _fase_arranque: float = 0.25
 
 
 func _ready() -> void:
+	add_to_group("ciclo_dia_noche")
 	_fase_arranque = fase_dia_pleno() if arrancar_en_dia else fase_inicial
 	_fase = _fase_arranque
 	if sol == null:
@@ -127,6 +128,22 @@ func _process(delta: float) -> void:
 
 ## Avanza la fase. El día y la noche ocupan media vuelta (0.5) cada uno, y cada
 ## mitad avanza a su propio ritmo, así que se pueden ajustar por separado.
+## Fase actual del ciclo en [0, 1). La leen los sitios que tienen que ir A LA HORA
+## DEL CICLO sin crear un segundo reloj (por ejemplo el interior de la casa, que
+## arranca con la fase que tenía la calle al entrar). No se llama `fase()` porque
+## media clase usa ese nombre para sus parámetros.
+func fase_actual() -> float:
+	return _fase
+
+
+## Coloca el ciclo en una fase concreta (y aplica ya su estado). Sólo lo usan los
+## cambios de escena que CONTINÚAN el tiempo real: entrar y salir de la casa. Si no
+## se llama, el ciclo arranca como siempre (en DÍA, o en `fase_inicial`).
+func poner_fase(f: float) -> void:
+	_fase = fposmod(f, 1.0)
+	_aplicar()
+
+
 func _avanzar(delta: float) -> void:
 	var es_dia: bool = _fase >= 0.25 and _fase < 0.75
 	var duracion: float = duracion_dia_segundos if es_dia else duracion_noche_segundos

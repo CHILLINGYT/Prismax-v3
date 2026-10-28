@@ -298,6 +298,9 @@ const A_T_SALIDA_AGUA := 1.40
 ## trepada (climb_ladder) va ATADA al progreso del recorrido, así que la animación
 ## acompaña al movimiento y pies y manos caen siempre en los mismos peldaños.
 const E_VEL_ESCALERA := 1.35
+## Duración (s) del giro de salida de la trepada: al terminar el recorrido el cuerpo
+## vuelve, girando poco a poco, a la orientación normal (ver `_terminar_trepada`).
+const E_GIRO_SALIDA := 0.35
 ## ESCALERA: el avance por ciclo ya NO es una constante del controlador. Cada
 ## escalera (EscaleraBarco) declara la separación REAL de sus peldaños y cuántos
 ## avanza el clip por ciclo, y con eso se ata la animación al movimiento; el mismo
@@ -654,7 +657,21 @@ const IMPULSO_AVANCE := 4.5
 # toca en este ajuste. Valores configurables aquí, en un único sitio.
 const VEL_ATAQUE_DANIO := 7.0
 const VEL_ATAQUE_DANIO_REMATE := VEL_ATAQUE_DANIO * 1.6
-const VEL_ATAQUE_IMPACTO := 0.10      # s desde el inicio de la animación al contacto
+const VEL_ATAQUE_IMPACTO := 0.10      # respaldo (s) si el clip no estuviera cargado
+## Instante de CONTACTO de cada golpe del combo, como FRACCIÓN de la duración de su
+## clip. Medido sobre los clips reales (sonda `_tests/sonda_contacto_velocista_v2`)
+## midiendo cuánto se adelanta la mano o el pie que golpea respecto al torso: el
+## máximo de esa extensión es el fotograma en que el golpe conecta de verdad.
+##   combo-1 jab izquierdo    0,12 s de 0,933 s -> 0,129
+##   combo-2 cruzado derecho  0,17 s de 1,233 s -> 0,138
+##   combo-3 patada izquierda 0,47 s de 1,167 s -> 0,403
+##   combo-4 remate derecho   0,13 s de 1,067 s -> 0,122
+## Guardar la fracción (y no el segundo) hace que el daño siga cayendo en el
+## contacto aunque un clip cambie de duración.
+const VEL_ATAQUE_IMPACTO_U := [0.129, 0.138, 0.403, 0.122]
+## Frenado breve de la animación del ENEMIGO golpeado (hit-stop): da peso al golpe.
+const VEL_GOLPE_HITSTOP := 0.06       # s que dura el frenado
+const VEL_GOLPE_HITSTOP_ESCALA := 0.15  # a qué velocidad se frena su animación
 const VEL_ATAQUE_ALCANCE := 1.9       # m por delante del cuerpo
 const VEL_ATAQUE_RADIO := 1.0         # m alrededor del punto de impacto
 const VEL_ATAQUE_ALTURA := 1.5        # m de margen vertical
@@ -826,6 +843,12 @@ var a_clip_transicion: String = ""
 var a_subiendo_escalera: bool = false
 # La escalera (EscaleraBarco) que se está trepando, o null.
 var _escalera_actual: EscaleraBarco = null
+## Giro de SALIDA de la trepada: al coronar la cubierta (o al llegar al agua) el
+## cuerpo gira sobre sí mismo hasta la orientación normal, porque el clip de
+## trepada mira al lado contrario y su compensación (`giro_cuerpo`) sólo vale
+## mientras se trepa. Sin este giro el cuerpo quedaría del revés al terminar.
+var _giro_salida_t: float = 0.0
+var _giro_salida_y: float = 0.0
 # Progreso de la trepada: 0 = en el agua al pie, 1 = de pie sobre la superficie.
 # Manda la posición del cuerpo Y la fase del clip (así no hay desfase posible).
 var _escalera_u: float = 0.0
@@ -944,6 +967,10 @@ var _t_ataque: float = 0.0
 ## pendiente si se cancela o si empieza otro) y enemigos ya embestidos por la
 ## supervelocidad actual (para no repetir el daño cada fotograma).
 var _vel_golpe_id: int = 0
+## Golpe del velocista pendiente de contacto: índice de combo (0 = ninguno) y el
+## clip que debe estar reproduciéndose para que el impacto siga siendo válido.
+var _vel_impacto_indice: int = 0
+var _vel_impacto_clip: String = ""
 var _super_golpeados: Dictionary = {}
 ## Máscara de colisión guardada mientras dura la arremetida (-1 = ninguna activa).
 var _mascara_guardada: int = -1
@@ -1196,6 +1223,16 @@ func _physics_process(delta: float) -> void:
 	# es suelo firme igual que la orilla.
 	if is_on_floor():
 		_punto_seguro = global_position
+	# Golpe del velocista: el daño se aplica cuando la ANIMACIÓN llega de verdad al
+	# fotograma de contacto (el reloj del clip es lo que se ve en pantalla).
+	_revisar_contacto_velocista()
+	# Casa de Leo: con su puerta a mano (o la salida, dentro), INTERACTUAR (E) entra
+	# o sale. Las escaleras del agua tienen preferencia: si hay una a mano, la E es
+	# para ellas y esto no se toca.
+	if not a_subiendo_escalera and not _dialogo_abierto \
+			and escalera_a_mano() == null and escalera_para_bajar() == null \
+			and Input.is_action_just_pressed("interactuar"):
+		_intentar_usar_casa()
 	if forma == Forma.HUMANO:
 		_procesar_humano(delta)
 	elif forma == Forma.ACUATICO:
@@ -1443,6 +1480,22 @@ func _radio_capsula() -> float:
 	if capsula != null and capsula.shape is CapsuleShape3D:
 		return (capsula.shape as CapsuleShape3D).radius
 	return 0.4
+
+
+## CONTRATO DE GOLPE del jugador (Tarea 6): punto y radio REALES de su cuerpo,
+## medidos de su cápsula de colisión. Lo usan los enemigos al golpearlo: antes medían
+## contra el ORIGEN (los pies) del jugador, así que un enemigo calculaba la distancia
+## y el arco contra el suelo y no contra el cuerpo que tiene delante. El resto de
+## sistemas del jugador (daño, vida, escudo) no se toca: esto sólo describe el cuerpo.
+func get_hit_center() -> Vector3:
+	var capsula := get_node_or_null("Colision") as CollisionShape3D
+	if capsula != null:
+		return capsula.global_position
+	return global_position + Vector3.UP
+
+
+func get_hit_radius() -> float:
+	return _radio_capsula()
 
 
 ## Ascenso de bordillos durante la EJECUCIÓN del trazado del Velocista. Usa el
@@ -3035,7 +3088,36 @@ func texto_interaccion() -> String:
 	var esc_bajar := escalera_para_bajar()
 	if esc_bajar != null:
 		return esc_bajar.texto_prompt_bajada
+	# Casa de Leo: la puerta de la calle o la salida del interior, si está a mano.
+	var casa := _casa_a_mano()
+	if casa != null:
+		return String(casa.call("texto_prompt"))
 	return ""
+
+
+## Nodo de la casa de Leo que Leo tiene a mano: la PUERTA (en la ciudad) o la
+## SALIDA (dentro de la casa). Devuelve null si no hay ninguno cerca, y entonces el
+## HUD retira el aviso solo. No crea ningún aviso propio: los dos nodos publican su
+## texto y el HUD lo pinta como el de las escaleras.
+func _casa_a_mano() -> Node3D:
+	for grupo in [&"puerta_casa_leo", &"salida_interior"]:
+		for n in get_tree().get_nodes_in_group(grupo):
+			var nodo := n as Node3D
+			if nodo == null or not nodo.is_inside_tree():
+				continue
+			if nodo.has_method("en_rango") and bool(nodo.call("en_rango")):
+				return nodo
+	return null
+
+
+## INTERACTUAR (E) con la casa: entra si está en la puerta de la calle, sale si está
+## en la puerta interior. Cada nodo decide si puede (radio, guardas y bloqueo) y la
+## carga la arranca la pantalla de carga del juego.
+func _intentar_usar_casa() -> void:
+	var nodo := _casa_a_mano()
+	if nodo == null or not nodo.has_method("intentar_usar"):
+		return
+	nodo.call("intentar_usar")
 
 
 ## Orienta el cuerpo hacia el casco (dirección de mirada de la escalera), con el
@@ -3133,6 +3215,18 @@ func _procesar_trepada(delta: float) -> void:
 ## superficie (subida). Con [param soltar] (salida con CTRL) sólo suelta el anclaje:
 ## el cuerpo queda donde esté y la lógica de agua/gravedad se encarga.
 func _terminar_trepada(soltar: bool) -> void:
+	# GIRO DE SALIDA: se programa ANTES de soltar el anclaje, con la escalera
+	# todavía a mano. El clip de trepada mira al lado contrario (se compensa con
+	# `giro_cuerpo` mientras dura), así que al terminar hay que devolver el cuerpo a
+	# la orientación normal: en cubierta queda mirando a la cubierta (hacia donde
+	# sigue el barco) y en el agua, mirando al barco. Se hace girando poco a poco
+	# (no de golpe) al ritmo de giro del nado.
+	if not soltar and _escalera_actual != null and is_instance_valid(_escalera_actual):
+		var dir_esc: Vector3 = _escalera_actual.direccion_mirada()
+		dir_esc.y = 0.0
+		if dir_esc.length_squared() > 0.0001:
+			_giro_salida_y = atan2(-dir_esc.x, -dir_esc.z)
+			_giro_salida_t = E_GIRO_SALIDA
 	a_subiendo_escalera = false
 	_escalera_actual = null
 	_escalera_bajando = false
@@ -3168,6 +3262,17 @@ func _tecla_vertical_agua() -> bool:
 
 
 func _orientar_acuatico(delta: float, dir: Vector3) -> void:
+	# Giro de salida de la trepada (si acaba de terminar): devuelve el cuerpo a la
+	# orientación normal con el mismo tope de velocidad. Si el jugador ya está
+	# moviéndose, su dirección manda y este giro se cancela.
+	if _giro_salida_t > 0.0:
+		if dir.length() > 0.05:
+			_giro_salida_t = 0.0
+		else:
+			_giro_salida_t = maxf(0.0, _giro_salida_t - delta)
+			var error_salida := wrapf(_giro_salida_y - acuatico.rotation.y, -PI, PI)
+			var paso_salida := clampf(error_salida, -A_GIRO_ACUATICO * delta, A_GIRO_ACUATICO * delta)
+			acuatico.rotation.y = wrapf(acuatico.rotation.y + paso_salida, -PI, PI)
 	if dir.length() < 0.05:
 		return
 	var objetivo := atan2(-dir.x, -dir.z)
@@ -4407,8 +4512,8 @@ func _procesar_combate(delta: float) -> void:
 		c_salto_aire = false
 		c_doble_usado = false
 	# La ventana de combo se agota con el tiempo: en cuanto pasa combo_keep_time sin
-	# un golpe confirmado, el combo está muerto y la próxima pulsación empieza por
-	# el primer golpe de la cadena.
+	# un golpe EJECUTADO (acierte o no), el combo está muerto y la próxima pulsación
+	# empieza por el primer golpe de la cadena.
 	c_combo_t = maxf(c_combo_t - delta, 0.0)
 
 	var dir := _direccion_entrada()
@@ -4616,6 +4721,12 @@ func _c_iniciar_fase_golpe() -> void:
 	c_estado = C_E.PREPARAR
 	c_fase = c_golpe.windup
 	c_golpe_hecho = false
+	# LA VENTANA DE COMBO SE REFRESCA AL EJECUTAR EL GOLPE, no sólo al conectar:
+	# así la cadena recto → cruzado → gancho se puede COMPLETAR ENTERA aunque
+	# ninguno de los golpes acierte (se lanzan al aire). Los golpes que SÍ
+	# conectan la refrescan igual (ver `_c_aplicar_golpe`/`_c_golpe_esfera`), de
+	# modo que acertar nunca acorta la cadena: sólo confirma el eslabón.
+	_c_refrescar_combo()
 	# El clip del golpe se reproduce desde el principio y manda sobre la
 	# locomoción hasta que termina la recuperación. Cada golpe lleva SU velocidad
 	# de reproducción (golpes ágiles): las fases ya vienen divididas por ella, así
@@ -4747,11 +4858,11 @@ func _c_encadenar_si_hay() -> bool:
 	return true
 
 
-## Elige el golpe que toca. Con la ventana de combo VIVA (el último golpe conectó
-## hace menos de combo_keep_time) la cadena AVANZA y vuelve al primero tras el
-## último; con el combo muerto, empieza por el primero. Es lo que hace que tres
-## pulsaciones seguidas —aunque haya un respiro entre ellas— saquen recto, cruzado y
-## gancho en orden, sin quedarse trabado.
+## Elige el golpe que toca. Con la ventana de combo VIVA (el último golpe se lanzó
+## hace menos de combo_keep_time, haya conectado o no) la cadena AVANZA y vuelve al
+## primero tras el último; con el combo muerto, empieza por el primero. Es lo que
+## hace que tres pulsaciones seguidas —aunque haya un respiro entre ellas, o aunque
+## ninguna acierte— saquen recto, cruzado y gancho en orden, sin quedarse trabado.
 func _c_elegir_golpe(cadena: Array) -> void:
 	if cadena.is_empty():
 		return
@@ -4762,8 +4873,13 @@ func _c_elegir_golpe(cadena: Array) -> void:
 	c_golpe = cadena[c_cadena]
 
 
-## Refresca la ventana de combo: el golpe acaba de CONECTAR. Mientras siga viva, la
-## próxima pulsación continúa la cadena en vez de empezar de cero.
+## Refresca la ventana de combo. Se llama en DOS momentos, y los dos cuentan:
+##  · al EJECUTAR un golpe de la cadena (`_c_iniciar_fase_golpe`): es lo que
+##    permite completar el combo entero aunque no se conecte ningún golpe;
+##  · al CONECTARLO (`_c_aplicar_golpe`/`_c_golpe_esfera`): acertar mantiene viva
+##    la cadena sin depender del ritmo de las pulsaciones.
+## Mientras la ventana siga viva, la próxima pulsación continúa la cadena en vez
+## de empezar de cero.
 func _c_refrescar_combo() -> void:
 	var cfg: Variant = _cfg_encuentro()
 	c_combo_t = 2.0 if cfg == null else float(cfg.combo_keep_time)
@@ -5007,17 +5123,50 @@ func _on_golpe_realizado(indice: int) -> void:
 	_programar_impacto_velocista(indice)
 
 ## Daño real del golpe del Velocista, en el fotograma del contacto de la animación.
-## Va por el identificador del golpe: si se cancela (salto, dash, otra forma) o
-## empieza otro golpe, el impacto pendiente se descarta.
+## Deja el golpe PENDIENTE y lo resuelve `_revisar_contacto_velocista` cuando el clip
+## avanza hasta su instante de contacto: si se cancela (salto, dash, otra forma) o
+## empieza otro golpe, el pendiente se descarta y no hay daño.
 func _programar_impacto_velocista(indice: int) -> void:
 	_vel_golpe_id += 1
-	var id := _vel_golpe_id
-	await get_tree().create_timer(VEL_ATAQUE_IMPACTO).timeout
-	if not is_inside_tree() or id != _vel_golpe_id:
+	_vel_impacto_indice = indice
+	_vel_impacto_clip = String(_anim_nombres.get(_clave_combo(indice), ""))
+
+## Comprueba si el golpe pendiente del Velocista ya llegó a su fotograma de
+## contacto. El instante se mide sobre la POSICIÓN REAL del clip que se está
+## reproduciendo (no con un temporizador, que se desfasa): el daño cae justo cuando
+## la mano o el pie alcanzan su máxima extensión (fracciones medidas con
+## `_tests/sonda_contacto_velocista_v2`). Si el clip ya no es el del golpe —saltó,
+## hizo dash, se transformó o empezó otro combo— el impacto pendiente se descarta.
+func _revisar_contacto_velocista() -> void:
+	if _vel_impacto_indice <= 0:
 		return
-	if not _ataque_activo or forma != Forma.VELOCISTA:
+	if forma != Forma.VELOCISTA or not _ataque_activo or _anim == null:
+		_vel_impacto_indice = 0
 		return
+	if String(_anim.current_animation) != _vel_impacto_clip or not _anim.is_playing():
+		_vel_impacto_indice = 0
+		return
+	var i := clampi(_vel_impacto_indice - 1, 0, VEL_ATAQUE_IMPACTO_U.size() - 1)
+	var u := float(VEL_ATAQUE_IMPACTO_U[i])
+	var largo := _duracion_anim(_clave_combo(_vel_impacto_indice))
+	if largo <= 0.05:
+		return
+	if _anim.current_animation_position < u * largo:
+		return
+	var indice := _vel_impacto_indice
+	_vel_impacto_indice = 0
 	_aplicar_impacto_velocista(indice)
+
+## Segundos del contacto de cada golpe (fracción medida × duración del clip): es la
+## referencia que usan el registro y las pruebas. El impacto real lo dispara
+## `_revisar_contacto_velocista` al llegar el clip a ese punto.
+func _espera_de_contacto(indice: int) -> float:
+	var i := clampi(indice - 1, 0, VEL_ATAQUE_IMPACTO_U.size() - 1)
+	var u := float(VEL_ATAQUE_IMPACTO_U[i])
+	var largo := _duracion_anim(_clave_combo(indice))
+	if largo <= 0.05:
+		return VEL_ATAQUE_IMPACTO
+	return largo * u
 
 ## Golpe corto por DELANTE del cuerpo contra el grupo "damageable". Reutiliza los
 ## contratos de daño que ya usa la partida (take_hit del módulo de combate,
@@ -5035,23 +5184,34 @@ func _aplicar_impacto_velocista(indice: int) -> void:
 	var dano := VEL_ATAQUE_DANIO_REMATE if indice >= 4 else VEL_ATAQUE_DANIO
 	for nodo_arbol in get_tree().get_nodes_in_group("damageable"):
 		var objetivo := nodo_arbol as Node3D
-		if objetivo == null or objetivo == self or not objetivo.is_inside_tree():
+		# CONTACTO con el MISMO criterio que las demás transformaciones (Tarea 6):
+		# el módulo compartido `ContactoGolpe` mide de SUPERFICIE a superficie (usa el
+		# centro y el radio de golpe reales del objetivo, no su origen), exige arco
+		# frontal y comprueba la banda vertical centro contra centro y que el objetivo
+		# siga vivo. La distancia va PLANA (peso_altura 0), como estaba: el golpe del
+		# velocista entra de frente, no desde arriba.
+		if not ContactoGolpe.alcanza(objetivo, self, centro, VEL_ATAQUE_RADIO,
+				adelante, VEL_ATAQUE_DOT_MIN, VEL_ATAQUE_ALTURA, 0.0):
 			continue
-		var radio := VEL_ATAQUE_RADIO
-		if objetivo.has_method("get_hit_radius"):
-			radio += float(objetivo.call("get_hit_radius"))
-		var plano := Vector3(objetivo.global_position.x - centro.x, 0.0,
-				objetivo.global_position.z - centro.z)
-		if plano.length() > radio:
-			continue
-		if absf(objetivo.global_position.y - global_position.y) > VEL_ATAQUE_ALTURA:
-			continue
-		var hacia := Vector3(objetivo.global_position.x - global_position.x, 0.0,
-				objetivo.global_position.z - global_position.z)
-		if hacia.length_squared() > 0.0001 and hacia.normalized().dot(adelante) < VEL_ATAQUE_DOT_MIN:
-			continue
-		var dir := plano.normalized() if plano.length_squared() > 0.0001 else adelante
+		var dir := ContactoGolpe.direccion_de_empuje(objetivo, global_position, adelante)
 		_aplicar_dano_a(objetivo, dano, centro, dir, VEL_ATAQUE_EMPUJE, 0.25, &"melee")
+		_frenar_un_instante(objetivo)
+
+## Hit-stop del golpe: al enemigo golpeado se le frena la animación un instante y se
+## le devuelve sola. Da peso al impacto sin tocar NINGUNA animación de combate (el
+## jugador sigue igual) ni el daño. Si otro golpe pisa el frenado antes de que
+## termine, no se restaura por encima: sólo se devuelve si sigue frenado.
+func _frenar_un_instante(objetivo: Node) -> void:
+	var animador := objetivo.get_node_or_null("Animador") as AnimationPlayer
+	if animador == null:
+		return
+	var prev := animador.speed_scale
+	animador.speed_scale = VEL_GOLPE_HITSTOP_ESCALA
+	await get_tree().create_timer(VEL_GOLPE_HITSTOP).timeout
+	# `speed_scale` es un float de 32 bits: comparar con == contra la constante de 64
+	# bits nunca coincidía y el frenado se quedaba puesto. Con is_equal_approx sí.
+	if is_instance_valid(animador) and is_equal_approx(animador.speed_scale, VEL_GOLPE_HITSTOP_ESCALA):
+		animador.speed_scale = prev
 
 ## Aplica daño con el contrato más completo que entienda el objetivo, en este
 ## orden: take_hit (módulo de combate) -> take_damage (paquete Fuerza) ->
@@ -5562,6 +5722,26 @@ func _orientar_instant(dir: Vector3) -> void:
 	if dir.length() < 0.05:
 		return
 	visual.rotation.y = atan2(-dir.x, -dir.z)
+
+
+## COLOCA a Leo en un punto del mundo y lo orienta hacia `mira` SIN TOCAR la raíz
+## del nodo. Es lo que usan los cambios de escena que colocan al jugador (volver de
+## la casa): la raíz se queda en yaw 0 y el giro vive donde vive SIEMPRE — en
+## `visual` (hacia dónde mira el cuerpo) y en `pivote` (hacia dónde mira la cámara,
+## que es lo que hace que el movimiento relativo a la cámara cuadre desde el primer
+## fotograma). Girar la raíz con `look_at` dejaba el modelo descolocado justo en el
+## ángulo de la raíz: por eso la orientación de la casa se decidía mal.
+func colocar_en(punto: Vector3, mira: Vector3) -> void:
+	global_position = punto
+	velocity = Vector3.ZERO
+	var d := Vector3(mira.x - punto.x, 0.0, mira.z - punto.z)
+	if d.length_squared() < 0.000001:
+		d = Vector3.FORWARD
+	d = d.normalized()
+	_orientar_instant(d)
+	var yaw := atan2(-d.x, -d.z)
+	pivote.rotation.y = yaw
+	pivote.definir_pitch(-0.25)
 
 # =============================================================================
 #  MUERTE DEL JUGADOR

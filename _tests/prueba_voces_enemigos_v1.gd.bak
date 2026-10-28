@@ -1,0 +1,248 @@
+extends Node3D
+## PRUEBAS de las VOCES DE APARICIÓN de los enemigos (Tarea 1):
+##  1. los archivos reales de res://Audio/enemigos se cargan;
+##  2. cada enemigo creado recibe UNA voz en audio 3D, con volumen moderado;
+##  3. suena UNA sola vez por aparición (no se repite desde _process);
+##  4. la elección es aleatoria pero NO repite la misma grabación dos veces seguidas;
+##  5. las apariciones simultáneas se reparten (no suenan todas de golpe);
+##  6. una aparición FALLIDA no crea voz;
+##  7. la tecla G también genera voces (una por enemigo del grupo).
+
+const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
+const GERENTE := "res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd"
+
+var _ok := 0
+var _fallos := 0
+var _gerente: Node3D
+var _voces: Array[VocesAparicion] = []
+
+func _ready() -> void:
+	_piso()
+	# El gerente necesita un ControladorLeo en la escena (lo busca por tipo).
+	var ps := load(JUGADOR) as PackedScene
+	var jug := ps.instantiate() as Node3D
+	jug.position = Vector3(0, 0.1, 0)
+	add_child(jug)
+	await get_tree().create_timer(0.6).timeout
+
+	# --- 1. Archivos reales ------------------------------------------------
+	var rutas := VocesAparicion.rutas_disponibles()
+	_check(rutas.size() == 4, "se cargan las %d grabaciones reales de %s" % [rutas.size(), VocesAparicion.CARPETA])
+	var todas_ok := true
+	for r in rutas:
+		var st := load(r) as AudioStream
+		if st == null or st.get_length() <= 0.05:
+			todas_ok = false
+			print("[voces-suite] FALLO al cargar ", r)
+	_check(todas_ok, "todas las grabaciones cargan y duran > 0,05 s")
+	print("[voces-suite] duraciones: ", _duraciones(rutas))
+
+	# --- 2. Aparición por API (grupo de 3 cuerpo a cuerpo) ------------------
+	VocesAparicion.reiniciar_rueda()
+	_gerente = load(GERENTE).new() as Node3D
+	_gerente.name = "EnemigosPrueba"
+	add_child(_gerente)
+	await get_tree().create_timer(0.2).timeout
+	_gerente.call("generar_tipo", 1)  # Tipo.MELEE
+	await get_tree().physics_frame
+	var creados: Array = _gerente.call("enemigos_vivos")
+	_check(creados.size() == 3, "el grupo de prueba creó 3 enemigos")
+	_recoger_voces()
+	_check(_voces.size() == 3, "los 3 enemigos tienen su nodo de voz (%d)" % _voces.size())
+	var tresd := true
+	var bus_ok := true
+	var vol_ok := true
+	for v in _voces:
+		if not (v is AudioStreamPlayer3D):
+			tresd = false
+		if v.bus != &"Efectos":
+			bus_ok = false
+		if v.volume_db > -3.0 or v.volume_db < -12.0:
+			vol_ok = false
+	_check(tresd, "las voces son AUDIO 3D (AudioStreamPlayer3D pegado al enemigo)")
+	_check(bus_ok, "suenan por el bus 'Efectos' (los ajustes de audio siguen mandando)")
+	_check(vol_ok, "volumen moderado (%.1f dB)" % _voces[0].volume_db)
+
+	# --- 3 y 5. Una sola vez + reparto de las simultáneas -------------------
+	var marcos := {}
+	var contadas := {}
+	for i in _voces.size():
+		contadas[_voces[i].get_instance_id()] = false
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 2600:
+		await get_tree().process_frame
+		for i in _voces.size():
+			var v := _voces[i]
+			if not is_instance_valid(v):
+				continue
+			if v.playing and not bool(contadas[v.get_instance_id()]):
+				contadas[v.get_instance_id()] = true
+				marcos[i] = Engine.get_process_frames()
+	var una_vez := true
+	for v in _voces:
+		if is_instance_valid(v) and v.veces_sonado() > 1:
+			una_vez = false
+	_check(una_vez, "cada voz suena UNA sola vez por aparición (sin re-disparos desde el proceso)")
+	var arrancaron := 0
+	var marcos_distintos := {}
+	for i in marcos.keys():
+		arrancaron += 1
+		marcos_distintos[int(marcos[i])] = true
+	_check(arrancaron == 3, "las 3 voces llegaron a sonar (%d)" % arrancaron)
+	_check(marcos_distintos.size() >= 2, "las apariciones simultáneas NO suenan todas en el mismo fotograma (%d arranques distintos de 3)" % marcos_distintos.size())
+
+	# --- 5b. El reparto calculado se espacia y no crece sin control ---------
+	VocesAparicion.reiniciar_rueda()
+	var retardos := PackedFloat32Array()
+	for i in 6:
+		retardos.append(VocesAparicion.retardo_repartido())
+	var crecientes := true
+	for i in range(1, retardos.size()):
+		if retardos[i] < retardos[i - 1] - 0.0001:
+			crecientes = false
+	var tope_ok := retardos[retardos.size() - 1] <= VocesAparicion.RETARDO_MAX + 0.06
+	_check(crecientes and tope_ok, "el reparto es creciente y con tope (%.2f s el último de 6)" % retardos[retardos.size() - 1])
+	_check(retardos[0] <= 0.06, "la primera voz sale sin espera (%.2f s)" % retardos[0])
+	_gerente.call("retirar_grupo")
+	await get_tree().create_timer(0.4).timeout
+
+	# --- 4. Aleatoriedad sin repetición consecutiva -------------------------
+	VocesAparicion.reiniciar_rueda()
+	var elegidas := PackedStringArray()
+	var fallidas := 0
+	var dir_creadas: Array[Node3D] = []
+	for i in 8:
+		var e := _gerente.call("crear_enemigo_en",
+				_jugador_pos() + Vector3(6.0 + float(i) * 3.0, 0.0, 6.0), 1) as Node3D
+		if e == null:
+			fallidas += 1
+			continue
+		dir_creadas.append(e)
+		await get_tree().physics_frame
+		var v := e.get_node_or_null("VozAparicion") as VocesAparicion
+		if v != null:
+			elegidas.append(v.archivo_actual())
+	_check(fallidas == 0, "8 apariciones por la API de eventos (sin fallos)")
+	_check(elegidas.size() == 8, "cada aparición eligió su grabación (%d/8)" % elegidas.size())
+	var consecutivas := 0
+	for i in range(1, elegidas.size()):
+		if elegidas[i] == elegidas[i - 1]:
+			consecutivas += 1
+	_check(consecutivas == 0, "nunca sale la MISMA grabación dos veces seguidas (0 repetidas en 8)")
+	var distintas := {}
+	for r in elegidas:
+		distintas[r.get_file()] = true
+	_check(distintas.size() >= 3, "la rueda usa variedad de grabaciones (%d distintas en 8)" % distintas.size())
+
+	# --- 6. Aparición FALLIDA → sin voz ------------------------------------
+	var voces_antes := _contar_voces()
+	var malo: Variant = _gerente.call("crear_enemigo_en", Vector3(0.0, 900.0, 0.0), 1)
+	await get_tree().physics_frame
+	_check(malo == null, "una posición inválida NO crea enemigo (devuelve null)")
+	_check(_contar_voces() == voces_antes, "una aparición fallida NO crea ninguna voz (%d voces)" % _contar_voces())
+	for e in dir_creadas:
+		if is_instance_valid(e):
+			e.call("retirar")
+	await get_tree().create_timer(0.4).timeout
+
+	# --- 7. La tecla G también pone voz -------------------------------------
+	VocesAparicion.reiniciar_rueda()
+	_voces.clear()
+	await _pulsar_tecla(KEY_G)
+	await get_tree().create_timer(0.3).timeout
+	var con_g: Array = _gerente.call("enemigos_vivos")
+	_recoger_voces()
+	_check(con_g.size() == 5, "la tecla G creó sus 5 enemigos (%d)" % con_g.size())
+	_check(_voces.size() == 5, "cada enemigo de G tiene su voz (%d)" % _voces.size())
+	var arrancaron_g := 0
+	for v in _voces:
+		if v.ya_sono():
+			arrancaron_g += 1
+	_check(arrancaron_g == 5, "las 5 voces de G quedaron disparadas UNA vez cada una (%d)" % arrancaron_g)
+
+	print("==================== VOCES: %d OK / %d FALLO ====================" % [_ok, _fallos])
+	await get_tree().create_timer(0.6).timeout
+
+
+# ------------------------------------------------------------------ auxiliares
+func _jugador_pos() -> Vector3:
+	var j: Node = get_tree().get_first_node_in_group(&"player")
+	if j == null:
+		for n in get_tree().root.find_children("*", "CharacterBody3D", true, false):
+			if n is ControladorLeo:
+				j = n
+				break
+	return (j as Node3D).global_position if j != null else Vector3.ZERO
+
+
+func _recoger_voces() -> void:
+	_voces.clear()
+	for e in _gerente.call("enemigos_vivos"):
+		if not is_instance_valid(e):
+			continue
+		var v := (e as Node).get_node_or_null("VozAparicion") as VocesAparicion
+		if v != null:
+			_voces.append(v)
+
+
+func _contar_voces() -> int:
+	var n := 0
+	for nodo in get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false):
+		if nodo is VocesAparicion:
+			n += 1
+	return n
+
+
+func _duraciones(rutas: PackedStringArray) -> String:
+	var partes := PackedStringArray()
+	for r in rutas:
+		var st := load(r) as AudioStream
+		partes.append("%s=%.2fs" % [r.get_file().substr(0, 24), st.get_length() if st != null else -1.0])
+	return ", ".join(partes)
+
+
+func _pulsar_tecla(codigo: Key) -> void:
+	var abajo := InputEventKey.new()
+	abajo.physical_keycode = codigo
+	abajo.pressed = true
+	Input.parse_input_event(abajo)
+	await get_tree().create_timer(0.09).timeout
+	var arriba := InputEventKey.new()
+	arriba.physical_keycode = codigo
+	arriba.pressed = false
+	Input.parse_input_event(arriba)
+	await get_tree().create_timer(0.05).timeout
+
+
+func _check(condicion: bool, texto: String) -> void:
+	if condicion:
+		_ok += 1
+		print("[voces-suite] OK   ", texto)
+	else:
+		_fallos += 1
+		print("[voces-suite] FALLO ", texto)
+
+
+func _piso() -> void:
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "Piso"
+	var forma := CollisionShape3D.new()
+	var caja := BoxShape3D.new()
+	caja.size = Vector3(120, 1, 120)
+	forma.shape = caja
+	cuerpo.add_child(forma)
+	cuerpo.position = Vector3(0, -0.5, 0)
+	add_child(cuerpo)
+	var malla := MeshInstance3D.new()
+	var caja_malla := BoxMesh.new()
+	caja_malla.size = Vector3(120, 1, 120)
+	malla.mesh = caja_malla
+	cuerpo.add_child(malla)
+	var luz := DirectionalLight3D.new()
+	luz.rotation = Vector3(-0.9, 0.6, 0.0)
+	add_child(luz)
+	var cam := Camera3D.new()
+	cam.position = Vector3(0.0, 4.0, 14.0)
+	cam.rotation = Vector3(-0.2, 0.0, 0.0)
+	cam.current = true
+	add_child(cam)

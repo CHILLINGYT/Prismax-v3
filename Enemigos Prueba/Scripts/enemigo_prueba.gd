@@ -62,6 +62,10 @@ const ANCHO_BARRA := 0.9
 @export var clip_ataque: StringName = &"golpe_1"
 @export var clip_recibir: StringName = &"recibir_combate"
 @export var clip_muerte: StringName = &"muerte_1"
+## Ventana (s) en la que el clip de REACCIÓN manda sobre la locomoción, igual que
+## en el enemigo base. Sin ella la locomoción pisaba la reacción al fotograma
+## siguiente y el golpe recibido no se veía nunca.
+@export_range(0.05, 1.0, 0.05) var duracion_recibir: float = 0.35
 
 @export_group("Movimiento")
 @export var velocidad: float = 3.2
@@ -88,6 +92,8 @@ var _inclinacion: float = 0.0
 var _flash: float = 0.0
 var _muerto: bool = false
 var _velocidad_propia: float = 0.0
+## Tiempo que le queda al clip de reacción por delante de la locomoción.
+var _t_recibir: float = 0.0
 
 @onready var _cuerpo: MeshInstance3D = $Cuerpo
 @onready var _barra: Node3D = $BarraVida
@@ -124,6 +130,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_actualizar_flash(delta)
 	_actualizar_barra_por_camara()
+	_t_recibir = maxf(0.0, _t_recibir - delta)
 	_animar_por_velocidad()
 	_espera = maxf(0.0, _espera - delta)
 
@@ -333,6 +340,11 @@ func _aplicar_dano(cantidad: float, dir: Vector3, empuje: float, aturde: float) 
 	_vida = maxf(0.0, _vida - cantidad)
 	_flash = 1.0
 	_animar_una_vez(clip_recibir)
+	_t_recibir = duracion_recibir
+	# EFECTO de impacto en el punto de contacto: aquí el daño ya está confirmado
+	# (un golpe al aire no pasa de aquí) y es UNA llamada por impacto, así que no
+	# se puede duplicar por fotogramas ni por varias colisiones del mismo golpe.
+	VfxImpacto.reproducir(self, dir, cantidad)
 	if empuje > 0.0 and dir.length_squared() > 0.0001:
 		velocity.x += dir.x * empuje
 		velocity.z += dir.z * empuje
@@ -535,6 +547,9 @@ func _animar_una_vez(clip: StringName) -> void:
 ## Locomoción: anda o se queda quieto según su velocidad real.
 func _animar_por_velocidad() -> void:
 	if _estado == Estado.PREPARAR or _estado == Estado.GOLPEAR or _estado == Estado.MUERTO:
+		return
+	# Mientras dura la reacción al golpe, la locomoción NO pisa ese clip.
+	if _t_recibir > 0.0:
 		return
 	var sp := Vector2(velocity.x, velocity.z).length()
 	_animar(clip_andar if sp > 0.4 else clip_idle)

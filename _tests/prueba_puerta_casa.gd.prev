@@ -1,0 +1,127 @@
+extends Node3D
+## PRUEBAS de LA PUERTA DE LA CASA DE LEO EN LA CIUDAD (Tarea 1), sobre la escena
+## REAL (PuertaCasaLeo) con una ciudad de mentira que trae PORTALES como los del
+## generador, más el jugador de verdad para probar el canal del HUD.
+##
+## Comprueba:
+##   1. la puerta se marca en un portal REAL de la ciudad y elige el MÁS CERCANO a
+##      donde aparece Leo, por la cara exterior (a la calle);
+##   2. el aviso llega al HUD con el TEXTO EXACTO, sólo dentro del radio, y se
+##      retira al alejarse (el mismo canal que los avisos del agua y las escaleras);
+##   3. `puede_usar()` sólo dice sí con Leo cerca y sin el bloqueo anti-bucle;
+##   4. el punto de vuelta queda delante de la puerta, mirando a la calle;
+##   5. al volver de la casa, el jugador aparece en ese punto (y la vuelta se
+##      consume: no queda nada colgando).
+
+const TEXTO := "Presiona casa"
+
+var _ok := 0
+var _fallos := 0
+var _ciudad: CiudadPortales
+var _puerta: PuertaCasaLeo
+var _jug: CharacterBody3D
+
+func _ready() -> void:
+	_piso()
+	# El jugador PRIMERO (la puerta lo busca para saber de dónde parte Leo).
+	_jug = (load("res://personaje/base/escenas/leo_jugador.tscn") as PackedScene).instantiate() as CharacterBody3D
+	_jug.position = Vector3(0.0, 0.2, 0.0)
+	add_child(_jug)
+	_ciudad = CiudadPortales.new()
+	add_child(_ciudad)
+	await get_tree().physics_frame
+	_puerta = PuertaCasaLeo.new()
+	_puerta.name = "PuertaCasaLeo"
+	_puerta.ciudad = _ciudad
+	add_child(_puerta)
+	var t := 0
+	while _puerta.portal() == Vector3.ZERO and t < 300:
+		await get_tree().physics_frame
+		t += 1
+	await get_tree().physics_frame
+
+	# 1. Portal elegido: el más cercano (8 m), por la cara exterior (a la calle).
+	_check(_puerta.portal().distance_to(Vector3(8.0, 0.0, 0.0)) < 0.01,
+			"elige el portal MÁS CERCANO de la ciudad (%s)" % str(_puerta.portal()))
+	var portal := _puerta.portal()
+	var hacia_calle := _puerta.global_position - portal
+	_check(hacia_calle.normalized().dot(Vector3.LEFT) > 0.9,
+			"se marca por la CARA EXTERIOR (a %.2f m del portal, hacia la calle)" % hacia_calle.length())
+	_check(_puerta.texto_prompt() == "Presiona E para entrar a la casa de Leo",
+			"el texto del aviso es el pedido ('%s')" % _puerta.texto_prompt())
+
+	# 2. Radio: lejos no hay aviso; cerca sí, por el canal del HUD.
+	_jug.global_position = Vector3(0.0, 0.2, 12.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_check(not _puerta.en_rango(), "de lejos no oferta la entrada")
+	_check(String(_jug.call("texto_interaccion")) == "", "de lejos el HUD no muestra nada")
+	_check(not _puerta.puede_usar(), "de lejos no se puede entrar")
+	_jug.global_position = portal + Vector3(-1.5, 0.0, 0.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_check(_puerta.en_rango(), "de cerca ofrece la entrada")
+	_check(String(_jug.call("texto_interaccion")) == "Presiona E para entrar a la casa de Leo",
+			"el HUD recibe el aviso EXACTO ('%s')" % String(_jug.call("texto_interaccion")))
+	_check(_puerta.puede_usar(), "de cerca la E entra en la casa")
+
+	# 3. Bloqueo anti-bucle: recién vuelto de la casa, no se entra otra vez.
+	EstadoCasaLeo.bloquear(600)
+	_check(not _puerta.puede_usar(), "con el bloqueo anti-bucle puesto NO se entra (nada de bucles)")
+	_check(EstadoCasaLeo.bloqueado(), "el bloqueo está activo de verdad")
+	await get_tree().create_timer(0.7).timeout
+	_check(_puerta.puede_usar(), "pasado el bloqueo vuelve a ofrecerse")
+
+	# 4. Punto de vuelta: delante de la puerta, mirando a la calle.
+	var salida := _puerta.punto_de_salida()
+	var fuera := salida - _puerta.global_position
+	_check(fuera.length() > 1.0 and fuera.normalized().dot(Vector3.LEFT) > 0.9,
+			"el punto de vuelta queda delante de la puerta, a la calle (%.2f m)" % fuera.length())
+
+	# 5. Volver de la casa: el jugador aparece en ese punto y la vuelta se consume.
+	EstadoCasaLeo.marcar_vuelta(salida, Vector3.RIGHT)
+	_check(EstadoCasaLeo.hay_vuelta(), "queda una vuelta pendiente al salir de la casa")
+	var otra := PuertaCasaLeo.new()
+	otra.ciudad = _ciudad
+	add_child(otra)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_check(_jug.global_position.distance_to(salida) < 0.6,
+			"al volver, Leo aparece delante de su puerta (a %.2f m del punto)" % _jug.global_position.distance_to(salida))
+	_check(not EstadoCasaLeo.hay_vuelta(), "la vuelta se consume (no queda colgando)")
+	_resumen()
+
+
+func _check(condicion: bool, texto: String) -> void:
+	if condicion:
+		_ok += 1
+		print("[puerta-suite] OK   ", texto)
+	else:
+		_fallos += 1
+		print("[puerta-suite] FALLO ", texto)
+
+
+func _resumen() -> void:
+	print("==================== PUERTA CASA: %d OK / %d FALLO ====================" % [_ok, _fallos])
+
+
+func _piso() -> void:
+	var cuerpo := StaticBody3D.new()
+	cuerpo.collision_layer = 1
+	cuerpo.collision_mask = 0
+	var forma := CollisionShape3D.new()
+	var caja := BoxShape3D.new()
+	caja.size = Vector3(400, 1.0, 400)
+	forma.shape = caja
+	cuerpo.add_child(forma)
+	cuerpo.position = Vector3(0, -0.5, 0)
+	add_child(cuerpo)
+	var luz := DirectionalLight3D.new()
+	luz.rotation = Vector3(-0.9, 0.6, 0.0)
+	add_child(luz)
+	var cam := Camera3D.new()
+	cam.position = Vector3(0.0, 4.0, 18.0)
+	cam.rotation = Vector3(-0.2, 0.0, 0.0)
+	cam.current = true
+	add_child(cam)
