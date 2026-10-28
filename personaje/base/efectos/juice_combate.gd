@@ -190,13 +190,23 @@ var _indicadores := {}   ## enemigo (instance_id) -> MeshInstance3D
 
 # ---------------------------------------------------------- CONTADOR DE COMBO
 @export_group("Contador de combo")
-## "×N  COMBO" arriba a la derecha. Cuenta SOLO impactos confirmados (el
-## `count` del ComboSystem del módulo también suma golpes al aire; no se toca
-## porque lo usa su lógica). Se rompe al pasar `contador_ventana` s sin acertar
-## o al recibir daño, como en Arkham. Aparece a partir de 2 golpes.
+## "×N COMBO" compacto arriba a la derecha. SUMA sólo impactos confirmados.
+## Más fácil de mantener (valores anteriores entre paréntesis):
+##  · ventana tras cada impacto 3,0 s (antes 2,0);
+##  · LANZAR un golpe (aunque falle) o cambiar de objetivo la sostiene: la
+##    ventana no baja de `contador_gracia_al_lanzar` mientras sigas peleando
+##    (antes sólo la sostenía conectar);
+##  · recibir daño ya no lo borra entero: conserva `contador_conserva_al_dano`
+##    del combo (antes 0 %) y no se aplica dos veces en `contador_inmunidad_dano` s;
+##  · una barrita bajo el número muestra cuánto le queda (decaimiento visible).
 @export var contador_combo_activo := true
-@export var contador_ventana := 2.0
+@export var contador_ventana := 3.0
+@export var contador_gracia_al_lanzar := 1.5
+@export_range(0.0, 1.0, 0.05) var contador_conserva_al_dano := 0.5
+@export var contador_inmunidad_dano := 1.0
 @export var contador_minimo := 2
+@export var contador_barra := true
+var _inmune_dano_hasta := 0
 const CAPA_CONTADOR := 15   ## por encima del HUD (10), por debajo del panel de misión (20)
 const TEMA_HUD := "res://ui/tema/tema_juego.tres"
 var _combo_n := 0
@@ -206,6 +216,8 @@ var _caja_contador: Control = null
 var _lbl_numero: Label = null
 var _lbl_texto: Label = null
 var _tw_contador: Tween = null
+var _barra_contador: Panel = null
+const BARRA_ANCHO := 96.0
 
 # ------------------------------------------------------- CÁMARA DE COMBATE
 @export_group("Camara de combate")
@@ -284,6 +296,8 @@ func _aplicar_timing() -> void:
 
 # ------------------------------------------------------------------ eventos
 func _on_golpe_lanzado(indice: int) -> void:
+	if contador_combo_activo:
+		_sostener_combo()
 	if audio_capas_activo and not _whooshes.is_empty():
 		# El gancho (más largo y cargado) suena algo más grave y fuerte.
 		var tono := 1.0 - 0.06 * float(clampi(indice, 0, 2))
@@ -535,7 +549,7 @@ func vibraciones_pedidas() -> int:
 
 
 func _on_danio_recibido(_cantidad: float) -> void:
-	_romper_combo()
+	_danar_combo()
 	if vibracion_activa:
 		_vibrar(vibracion_dano)
 	if aberracion_dano_activa:
@@ -595,32 +609,49 @@ func _preparar_contador() -> void:
 	_capa_contador.layer = CAPA_CONTADOR
 	add_child(_capa_contador)
 	# Caja anclada arriba a la derecha (se adapta a cualquier resolución).
+	# Compacto (antes 228×110 px, número a 72 px): una línea "×12 COMBO" con
+	# una barrita de decaimiento debajo, pegada a la esquina superior derecha.
 	_caja_contador = VBoxContainer.new()
 	_caja_contador.name = "Caja"
 	_caja_contador.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_caja_contador.offset_left = -260.0
-	_caja_contador.offset_right = -32.0
-	_caja_contador.offset_top = 120.0
-	_caja_contador.offset_bottom = 230.0
+	_caja_contador.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_caja_contador.offset_left = -170.0
+	_caja_contador.offset_right = -28.0
+	_caja_contador.offset_top = 92.0
+	_caja_contador.offset_bottom = 140.0
 	_caja_contador.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_caja_contador.add_theme_constant_override("separation", -10)
+	_caja_contador.add_theme_constant_override("separation", 0)
 	_capa_contador.add_child(_caja_contador)
+	var fila := HBoxContainer.new()
+	fila.name = "Fila"
+	fila.alignment = BoxContainer.ALIGNMENT_END
+	fila.add_theme_constant_override("separation", 6)
+	fila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_caja_contador.add_child(fila)
 	_lbl_numero = Label.new()
 	_lbl_numero.name = "Numero"
 	_lbl_numero.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_lbl_numero.theme_type_variation = &"ComboNumero"
-	_caja_contador.add_child(_lbl_numero)
+	fila.add_child(_lbl_numero)
 	_lbl_texto = Label.new()
 	_lbl_texto.name = "Texto"
 	_lbl_texto.text = "COMBO"
-	_lbl_texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_lbl_texto.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_lbl_texto.size_flags_vertical = Control.SIZE_SHRINK_END
 	_lbl_texto.theme_type_variation = &"ComboTexto"
-	_caja_contador.add_child(_lbl_texto)
+	fila.add_child(_lbl_texto)
+	_barra_contador = Panel.new()
+	_barra_contador.name = "Decaimiento"
+	_barra_contador.theme_type_variation = &"HudAcento"
+	_barra_contador.custom_minimum_size = Vector2(0.0, 2.0)
+	_barra_contador.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_barra_contador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_caja_contador.add_child(_barra_contador)
 	# Estilo del TEMA central del HUD (variantes ComboNumero / ComboTexto).
 	if ResourceLoader.exists(TEMA_HUD):
 		_caja_contador.theme = load(TEMA_HUD) as Theme
 		_caja_contador.modulate.a = 0.0
-		_caja_contador.pivot_offset = Vector2(228.0, 40.0)
+		_caja_contador.pivot_offset = Vector2(142.0, 22.0)
 		return
 	# Respaldo (sin tema): legible sobre cualquier fondo (contorno + sombra).
 	for l: Label in [_lbl_numero, _lbl_texto]:
@@ -648,7 +679,7 @@ func _sumar_combo() -> void:
 		_tw_contador.kill()
 	# "Punch": crece y vuelve; aparece de golpe y se apaga suave al romperse.
 	_caja_contador.modulate.a = 1.0
-	_caja_contador.scale = Vector2.ONE * 1.35
+	_caja_contador.scale = Vector2.ONE * 1.18
 	_tw_contador = _caja_contador.create_tween()
 	_tw_contador.set_ignore_time_scale(true)
 	_tw_contador.tween_property(_caja_contador, "scale", Vector2.ONE, 0.18) \
@@ -669,6 +700,31 @@ func _romper_combo() -> void:
 	_tw_contador.tween_property(_caja_contador, "modulate:a", 0.0, 0.35)
 
 
+## Golpe LANZADO (acierte o no): pelear activamente sostiene el combo.
+func _sostener_combo() -> void:
+	if _combo_n > 0:
+		_combo_t = maxf(_combo_t, contador_gracia_al_lanzar)
+
+
+## Daño recibido: el combo se reduce (no se borra) y no se reduce dos veces
+## seguidas por el mismo intercambio de golpes.
+func _danar_combo() -> void:
+	if _combo_n == 0 or Time.get_ticks_msec() < _inmune_dano_hasta:
+		return
+	_inmune_dano_hasta = Time.get_ticks_msec() + int(contador_inmunidad_dano * 1000.0)
+	var queda := int(floor(float(_combo_n) * contador_conserva_al_dano))
+	if queda < contador_minimo:
+		_romper_combo()
+		return
+	_combo_n = queda
+	_lbl_numero.text = "×%d" % _combo_n
+	# Sacudida corta en rojo para que se entienda que bajó.
+	_lbl_numero.modulate = Color(1.0, 0.45, 0.4)
+	var tw := _lbl_numero.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(_lbl_numero, "modulate", Color.WHITE, 0.4)
+
+
 func _actualizar_contador(delta: float) -> void:
 	if _caja_contador != null:
 		_caja_contador.visible = contador_combo_activo
@@ -676,6 +732,14 @@ func _actualizar_contador(delta: float) -> void:
 		_combo_t -= delta
 		if _combo_t <= 0.0:
 			_romper_combo()
+	if _barra_contador != null:
+		_barra_contador.visible = contador_barra
+		var k := clampf(_combo_t / maxf(contador_ventana, 0.01), 0.0, 1.0)
+		_barra_contador.custom_minimum_size.x = BARRA_ANCHO * k
+
+
+func combo_actual_contador() -> int:
+	return _combo_n
 
 
 func combo_visible() -> int:

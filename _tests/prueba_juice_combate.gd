@@ -146,14 +146,14 @@ func _seccion_contador() -> void:
 	await _lanzar_golpe()
 	_check(int(_juice.call("combo_visible")) == 3, "contador: un golpe al aire no suma (%d)" % int(_juice.call("combo_visible")))
 	_enemigo.global_position = pos
-	await get_tree().create_timer(2.6).timeout
-	_check(int(_juice.call("combo_visible")) == 0, "contador: se rompe tras 2 s sin acertar")
+	await get_tree().create_timer(3.6).timeout
+	_check(int(_juice.call("combo_visible")) == 0, "contador: se rompe tras 3 s sin pelear")
 	await _nueva_seccion()
 	await _lanzar_golpe()
 	await _lanzar_golpe()
 	(_jug.get_node("Estadisticas")).call("recibir_danio", 1.0)
 	await get_tree().create_timer(0.5).timeout
-	_check(int(_juice.call("combo_visible")) == 0, "contador: recibir daño rompe el combo")
+	_check(int(_juice.call("combo_visible")) == 0, "contador: con ×2, recibir daño lo deja bajo el mínimo y desaparece")
 
 
 ## Se deja atacar al enemigo (alcance real 2,9 m): mientras ataca, aviso encima.
