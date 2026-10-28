@@ -160,6 +160,37 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	_check(_puerta.puede_usar(), "de vuelta delante de la puerta se puede entrar otra vez")
 
+	# 8b. El BUG de la semilla fija: el portal más cercano da a un edificio vecino
+	# (delante hay una pared). La casa NO puede quedarse con ese: tiene que elegir
+	# el más cercano de los que se pueden pisar.
+	var muro := StaticBody3D.new()
+	muro.collision_layer = 1
+	var forma_muro := CollisionShape3D.new()
+	var caja_muro := BoxShape3D.new()
+	caja_muro.size = Vector3(4.0, 3.0, 4.0)
+	forma_muro.shape = caja_muro
+	muro.add_child(forma_muro)
+	muro.position = Vector3(8.0 - 2.2, 1.5, 0.0)   # tapa el frente del portal 0 (da a -X)
+	add_child(muro)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var portal_antes := EstadoCasaLeo.portal_guardado()
+	EstadoCasaLeo.olvidar_portal()
+	var tapada := PuertaCasaLeo.new()
+	tapada.name = "PuertaCasaLeoTapada"
+	tapada.ciudad = _ciudad
+	add_child(tapada)
+	for i in 10:
+		await get_tree().physics_frame
+	_check(tapada.portal().distance_to(Vector3(30.0, 0.0, 0.0)) < 0.01,
+			"con el portal más cercano TAPADO por un edificio, elige el siguiente accesible (%s)" % str(tapada.portal()))
+	# Se deja todo como estaba para el resto de la prueba.
+	tapada.queue_free()
+	muro.queue_free()
+	EstadoCasaLeo.olvidar_portal()
+	EstadoCasaLeo.guardar_portal(portal_antes)
+	await get_tree().physics_frame
+
 	# 9. La E arranca la carga del INTERIOR de verdad: se comprueba el destino que
 	# queda puesto (la pantalla de carga es la del juego, la de siempre). Se hace al
 	# final a propósito: el cambio de escena se lanza al terminar este fotograma, así

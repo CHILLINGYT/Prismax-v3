@@ -42,6 +42,13 @@ const FLECHA_COLOR := Color(1.0, 0.84, 0.05)
 const MARGEN_ALEJARSE := 1.2
 ## Holgura del lateral desde el que se mide el aviso (m).
 const LADO_MINIMO := 0.6
+## Cápsula REAL de Leo (la de leo_jugador.tscn): con ella se comprueba que un portal
+## se puede pisar de verdad antes de hacerlo la puerta de la casa.
+const LEO_RADIO := 0.4
+const LEO_ALTO := 1.9
+## Espera máxima (s) a que la ciudad diga que está lista (sus edificios ya tienen
+## colisión). Pasado este tiempo se elige igualmente con lo que haya.
+const ESPERA_CIUDAD := 8.0
 
 ## Nodo del generador de ciudad (se leen sus portales reales).
 @export var ciudad: Node
@@ -96,22 +103,42 @@ func _buscar_puerta() -> void:
 		return
 	if int(est.get("portales", 0)) <= 0:
 		return
+	# Con la SEMILLA FIJA del mundo los portales salen siempre en el mismo sitio, y
+	# algunos dan a una medianera (delante tienen el edificio vecino). Para descartar
+	# esos hay que mirar las colisiones de los edificios, que sólo existen cuando la
+	# ciudad está LISTA: hasta entonces (o hasta agotar la espera) no se elige nada.
+	if int(est.get("ciudad_lista", 0)) != 1 and _t < ESPERA_CIUDAD:
+		return
 	var mejor := EstadoCasaLeo.portal_guardado()
+	if mejor >= 0 and mejor < portales.size() and not _portal_accesible(portales[mejor], dirs[mejor]):
+		# El portal recordado ya no se puede pisar (cambió la ciudad): se olvida.
+		print("[casa] el portal %d guardado ya no es accesible: se elige otro" % mejor)
+		EstadoCasaLeo.olvidar_portal()
+		mejor = -1
 	if mejor < 0 or mejor >= portales.size():
-		# Primera vez: la puerta más a mano para Leo (el jugador del mundo).
+		# Primera vez: la puerta ACCESIBLE más a mano para Leo (el jugador del mundo).
 		var j := jugador()
 		var desde := j.global_position if j != null else Vector3.ZERO
-		mejor = 0
-		var mejor_d := 1e9
+		var orden: Array = []
 		for i in portales.size():
-			var p: Vector3 = portales[i]
-			var d := p.distance_to(desde)
-			if d < mejor_d:
-				mejor_d = d
+			orden.append([(portales[i] as Vector3).distance_to(desde), i])
+		orden.sort()
+		mejor = -1
+		var descartados := 0
+		for par in orden:
+			var i: int = par[1]
+			if _portal_accesible(portales[i], dirs[i]):
 				mejor = i
+				break
+			descartados += 1
+		if mejor < 0:
+			# Ninguno pasa la prueba física (p. ej. una ciudad sin colisiones): se
+			# conserva el comportamiento de siempre, el más cercano.
+			mejor = int(orden[0][1])
+			push_warning("[casa] ningún portal pasó la comprobación de acceso: se usa el más cercano")
 		EstadoCasaLeo.guardar_portal(mejor)
-		print("[casa] puerta de Leo elegida: portal %d (%s) a %.1f m de donde aparece Leo" % [
-				mejor, str(portales[mejor]), mejor_d])
+		print("[casa] puerta de Leo elegida: portal %d (%s) a %.1f m de donde aparece Leo (%d más cercanos descartados por no tener acceso)" % [
+				mejor, str(portales[mejor]), (portales[mejor] as Vector3).distance_to(desde), descartados])
 	else:
 		print("[casa] puerta de Leo: el portal %d de siempre (%s)" % [mejor, str(portales[mejor])])
 	_portal = portales[mejor]
@@ -123,6 +150,55 @@ func _buscar_puerta() -> void:
 	look_at(global_position + _afuera, Vector3.UP)
 	_montar_flecha()
 	_marcada = true
+
+
+## ¿Se puede USAR este portal como puerta de Leo? Con la cápsula REAL del jugador se
+## comprueba, en el sitio del aviso (delante de la puerta) y en el de reaparición
+## (un paso más afuera), que:
+##   · hay suelo debajo a la cota del portal (no un tejado ni el vacío);
+##   · Leo cabe de pie sin tocar ningún cuerpo ESTÁTICO (fachadas, edificio vecino).
+## Es lo que fallaba con la semilla fija: el portal más cercano daba a una medianera
+## y delante tenía el edificio de al lado (Leo no podía ni acercarse).
+## Los cuerpos móviles (peatones, el propio Leo) no cuentan: van y vienen.
+func _portal_accesible(p: Vector3, dir: Vector3) -> bool:
+	if not is_inside_tree():
+		return true
+	var n := Vector3(dir.x, 0.0, dir.z)
+	if n.length() < 0.001:
+		return false
+	n = n.normalized()
+	var espacio := get_world_3d().direct_space_state
+	var caps := CapsuleShape3D.new()
+	caps.radius = LEO_RADIO
+	caps.height = LEO_ALTO
+	for d in [0.35 + 0.45, 0.35 + DELANTE]:
+		var punto: Vector3 = p + n * float(d)
+		# El suelo se busca saltando lo que NO es estático (Leo plantado justo ahí al
+		# volver de la casa, un peatón...): si no, su cabeza parecería un tejado.
+		var saltar: Array[RID] = []
+		var suelo := {}
+		for intento in 4:
+			var rayo := PhysicsRayQueryParameters3D.create(punto + Vector3.UP * 2.0, punto + Vector3.DOWN * 2.0, 1, saltar)
+			suelo = espacio.intersect_ray(rayo)
+			if suelo.is_empty() or suelo.get("collider") is StaticBody3D:
+				break
+			saltar.append(suelo["rid"])
+			suelo = {}
+		if suelo.is_empty():
+			# Sin suelo físico (p. ej. una ciudad de prueba sin colisión): se acepta si
+			# tampoco hay nada que estorbe a la altura del cuerpo.
+			suelo = {"position": Vector3(punto.x, p.y, punto.z)}
+		var y := float((suelo["position"] as Vector3).y)
+		if absf(y - p.y) > 0.6:
+			return false
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = caps
+		q.collision_mask = 1
+		q.transform = Transform3D(Basis(), Vector3(punto.x, y + LEO_ALTO * 0.5 + 0.08, punto.z))
+		for r in espacio.intersect_shape(q, 8):
+			if r.get("collider") is StaticBody3D:
+				return false
+	return true
 
 
 ## La flecha amarilla de la puerta: mismo cono + vástago y mismo material sin
@@ -171,6 +247,11 @@ func texto_prompt() -> String:
 
 ## ¿Leo está dentro del radio de la puerta (y del lado de la calle)?
 func en_rango() -> bool:
+	# Recién vuelto de la casa la puerta NO se ofrece (hasta que Leo se aleje): el
+	# controlador pinta el cartel con `en_rango()`, así que si aquí dijera que sí se
+	# vería "Presiona E para entrar" con una E que no hace nada.
+	if _alejarse:
+		return false
 	var j := jugador()
 	if j == null:
 		return false
@@ -217,7 +298,10 @@ func intentar_usar() -> bool:
 	if not puede_usar():
 		return false
 	_usando = true
-	EstadoCasaLeo.marcar_vuelta(global_position + _afuera * DELANTE, -_afuera)
+	# Al volver, Leo mira HACIA LA CALLE (`_afuera`), de espaldas a la puerta. Antes
+	# se guardaba `-_afuera` y reaparecía mirando la fachada (medido en el mundo real:
+	# dot -1 contra la calle).
+	EstadoCasaLeo.marcar_vuelta(global_position + _afuera * DELANTE, _afuera)
 	# La hora de la calle viaja al interior: el interior vive a LA MISMA hora, sin
 	# crear ningún reloj nuevo (el ciclo de la ciudad sigue siendo el único).
 	var fase := EstadoCasaLeo.fase_del_ciclo(self)

@@ -39,16 +39,17 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		t += 1
 	await get_tree().physics_frame
-	_check(_col.colocados() == 4, "se aparcaron los 4 vehículos del plan")
+	_check(_col.colocados() == 5, "se aparcaron los 5 vehículos del plan (4 de antes + el Ford)")
 	var puestos := _col.puestos()
 	var tipos := {}
 	for p in puestos:
 		tipos[String(p["tipo"])] = true
-	_check(tipos.size() == 4 and tipos.has("moto") and tipos.has("auto")
-			and tipos.has("camioneta") and tipos.has("auto2"),
-			"hay una moto, un auto, una camioneta y un segundo coche (auto2)")
+	_check(tipos.size() == 5 and tipos.has("moto") and tipos.has("auto")
+			and tipos.has("camioneta") and tipos.has("auto2") and tipos.has("ford"),
+			"hay una moto, un auto, una camioneta, un segundo coche (auto2) y el Ford Escort, sin duplicados")
 
-	var esperados := {"moto": 1.75, "auto": 4.75, "camioneta": 4.5, "auto2": 4.75}
+	# Tamaños pedidos (2026-10: +10% sobre la medida realista, a pedido).
+	var esperados := {"moto": 2.42, "auto": 5.5, "camioneta": 5.39, "auto2": 5.5, "ford": 4.73}
 	var cajas := {}
 	for p in puestos:
 		var tipo := String(p["tipo"])
@@ -61,6 +62,13 @@ func _ready() -> void:
 		var objetivo := float(esperados[tipo])
 		_check(absf(largo - objetivo) < 0.2,
 				"el %s mide lo pedido (%.2f m ≈ %.2f m)" % [tipo, largo, objetivo])
+		# Proporción con el JUGADOR (malla de 1,95 m): alto del vehículo en el rango
+		# que tiene en la realidad respecto de una persona.
+		var rango_alto := {"moto": Vector2(1.1, 1.6), "auto": Vector2(1.4, 1.9), "auto2": Vector2(1.4, 1.9),
+				"camioneta": Vector2(1.9, 2.7), "ford": Vector2(1.4, 1.9)}
+		var r: Vector2 = rango_alto[tipo]
+		_check(caja.size.y >= r.x and caja.size.y <= r.y,
+				"el %s tiene un alto proporcionado al jugador de 1,95 m (%.2f m, rango %.2f–%.2f)" % [tipo, caja.size.y, r.x, r.y])
 		# Apoyado en el suelo.
 		_check(absf(caja.position.y - CABECERA_Y) < 0.08,
 				"el %s está apoyado en el suelo (base a %.2f m)" % [tipo, caja.position.y])
@@ -140,7 +148,9 @@ func _ready() -> void:
 
 const CABECERA_Y := 0.0
 
-## Caja envolvente de la MALLA del vehículo en coordenadas del mundo.
+## Caja envolvente de la MALLA del vehículo en coordenadas del mundo. Se ignoran los
+## planos (sombras horneadas de grosor 0, como la del Datsun, que mide más que el
+## coche): el mismo criterio que usa VehiculoAparcado para escalarlo.
 func _caja_mundo(nodo: Node) -> AABB:
 	var caja := AABB()
 	var primero := true
@@ -149,6 +159,8 @@ func _caja_mundo(nodo: Node) -> AABB:
 		if mi.mesh == null:
 			continue
 		var c := _transformar(mi.get_aabb(), mi.global_transform)
+		if c.size.y < 0.01:
+			continue
 		caja = c if primero else caja.merge(c)
 		primero = false
 	return caja

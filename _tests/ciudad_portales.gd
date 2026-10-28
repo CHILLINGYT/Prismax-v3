@@ -18,3 +18,5 @@ var prueba_portales_frente: Array[float] = [0.2, 0.2, 0.2]
 
 func _init() -> void:
 	_est["portales"] = prueba_portales.size()
+	# Como el generador real: la ciudad avisa de que ya está lista (con colisiones).
+	_est["ciudad_lista"] = 1
