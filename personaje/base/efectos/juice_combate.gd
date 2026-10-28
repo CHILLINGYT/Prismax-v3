@@ -90,6 +90,19 @@ const SHADER_DESTELLO := preload("res://personaje/base/efectos/shaders/juice_des
 const SHADER_ESTALLIDO := preload("res://personaje/base/efectos/shaders/juice_estallido.gdshader")
 var _estallidos_creados := 0
 
+# ------------------------------------------------- REACCIÓN FÍSICA PROCEDURAL
+@export_group("Reaccion del enemigo")
+## El nodo `Visual` del enemigo se inclina hacia atrás (eje perpendicular al
+## golpe, con pivote en los pies) y retrocede un palmo, y vuelve con un rebote.
+## Se suma a su animación de "recibir" y a su empuje real, que no se tocan.
+## Va en tiempo de JUEGO: durante el hitstop la pose queda congelada en el pico.
+@export var reaccion_activa := true
+@export var reaccion_grados := PackedFloat32Array([7.0, 10.0, 15.0])
+@export var reaccion_grados_remate := 22.0
+@export var reaccion_retroceso := 0.07
+@export var reaccion_subida := 0.06
+@export var reaccion_vuelta := 0.3
+
 var _jugador: Node = null
 ## Fin (µs de reloj REAL) de cada efecto de tiempo. El reloj real no se ve
 ## afectado por Engine.time_scale, así que el efecto nunca se "estira" a sí mismo.
@@ -142,6 +155,8 @@ func _on_golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bo
 		_destello_enemigo(objetivo)
 	if estallido_activo:
 		_estallido(objetivo, dir, indice, remate)
+	if reaccion_activa:
+		_reaccion(objetivo, dir, indice, remate)
 
 
 # ------------------------------------------------------------------ audio
@@ -323,6 +338,47 @@ func _quad_estallido(padre: Node, punto: Vector3, forma: int, tam: float, dur: f
 	tw.tween_property(mi, "scale", Vector3.ONE * tam, dur).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("vida", v), 1.0, 0.0, dur)
 	tw.chain().tween_callback(mi.queue_free)
+
+
+# ------------------------------------------------------------------ reacción
+func _reaccion(objetivo: Node3D, dir: Vector3, indice: int, remate: bool) -> void:
+	var visual := objetivo.get_node_or_null("Visual") as Node3D
+	if visual == null:
+		return
+	# Pose de reposo guardada UNA vez: cada reacción parte de ella, así varios
+	# golpes seguidos nunca acumulan deriva.
+	if not visual.has_meta(&"juice_reposo"):
+		visual.set_meta(&"juice_reposo", visual.transform)
+	var reposo: Transform3D = visual.get_meta(&"juice_reposo")
+	var padre := visual.get_parent() as Node3D
+	var d := Vector3(dir.x, 0.0, dir.z)
+	if d.length_squared() < 0.0001 or padre == null:
+		return
+	var d_local := (padre.global_transform.basis.inverse() * d.normalized())
+	d_local.y = 0.0
+	if d_local.length_squared() < 0.0001:
+		return
+	d_local = d_local.normalized()
+	var eje := Vector3.UP.cross(d_local).normalized()
+	var grados := reaccion_grados_remate if remate else _valor_por_golpe(reaccion_grados, indice, 8.0)
+	var ang := deg_to_rad(grados)
+	var desplaz := d_local * reaccion_retroceso * (1.6 if remate else 1.0)
+	var subida := reaccion_subida if indice >= 2 or remate else 0.0
+	if visual.has_meta(&"juice_tween"):
+		var previo := visual.get_meta(&"juice_tween") as Tween
+		if previo != null and previo.is_valid():
+			previo.kill()
+	var aplicar := func(k: float) -> void:
+		if not is_instance_valid(visual):
+			return
+		var t := reposo
+		t.basis = Basis(eje, ang * k) * reposo.basis
+		t.origin = reposo.origin + desplaz * k + Vector3.UP * subida * k
+		visual.transform = t
+	var tw := visual.create_tween()
+	tw.tween_method(aplicar, 0.0, 1.0, 0.055).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tw.tween_method(aplicar, 1.0, 0.0, reaccion_vuelta).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	visual.set_meta(&"juice_tween", tw)
 
 
 func estallidos_creados() -> int:

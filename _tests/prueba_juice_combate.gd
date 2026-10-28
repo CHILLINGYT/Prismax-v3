@@ -94,6 +94,25 @@ func _secciones_extra() -> void:
 	await _seccion_camara()
 	await _seccion_audio()
 	await _seccion_destello()
+	await _seccion_reaccion()
+
+
+func _seccion_reaccion() -> void:
+	var visual := _enemigo.get_node("Visual") as Node3D
+	var reposo: Transform3D = visual.get_meta(&"juice_reposo") if visual.has_meta(&"juice_reposo") else visual.transform
+	var lean := await _golpe_y_maximos(func() -> float:
+		return rad_to_deg(visual.transform.basis.y.angle_to(reposo.basis.y)))
+	_check(lean > 4.0, "reacción: el enemigo se inclina al recibir (máx %.1f°)" % lean)
+	# ¿Se inclina HACIA ATRÁS (alejándose del jugador)?
+	await get_tree().create_timer(0.7).timeout
+	var vuelta := rad_to_deg(visual.transform.basis.y.angle_to(reposo.basis.y))
+	var deriva := visual.transform.origin.distance_to(reposo.origin)
+	_check(vuelta < 0.5 and deriva < 0.005, "reacción: vuelve a su pose exacta (%.2f°, %.3f m)" % [vuelta, deriva])
+	_juice.set("reaccion_activa", false)
+	var lean_off := await _golpe_y_maximos(func() -> float:
+		return rad_to_deg(visual.transform.basis.y.angle_to(reposo.basis.y)))
+	_check(lean_off < 0.1, "reaccion_activa=false: sin inclinación (%.2f°)" % lean_off)
+	_juice.set("reaccion_activa", true)
 
 
 func _seccion_destello() -> void:
