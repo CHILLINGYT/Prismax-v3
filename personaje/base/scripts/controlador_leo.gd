@@ -25,6 +25,28 @@ enum Estado { NORMAL, DASH, CAIDA_DASH, CARGA, PREPARADO, EJECUCION }
 ## El HUD la usa para actualizar el icono central; el resto del juego no cambia.
 signal forma_cambiada(id: StringName)
 
+## --- Capa de PULIDO del combate (JuiceCombate) -------------------------------
+## Señales de SOLO LECTURA: el combate las emite en sus instantes reales y la capa
+## de pulido (`personaje/base/efectos/juice_combate.gd`) les engancha hitstop,
+## cámara, audio, partículas, etc. No cambian ninguna regla del combate.
+## Golpe de la cadena FreeFlow EJECUTADO (pagado, arrancando su preparación).
+## `indice` = eslabón de la cadena (0 jab, 1 cros, 2 gancho).
+signal golpe_lanzado(indice: int)
+## Golpe CONFIRMADO sobre un objetivo (el daño ya se aplicó). `remate` = el golpe
+## dejó al objetivo sin vida.
+signal golpe_conectado(objetivo: Node3D, dir: Vector3, indice: int, remate: bool)
+
+## El golpe del FreeFlow sonaba también AL AIRE: `_c_aplicar_golpe` y
+## `_c_golpe_esfera` llamaban a `_sonar_golpe_combate()` ANTES de confirmar el
+## impacto (contradiciendo sus propios comentarios). Con esto a `true` el golpe
+## sólo suena cuando conecta; el golpe al aire lo cubre el "whoosh" de JuiceCombate.
+## `false` = comportamiento anterior (para comparar).
+const C_SONIDO_SOLO_AL_CONECTAR := true
+
+## Aceleración (m/s²) del "acercarse" del FreeFlow hacia el objetivo. Por defecto
+## la de siempre (C_ACELERACION); JuiceCombate la sube si `lunge_activo`.
+var c_aceleracion_acercar: float = 30.0
+
 # ------------------------------------------------------------------ Leo: forma humana
 const H_VEL_CAMINAR := 3.0
 const H_VEL_CORRER := 5.5
@@ -3100,7 +3122,7 @@ func texto_interaccion() -> String:
 ## HUD retira el aviso solo. No crea ningún aviso propio: los dos nodos publican su
 ## texto y el HUD lo pinta como el de las escaleras.
 func _casa_a_mano() -> Node3D:
-	for grupo in [&"puerta_casa_leo", &"salida_interior"]:
+	for grupo in [&"puerta_casa_leo", &"salida_interior", &"cama_casa_leo"]:
 		for n in get_tree().get_nodes_in_group(grupo):
 			var nodo := n as Node3D
 			if nodo == null or not nodo.is_inside_tree():
@@ -4641,6 +4663,10 @@ func _combo_combate() -> Variant:
 		_c_combo = ComboSystem.new(keep, buf)
 	return _c_combo
 
+## Lectura pública del buffer/combo vigente (para la capa de pulido).
+func combo_actual() -> Variant:
+	return _combo_combate()
+
 ## Enemigos del banco de encuentro (vacío si la partida aún no registra ninguno:
 ## el golpe sale igual y conecta con lo que alcance en el mundo).
 func _enemigos_combate() -> Array:
@@ -4734,6 +4760,7 @@ func _c_iniciar_fase_golpe() -> void:
 	_reproducir_combate(c_golpe.animation, C_MEZCLA, true)
 	if anim_ataque != null:
 		anim_ataque.speed_scale = c_golpe.speed
+	golpe_lanzado.emit(c_cadena)
 
 func _c_estado_acercarse(delta: float) -> void:
 	if not _objetivo_valido():
@@ -4745,8 +4772,8 @@ func _c_estado_acercarse(delta: float) -> void:
 	_c_girar_hacia_objetivo(delta)
 	var spd := c_golpe.approach_speed if c_golpe != null else C_VEL_CAMINAR
 	var dirn := _dir_plana(c_objetivo)
-	velocity.x = move_toward(velocity.x, dirn.x * spd, C_ACELERACION * delta)
-	velocity.z = move_toward(velocity.z, dirn.z * spd, C_ACELERACION * delta)
+	velocity.x = move_toward(velocity.x, dirn.x * spd, c_aceleracion_acercar * delta)
+	velocity.z = move_toward(velocity.z, dirn.z * spd, c_aceleracion_acercar * delta)
 	if not is_on_floor():
 		velocity.y -= C_GRAVEDAD * delta
 	elif velocity.y < 0.0:
@@ -4806,14 +4833,19 @@ func _c_fase_golpe(delta: float) -> void:
 
 func _c_aplicar_golpe(objetivo: Node3D) -> void:
 	c_golpe_hecho = true
-	_sonar_golpe_combate()
+	if not C_SONIDO_SOLO_AL_CONECTAR:
+		_sonar_golpe_combate()
 	var dir := _dir_plana(objetivo)
 	if objetivo.has_method("take_hit"):
-		objetivo.take_hit(c_golpe.damage, dir, c_golpe.knockback, c_golpe.stun)
+		var conecto: bool = bool(objetivo.take_hit(c_golpe.damage, dir, c_golpe.knockback, c_golpe.stun))
 		# IMPACTO CONFIRMADO sobre un objetivo del encuentro: suena el golpe y se
 		# refresca la ventana del combo.
-		_sonar_golpe_combate()
+		if conecto or not C_SONIDO_SOLO_AL_CONECTAR:
+			_sonar_golpe_combate()
 		_c_refrescar_combo()
+		if conecto:
+			var remate: bool = objetivo.has_method("is_alive") and not bool(objetivo.call("is_alive"))
+			golpe_conectado.emit(objetivo, dir, c_cadena, remate)
 	var combo: Variant = _combo_combate()
 	if combo != null:
 		combo.register_hit()
@@ -4822,7 +4854,8 @@ func _c_aplicar_golpe(objetivo: Node3D) -> void:
 ## contrato de daño que ya usa la partida (grupo "damageable" + take_damage).
 func _c_golpe_esfera() -> void:
 	c_golpe_hecho = true
-	_sonar_golpe_combate()
+	if not C_SONIDO_SOLO_AL_CONECTAR:
+		_sonar_golpe_combate()
 	var adelante := -ataque_visual.global_transform.basis.z
 	adelante.y = 0.0
 	adelante = adelante.normalized() if adelante.length_squared() > 0.0001 else Vector3.FORWARD
@@ -4834,6 +4867,10 @@ func _c_golpe_esfera() -> void:
 			continue
 		_golpear_objetivo_fuerza(t, centro, c_golpe.damage, c_golpe.knockback)
 		golpeados += 1
+		var t3 := t as Node3D
+		if t3 != null:
+			var remate_e: bool = t3.has_method("is_alive") and not bool(t3.call("is_alive"))
+			golpe_conectado.emit(t3, _dir_plana(t3), c_cadena, remate_e)
 	# IMPACTO CONFIRMADO: sólo si la esfera alcanzó de verdad a alguien. Un golpe al
 	# aire (o contra el escenario) no suena; y da igual a cuántos alcance: el golpe
 	# suena UNA vez.

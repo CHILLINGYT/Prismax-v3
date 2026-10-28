@@ -16,6 +16,7 @@ weight_threat = 1.2
 current_target_bonus = 0.05
 target_switch_threshold = 0.0
 max_attackers = 2
+combo_keep_time = 2.5
 formation_radius = 2.5
 formation_min_separation = 1.3
 enemy_damage = 10.0

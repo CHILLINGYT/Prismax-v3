@@ -35,6 +35,26 @@ var _jugador_rid: RID
 var _tiene_rid: bool = false
 var _distancia_actual: float = 2.6
 
+# --- Pulido del combate (JuiceCombate) ----------------------------------------
+# Sacudida por "trauma" (Squirrel Eiserloh, GDC 2016): el impacto SUMA trauma
+# (0..1), la sacudida es trauma² (los golpes flojos casi no se notan y los
+# fuertes sí) y se lee de un ruido coherente, no de randf (que da un temblor
+# "eléctrico"). El trauma decae en tiempo REAL: el hitstop no lo congela.
+# Todo es aditivo sobre lo que ya hacía la cámara (vibración, FOV de la carga).
+const TRAUMA_DECAIMIENTO := 2.2        # trauma/s
+const SACUDIDA_MAX_DESPLAZAMIENTO := 0.09  # m de h/v_offset a trauma 1
+const SACUDIDA_MAX_GIRO := 0.035       # rad de alabeo (roll) a trauma 1
+const SACUDIDA_FRECUENCIA := 28.0      # Hz aproximados del ruido
+const FOV_PUNCH_RECUPERACION := 9.0    # 1/s: vuelta del golpe de FOV
+var _trauma: float = 0.0
+var _fov_extra: float = 0.0
+var _fov_suave: float = 70.0
+var _vib_h: float = 0.0
+var _vib_v: float = 0.0
+var _t_ruido: float = 0.0
+var _ruido := FastNoiseLite.new()
+var _t_real_us: int = 0
+
 func _ready() -> void:
 	_brazo = get_node_or_null("Brazo") as SpringArm3D
 	_cam = get_node_or_null("Brazo/Camara") as Camera3D
@@ -62,6 +82,10 @@ func _ready() -> void:
 	if _cam != null:
 		_cam.fov = fov_base
 		_cam.near = 0.04
+	_fov_suave = fov_base
+	_ruido.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_ruido.frequency = 1.0
+	_ruido.seed = 7
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not permitir_look:
@@ -85,15 +109,49 @@ func _process(delta: float) -> void:
 	if _brazo != null:
 		_brazo.spring_length = lerpf(_brazo.spring_length, objetivo_largo, 6.0 * delta)
 	if _cam != null:
-		_cam.fov = lerpf(_cam.fov, objetivo_fov, 5.0 * delta)
+		# Tiempo REAL (sin la escala del hitstop/cámara lenta): la sacudida y el
+		# golpe de FOV se ven y se recuperan aunque el mundo esté congelado.
+		# Reloj del sistema, no `delta / time_scale`: en el fotograma en que el
+		# hitstop cambia la escala, ese cociente da un salto de ×25.
+		var ahora_us: int = Time.get_ticks_usec()
+		var real: float = 0.0 if _t_real_us == 0 else minf(float(ahora_us - _t_real_us) / 1_000_000.0, 0.1)
+		_t_real_us = ahora_us
+		_fov_suave = lerpf(_fov_suave, objetivo_fov, 5.0 * delta)
+		_fov_extra = lerpf(_fov_extra, 0.0, clampf(FOV_PUNCH_RECUPERACION * real, 0.0, 1.0))
+		_cam.fov = _fov_suave + _fov_extra
 		if vibracion > 0.001:
 			var s := vibracion * 0.05
-			_cam.h_offset = randf_range(-s, s)
-			_cam.v_offset = randf_range(-s, s)
+			_vib_h = randf_range(-s, s)
+			_vib_v = randf_range(-s, s)
 		else:
-			_cam.h_offset = lerpf(_cam.h_offset, 0.0, 0.4)
-			_cam.v_offset = lerpf(_cam.v_offset, 0.0, 0.4)
+			_vib_h = lerpf(_vib_h, 0.0, 0.4)
+			_vib_v = lerpf(_vib_v, 0.0, 0.4)
+		var sh := 0.0
+		var sv := 0.0
+		var roll := 0.0
+		if _trauma > 0.0:
+			_trauma = maxf(0.0, _trauma - TRAUMA_DECAIMIENTO * real)
+			_t_ruido += real * SACUDIDA_FRECUENCIA
+			var k := _trauma * _trauma
+			sh = SACUDIDA_MAX_DESPLAZAMIENTO * k * _ruido.get_noise_2d(_t_ruido, 0.0)
+			sv = SACUDIDA_MAX_DESPLAZAMIENTO * k * _ruido.get_noise_2d(0.0, _t_ruido + 50.0)
+			roll = SACUDIDA_MAX_GIRO * k * _ruido.get_noise_2d(_t_ruido + 100.0, 100.0)
+		_cam.h_offset = _vib_h + sh
+		_cam.v_offset = _vib_v + sv
+		_cam.rotation.z = roll
 	_limitar_contra_obstaculos(delta, false)
+
+## Pulido del combate: suma TRAUMA (0..1, se acumula hasta 1) y un golpe de FOV
+## en grados (negativo = acerca, "punch-in"). Lo llama JuiceCombate.
+func impulso_golpe(trauma: float, fov_grados: float = 0.0) -> void:
+	_trauma = clampf(_trauma + maxf(trauma, 0.0), 0.0, 1.0)
+	_fov_extra += fov_grados
+
+func trauma_actual() -> float:
+	return _trauma
+
+func fov_extra_actual() -> float:
+	return _fov_extra
 
 func _physics_process(delta: float) -> void:
 	_limitar_contra_obstaculos(delta, false)

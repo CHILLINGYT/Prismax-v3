@@ -63,15 +63,26 @@ func _ready() -> void:
 	var flecha := _puerta.flecha()
 	_check(flecha != null, "la puerta tiene su flecha de aviso")
 	if flecha != null:
-		_check(flecha.position.y > 2.0 and flecha.position.y < 3.2,
-				"la flecha va encima del portal (y %.2f)" % flecha.position.y)
-		var punta := flecha.get_node_or_null("Punta") as MeshInstance3D
-		var cono := punta.mesh as CylinderMesh if punta != null else null
-		_check(cono != null and cono.top_radius > 0.05 and is_zero_approx(cono.bottom_radius),
-				"apunta hacia abajo (cono con la punta abajo)")
-		var mat := punta.material_override as StandardMaterial3D if punta != null else null
-		_check(mat != null and mat.albedo_color.r > 0.9 and mat.albedo_color.g > 0.7 and mat.albedo_color.b < 0.2,
-				"es amarilla como las flechas del juego (%s)" % (str(mat.albedo_color) if mat != null else "sin material"))
+		# Marcador DoorMarker (estilo GTA SA): la punta flota sobre el portal.
+		var marcador := flecha as DoorMarker
+		_check(marcador != null, "la flecha es el marcador reutilizable DoorMarker")
+		if marcador != null:
+			var y0 := marcador.altura_flecha()
+			_check(y0 > 2.0 and y0 < 3.2, "la punta va encima del portal (y %.2f)" % y0)
+			var malla := (marcador.get_node("_DMPivote/_DMFlecha") as MeshInstance3D).mesh
+			var caja := malla.get_aabb()
+			_check(caja.position.y > -0.01 and caja.position.y < 0.05 and caja.end.y > 0.8,
+					"apunta hacia abajo (punta en la base de su malla, cola arriba: %.2f..%.2f)" % [caja.position.y, caja.end.y])
+			var c := marcador.color
+			_check(c.r > 0.9 and c.g > 0.6 and c.b < 0.2 and c.s > 0.9, "amarillo saturado (%s)" % str(c))
+			var g0 := marcador.giro_flecha()
+			var alturas := [y0]
+			for k in 40:
+				await get_tree().process_frame
+				alturas.append(marcador.altura_flecha())
+			var g1 := marcador.giro_flecha()
+			_check(absf(wrapf(g1 - g0, -PI, PI)) > 0.01, "gira sobre su eje vertical (%.3f → %.3f rad)" % [g0, g1])
+			_check(alturas.max() - alturas.min() > 0.005, "sube y baja (vaivén %.3f m)" % (alturas.max() - alturas.min()))
 
 	# 3. Radio: lejos no hay aviso; cerca sí, por el canal del HUD.
 	_jug.global_position = Vector3(0.0, 0.2, 12.0)
@@ -159,6 +170,37 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	_check(_puerta.puede_usar(), "de vuelta delante de la puerta se puede entrar otra vez")
+
+	# 8b. El BUG de la semilla fija: el portal más cercano da a un edificio vecino
+	# (delante hay una pared). La casa NO puede quedarse con ese: tiene que elegir
+	# el más cercano de los que se pueden pisar.
+	var muro := StaticBody3D.new()
+	muro.collision_layer = 1
+	var forma_muro := CollisionShape3D.new()
+	var caja_muro := BoxShape3D.new()
+	caja_muro.size = Vector3(4.0, 3.0, 4.0)
+	forma_muro.shape = caja_muro
+	muro.add_child(forma_muro)
+	muro.position = Vector3(8.0 - 2.2, 1.5, 0.0)   # tapa el frente del portal 0 (da a -X)
+	add_child(muro)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var portal_antes := EstadoCasaLeo.portal_guardado()
+	EstadoCasaLeo.olvidar_portal()
+	var tapada := PuertaCasaLeo.new()
+	tapada.name = "PuertaCasaLeoTapada"
+	tapada.ciudad = _ciudad
+	add_child(tapada)
+	for i in 10:
+		await get_tree().physics_frame
+	_check(tapada.portal().distance_to(Vector3(30.0, 0.0, 0.0)) < 0.01,
+			"con el portal más cercano TAPADO por un edificio, elige el siguiente accesible (%s)" % str(tapada.portal()))
+	# Se deja todo como estaba para el resto de la prueba.
+	tapada.queue_free()
+	muro.queue_free()
+	EstadoCasaLeo.olvidar_portal()
+	EstadoCasaLeo.guardar_portal(portal_antes)
+	await get_tree().physics_frame
 
 	# 9. La E arranca la carga del INTERIOR de verdad: se comprueba el destino que
 	# queda puesto (la pantalla de carga es la del juego, la de siempre). Se hace al

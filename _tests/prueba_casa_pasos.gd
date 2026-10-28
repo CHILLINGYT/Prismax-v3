@@ -102,7 +102,7 @@ func _ready() -> void:
 	_check(p1.y > -0.3 and p1.y < 0.6, "cruzó el vano sin caerse ni colarse por el suelo (y %.2f)" % p1.y)
 	_check(not bool(salida.call("en_rango")), "desde el DORMITORIO la salida NO se ofrece (otro lado del muro)")
 	var texto_dentro := String(_jug.call("texto_interaccion"))
-	_check(texto_dentro == "", "el aviso de salida desapareció dentro del dormitorio ('%s')" % texto_dentro)
+	_check(texto_dentro != TEXTO_SALIDA, "el aviso de SALIDA desapareció dentro del dormitorio (ahora: '%s')" % texto_dentro)
 	# Y dentro del dormitorio no se cae: sigue apoyado.
 	_check(_jug.is_on_floor(), "sigue apoyado en el suelo del dormitorio")
 

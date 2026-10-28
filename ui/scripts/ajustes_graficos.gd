@@ -98,6 +98,42 @@ const PERFILES: Array[Dictionary] = [
 	},
 ]
 
+# =============================================================== MODO DE AMBIENTE
+## "Modo de ambiente" (menú GRÁFICOS): REALISTA = el juego tal cual (manda el
+## perfil de CALIDAD) · PS2 = estética de PlayStation 2, que además RINDE MÁS
+## porque recorta costes reales. Se cambia en caliente (sin reiniciar).
+##
+## Qué hace PS2 y por qué (la firma de la PS2, no la de la PS1):
+##   · 3D a ~448 líneas (la PS2 sacaba 640x448), escalado BILINEAL: blando como
+##     en un televisor, nunca pixel-art. Es también la mayor ganancia de FPS;
+##   · post-proceso (ui/shaders/ambiente_ps2.gdshader) por DEBAJO del HUD:
+##     rejilla de píxel + color de 16 bits con dithering 4x4 → la UI sigue nítida;
+##   · texturas más blandas (mipmap bias +0,75, sin anisotrópico) como la poca
+##     VRAM de la época, y saturación/contraste un poco más altos;
+##   · niebla cercana y distancia de dibujo corta (far ≤ 450 m) + LOD agresivo;
+##   · sin SSAO, SSIL, SSR, SDFGI, glow ni niebla volumétrica; sombra del sol a
+##     1024 px, dura y sólo a 25 m (sombra "gorda" como las de la época), sin
+##     sombras de terreno/vegetación y atlas de luces puntuales a 256.
+##   · NO hay temblor de vértices ni texturas afines: eran de la PS1 (la PS2
+##     corregía la perspectiva). Imitarlos marea y no es fiel a la referencia.
+enum Ambiente { REALISTA, PS2 }
+const AMBIENTE_NOMBRES: Array[String] = ["REALISTA", "PS2"]
+const PS2_LINEAS := 448.0
+const PS2_FAR := 450.0
+const PS2_MIPMAP_BIAS := 0.75
+const PS2_SATURACION := 1.15
+const PS2_CONTRASTE := 1.06
+const PS2_SOMBRA_DISTANCIA := 25.0
+const PS2_SOMBRA_ATLAS := 1024
+const PS2_ATLAS_POSICIONAL := 256
+const PS2_LOD := 8.0
+## Capa del post-proceso: por encima del 3D, por debajo de TODO el HUD (≥ 5).
+const PS2_CAPA := 1
+const SHADER_PS2 := preload("res://ui/shaders/ambiente_ps2.gdshader")
+var modo_ambiente: int = Ambiente.REALISTA
+var _capa_ps2: CanvasLayer = null
+var _mat_ps2: ShaderMaterial = null
+
 ## Lista EXACTA de resoluciones disponibles, en el orden pedido.
 const RESOLUCIONES: Array[Vector2i] = [
 	Vector2i(640, 480),
@@ -254,7 +290,11 @@ func texto_resolucion() -> String:
 # ---------------------------------------------------------------- distancia
 func _far_para_nivel(nivel: int) -> float:
 	var t := float(nivel) / float(DISTANCIA_MAX)
-	return lerpf(FAR_MIN, FAR_MAX, pow(t, 1.6))
+	var far := lerpf(FAR_MIN, FAR_MAX, pow(t, 1.6))
+	# PS2: distancia de dibujo corta de la época (la niebla sube sola con ella).
+	if modo_ambiente == Ambiente.PS2:
+		far = minf(far, PS2_FAR)
+	return far
 
 func _reaplicar_distancia() -> void:
 	_aplicar_distancia()
@@ -302,6 +342,13 @@ func _aplicar_fps() -> void:
 		_fps_label.visible = mostrar_fps
 
 func _process(_delta: float) -> void:
+	# Barato: sólo enciende/apaga la capa PS2 según haya o no cámara 3D.
+	if _capa_ps2 != null and modo_ambiente == Ambiente.PS2:
+		var hay_3d := get_viewport().get_camera_3d() != null
+		if hay_3d != _capa_ps2.visible:
+			_actualizar_capa_ps2()
+		if hay_3d:
+			_sincronizar_minimapa()
 	if _fps_label != null and _fps_label.visible:
 		_fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
 
@@ -355,6 +402,7 @@ func _guardar() -> void:
 	cf.set_value(SECCION, "mostrar_fps", mostrar_fps)
 	cf.set_value(SECCION, "distancia", distancia)
 	cf.set_value(SECCION, "calidad", calidad)
+	cf.set_value(SECCION, "modo_ambiente", modo_ambiente)
 	cf.set_value(SECCION, "optimizacion_agresiva", optimizacion_agresiva)
 	cf.set_value(SECCION, "distancia_carga", distancia_carga)
 	cf.set_value(SECCION, "distancia_precarga", distancia_precarga)
@@ -374,6 +422,7 @@ func _cargar() -> bool:
 	mostrar_fps = bool(cf.get_value(SECCION, "mostrar_fps", false))
 	distancia = clampi(int(cf.get_value(SECCION, "distancia", DISTANCIA_MAX)), DISTANCIA_MIN, DISTANCIA_MAX)
 	calidad = clampi(int(cf.get_value(SECCION, "calidad", Calidad.ALTA)), 0, PERFILES.size() - 1)
+	modo_ambiente = clampi(int(cf.get_value(SECCION, "modo_ambiente", Ambiente.REALISTA)), 0, AMBIENTE_NOMBRES.size() - 1)
 	# P10-B: por defecto APAGADO; sólo se enciende si la preferencia guardada lo pidió.
 	optimizacion_agresiva = bool(cf.get_value(SECCION, "optimizacion_agresiva", false))
 	distancia_carga = clampi(int(cf.get_value(SECCION, "distancia_carga", 4)), 0, CARGA_NIVELES)
@@ -431,6 +480,146 @@ func _aplicar_calidad() -> void:
 
 	# --- entorno: SSAO, SSIL, glow y niebla volumétrica ---------------------
 	_entorno_con_perfil(perfil)
+
+	# --- modo de ambiente (PS2 se aplica ENCIMA del perfil) -----------------
+	_aplicar_ambiente()
+
+
+## Modo de ambiente. Idempotente; en REALISTA devuelve lo que PS2 cambió y que el
+## perfil de calidad no gobierna (bias de mipmaps, anisotrópico, modo de escalado,
+## ajustes de color, post-proceso). Lo demás ya lo dejó el perfil.
+func _aplicar_ambiente() -> void:
+	var vp := get_viewport()
+	if vp == null:
+		return
+	if not _orig.has("escala_modo"):
+		_orig["escala_modo"] = vp.scaling_3d_mode
+		_orig["mip_bias"] = vp.texture_mipmap_bias
+		_orig["aniso"] = vp.anisotropic_filtering_level
+	var ps2 := modo_ambiente == Ambiente.PS2
+	_asegurar_capa_ps2()
+	if ps2:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		vp.scaling_3d_scale = _escala_ps2()
+		vp.texture_mipmap_bias = PS2_MIPMAP_BIAS
+		vp.anisotropic_filtering_level = Viewport.ANISOTROPY_DISABLED
+		vp.mesh_lod_threshold = maxf(vp.mesh_lod_threshold, PS2_LOD)
+		vp.positional_shadow_atlas_size = PS2_ATLAS_POSICIONAL
+		RenderingServer.directional_shadow_atlas_set_size(PS2_SOMBRA_ATLAS, true)
+		RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+		RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+		for n: Node in _buscar_por_clase("DirectionalLight3D"):
+			(n as DirectionalLight3D).directional_shadow_max_distance = PS2_SOMBRA_DISTANCIA
+		_aplicar_sombra_terreno(false)
+		_aplicar_sombra_vegetacion(false)
+	else:
+		vp.scaling_3d_mode = _orig["escala_modo"]
+		vp.texture_mipmap_bias = float(_orig["mip_bias"])
+		vp.anisotropic_filtering_level = _orig["aniso"]
+	if _entorno_copia != null:
+		var env := _entorno_copia
+		if not _orig.has("env_adj"):
+			_orig["env_adj"] = _entorno_original.adjustment_enabled
+			_orig["env_sat"] = _entorno_original.adjustment_saturation
+			_orig["env_con"] = _entorno_original.adjustment_contrast
+			_orig["env_ssr"] = _entorno_original.ssr_enabled
+			_orig["env_sdfgi"] = _entorno_original.sdfgi_enabled
+		if ps2:
+			env.ssao_enabled = false
+			env.ssil_enabled = false
+			env.glow_enabled = false
+			env.volumetric_fog_enabled = false
+			env.ssr_enabled = false
+			env.sdfgi_enabled = false
+			env.adjustment_enabled = true
+			env.adjustment_saturation = PS2_SATURACION
+			env.adjustment_contrast = PS2_CONTRASTE
+		else:
+			env.ssr_enabled = bool(_orig["env_ssr"])
+			env.sdfgi_enabled = bool(_orig["env_sdfgi"])
+			env.adjustment_enabled = bool(_orig["env_adj"])
+			env.adjustment_saturation = float(_orig["env_sat"])
+			env.adjustment_contrast = float(_orig["env_con"])
+	_actualizar_capa_ps2()
+	_sincronizar_minimapa()
+
+
+## Escala 3D que da ~448 líneas a la resolución REAL de la ventana.
+func _escala_ps2() -> float:
+	var alto := float(maxi(get_viewport().size.y, 1))
+	return clampf(PS2_LINEAS / alto, 0.2, 1.0)
+
+
+func _asegurar_capa_ps2() -> void:
+	if _capa_ps2 != null:
+		return
+	_capa_ps2 = CanvasLayer.new()
+	_capa_ps2.name = "AmbientePS2"
+	_capa_ps2.layer = PS2_CAPA
+	add_child(_capa_ps2)
+	var rect := ColorRect.new()
+	rect.name = "Post"
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mat_ps2 = ShaderMaterial.new()
+	_mat_ps2.shader = SHADER_PS2
+	rect.material = _mat_ps2
+	_capa_ps2.add_child(rect)
+	_capa_ps2.visible = false
+	get_viewport().size_changed.connect(_on_ventana_cambiada)
+
+
+func _on_ventana_cambiada() -> void:
+	if modo_ambiente == Ambiente.PS2:
+		get_viewport().scaling_3d_scale = _escala_ps2()
+		_actualizar_capa_ps2()
+
+
+## El post-proceso sólo se dibuja en PS2 y si hay mundo 3D en pantalla (en el
+## menú principal y en las pantallas de carga no se toca nada: allí todo es UI).
+func _actualizar_capa_ps2() -> void:
+	if _capa_ps2 == null:
+		return
+	var vp := get_viewport()
+	var visible_ps2 := modo_ambiente == Ambiente.PS2 and vp.get_camera_3d() != null
+	_capa_ps2.visible = visible_ps2
+	if visible_ps2:
+		var s := Vector2(vp.size) * vp.scaling_3d_scale
+		_mat_ps2.set_shader_parameter("resolucion_baja", s.round())
+
+
+func es_ps2() -> bool:
+	return modo_ambiente == Ambiente.PS2
+
+
+## El minimapa es una cámara cenital a cientos de metros que COMPARTE el entorno
+## del mundo: con la niebla cercana de PS2 quedaba lavado. En PS2 su cámara usa
+## una copia del entorno SIN niebla, que sigue cada fotograma los valores que
+## mueve el ciclo de día y noche (luz ambiente). En REALISTA se le quita.
+const PROPS_MINIMAPA := ["ambient_light_energy", "ambient_light_sky_contribution",
+		"ambient_light_color", "ambient_light_source", "sky", "background_mode",
+		"tonemap_mode", "tonemap_exposure", "adjustment_enabled",
+		"adjustment_saturation", "adjustment_contrast"]
+var _cam_minimapa: Camera3D = null
+var _env_minimapa: Environment = null
+
+func _sincronizar_minimapa() -> void:
+	if _cam_minimapa == null or not is_instance_valid(_cam_minimapa):
+		_cam_minimapa = null
+		var r := get_tree().root.find_children("CamaraMinimapa", "Camera3D", true, false)
+		if r.is_empty():
+			return
+		_cam_minimapa = r[0] as Camera3D
+	if modo_ambiente != Ambiente.PS2 or _entorno_copia == null:
+		_cam_minimapa.environment = null
+		return
+	if _env_minimapa == null:
+		_env_minimapa = Environment.new()
+		_env_minimapa.fog_enabled = false
+		_env_minimapa.volumetric_fog_enabled = false
+	for p in PROPS_MINIMAPA:
+		_env_minimapa.set(p, _entorno_copia.get(p))
+	_cam_minimapa.environment = _env_minimapa
 
 # ---------------------------------------------------------------- originales
 ## Captura el estado original UNA vez (el del proyecto, no un valor escrito a
@@ -556,6 +745,23 @@ func pasar_calidad(paso: int) -> void:
 
 func texto_calidad() -> String:
 	return CALIDAD_NOMBRES[clampi(calidad, 0, CALIDAD_NOMBRES.size() - 1)]
+
+## Cambia el modo de ambiente EN CALIENTE: aplica (perfil + ambiente + distancia),
+## guarda y avisa al menú.
+func poner_modo_ambiente(n: int) -> void:
+	n = clampi(n, 0, AMBIENTE_NOMBRES.size() - 1)
+	if n == modo_ambiente:
+		return
+	modo_ambiente = n
+	_reaplicar_todo()
+	_guardar()
+	cambiado.emit()
+
+func pasar_modo_ambiente(paso: int) -> void:
+	poner_modo_ambiente(wrapi(modo_ambiente + paso, 0, AMBIENTE_NOMBRES.size()))
+
+func texto_modo_ambiente() -> String:
+	return AMBIENTE_NOMBRES[clampi(modo_ambiente, 0, AMBIENTE_NOMBRES.size() - 1)]
 
 
 # =============================================================== P10-B: STREAMING

@@ -214,6 +214,11 @@ func _activate(index: int) -> void:
 			# no se duplican aquí).
 			_ciclar_calidad()
 			_refresh(true)
+		MenuOptionRes.Action.AMBIENTE:
+			# MODO DE AMBIENTE: REALISTA <-> PS2, en caliente (AjustesGraficos).
+			AjustesGraficos.pasar_modo_ambiente(1)
+			_actualizar_calidad()
+			_refresh(true)
 		MenuOptionRes.Action.OPTIMIZACION:
 			# P10-B2: mismo interruptor compartido con el menú de pausa.
 			AjustesGraficos.alternar_optimizacion_agresiva()
@@ -314,6 +319,15 @@ func _actualizar_calidad() -> void:
 	var texto: String = AjustesGraficos.texto_calidad()
 	for nodo: Node in _seccion_graficos.get_children():
 		var fila := nodo as MenuOptionRes
+		if fila != null and fila.action == MenuOptionRes.Action.AMBIENTE:
+			var et := fila.get_node_or_null("Label") as Label
+			if et != null:
+				et.text = "MODO DE AMBIENTE: %s" % AjustesGraficos.texto_modo_ambiente()
+			fila.description = ("Modo de ambiente: %s. PS2 = estética de PlayStation 2 "
+					+ "(baja resolución, color de 16 bits con trama, niebla cercana) y "
+					+ "más FPS; REALISTA = el juego como siempre. Se aplica al instante.") \
+					% AjustesGraficos.texto_modo_ambiente()
+			continue
 		if fila == null or fila.action != MenuOptionRes.Action.CALIDAD:
 			continue
 		var etiqueta := fila.get_node_or_null("Label") as Label
@@ -395,6 +409,9 @@ func _ajustar_valor(paso: int) -> void:
 	match row.action:
 		MenuOptionRes.Action.CALIDAD:
 			AjustesGraficos.pasar_calidad(paso)
+		MenuOptionRes.Action.AMBIENTE:
+			AjustesGraficos.pasar_modo_ambiente(paso)
+			_actualizar_calidad()
 		MenuOptionRes.Action.DIST_CARGA:
 			AjustesGraficos.poner_distancia_carga(AjustesGraficos.distancia_carga + paso)
 		MenuOptionRes.Action.DIST_PRECARGA:

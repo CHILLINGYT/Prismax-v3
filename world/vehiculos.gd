@@ -26,6 +26,8 @@ extends Node3D
 const ESCENA_MOTO := preload("res://world/vehiculos/moto_vespa.tscn")
 const ESCENA_AUTO := preload("res://world/vehiculos/auto_datsun.tscn")
 const ESCENA_CAMIONETA := preload("res://world/vehiculos/camioneta_zuk.tscn")
+## Ford Escort Wagon de la carpeta "auto profe" (mismo VehiculoAparcado).
+const ESCENA_FORD := preload("res://world/vehiculos/auto_ford_escort.tscn")
 
 const MAX_ESPERA := 8.0         ## s de espera máxima a que el generador cierre la ciudad
 const AIRE_BORDILLO := 0.15     ## m entre el costado del vehículo y el bordillo
@@ -39,9 +41,15 @@ const SEPARACION_MIN := 10.0    ## m entre dos de los vehículos colocados
 @export_group("Colocación")
 ## Permite apagar la colocación (por ejemplo para una prueba que la mida).
 @export var colocar := true
-@export var largo_moto := 1.75      ## longitud real buscada (m)
-@export var largo_auto := 4.75
-@export var largo_camioneta := 4.5
+## Largos buscados (m), proporcionados al JUGADOR: su malla mide 1,95 m (×1,11 una
+## persona de 1,75 m), así que los tamaños reales se multiplican por ese factor.
+## La escala es UNIFORME: el alto sale del propio modelo (se indica al lado).
+## 2026-10: +10% sobre la medida realista (los tamaños anteriores van al lado): a
+## pedido, para que se noten más en una calzada de 12 m sin quedar caricaturescos.
+@export var largo_moto := 2.42       ## antes 2,2 → alto 1,42 m
+@export var largo_auto := 5.5        ## antes 5,0 → alto 1,70 m
+@export var largo_camioneta := 5.39  ## antes 4,9 → alto 2,56 m
+@export var largo_ford := 4.73       ## antes 4,3 → alto 1,83 m
 
 var _hecho := false
 var _t := 0.0
@@ -104,6 +112,10 @@ func _construir(trazado: Dictionary) -> void:
 		# lado. No se repite sitio con ninguno de los tres de arriba.
 		{"escena": ESCENA_AUTO, "tipo": "auto2", "largo": largo_auto,
 			"vertical": false, "calle": clampi(2, 0, n_z), "banda": clampi(2, 0, maxi(n_x - 1, 0)), "lado": -1.0},
+		# QUINTO: el Ford Escort (carpeta "auto profe"), en una calle VERTICAL que no
+		# usa nadie (la 3), con su banda propia.
+		{"escena": ESCENA_FORD, "tipo": "ford", "largo": largo_ford,
+			"vertical": true, "calle": clampi(3, 0, n_x), "banda": clampi(2, 0, maxi(n_z - 1, 0)), "lado": 1.0},
 	]
 	var esperados := planes.size()
 	# La calzada tiene que dar de sí: si el ancho del vial no cupiera, se avisa.
@@ -155,7 +167,7 @@ func _construir(trazado: Dictionary) -> void:
 	if _puestos.size() != esperados:
 		push_warning("[vehiculos] se esperaban %d vehículos aparcados y quedaron %d." % [
 				esperados, _puestos.size()])
-	print("[vehiculos] %d vehículos aparcados (moto, auto, camioneta y un segundo coche) en calles distintas" % _puestos.size())
+	print("[vehiculos] %d vehículos aparcados (moto, auto, camioneta, segundo coche y Ford Escort) en calles distintas" % _puestos.size())
 
 
 ## Altura del SUELO de la ciudad en (x, z): rayo hacia abajo contra la capa 1 (suelo

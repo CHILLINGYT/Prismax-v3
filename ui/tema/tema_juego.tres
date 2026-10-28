@@ -1,0 +1,104 @@
+[gd_resource type="Theme" load_steps=12 format=3]
+
+[ext_resource type="FontFile" path="res://assets/ui/fuentes/Barlow-SemiBold.ttf" id="1_barlow_sb"]
+[ext_resource type="FontFile" path="res://assets/ui/fuentes/Barlow-Medium.ttf" id="2_barlow_md"]
+[ext_resource type="FontFile" path="res://assets/ui/fuentes/BarlowCondensed-Bold.ttf" id="3_cond_b"]
+[ext_resource type="FontFile" path="res://assets/ui/fuentes/BarlowCondensed-ExtraBold.ttf" id="4_cond_xb"]
+[ext_resource type="Texture2D" path="res://assets/ui/generadas/velo_lateral.png" id="5_velo_lateral"]
+
+[sub_resource type="Gradient" id="Gradient_velo"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(0.01, 0.015, 0.03, 0.62, 0.01, 0.015, 0.03, 0.34, 0.01, 0.015, 0.03, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_velo"]
+gradient = SubResource("Gradient_velo")
+width = 256
+height = 96
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_velo"]
+texture = SubResource("GradientTexture2D_velo")
+content_margin_left = 40.0
+content_margin_top = 14.0
+content_margin_right = 40.0
+content_margin_bottom = 14.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_lateral"]
+texture = ExtResource("5_velo_lateral")
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 28.0
+content_margin_bottom = 10.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tecla"]
+bg_color = Color(0.96, 0.97, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+border_width_bottom = 4
+border_color = Color(0.62, 0.66, 0.74, 1)
+content_margin_left = 9.0
+content_margin_top = 1.0
+content_margin_right = 9.0
+content_margin_bottom = 3.0
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 3
+shadow_offset = Vector2(0, 2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_acento"]
+bg_color = Color(1, 0.72, 0.25, 1)
+
+[resource]
+default_font = ExtResource("1_barlow_sb")
+default_font_size = 20
+ComboNumero/base_type = &"Label"
+ComboNumero/colors/font_color = Color(1, 0.8, 0.36, 1)
+ComboNumero/constants/outline_size = 8
+ComboNumero/font_sizes/font_size = 40
+ComboNumero/fonts/font = ExtResource("4_cond_xb")
+ComboTexto/base_type = &"Label"
+ComboTexto/colors/font_color = Color(0.94, 0.95, 1, 1)
+ComboTexto/constants/outline_size = 5
+ComboTexto/font_sizes/font_size = 15
+ComboTexto/fonts/font = ExtResource("3_cond_b")
+HudAcento/base_type = &"Panel"
+HudAcento/styles/panel = SubResource("StyleBoxFlat_acento")
+HudAviso/base_type = &"Label"
+HudAviso/font_sizes/font_size = 24
+HudAviso/fonts/font = ExtResource("1_barlow_sb")
+HudEtiqueta/base_type = &"Label"
+HudEtiqueta/colors/font_color = Color(1, 0.72, 0.25, 1)
+HudEtiqueta/constants/outline_size = 4
+HudEtiqueta/font_sizes/font_size = 16
+HudEtiqueta/fonts/font = ExtResource("3_cond_b")
+HudObjetivo/base_type = &"Label"
+HudObjetivo/font_sizes/font_size = 28
+HudObjetivo/fonts/font = ExtResource("3_cond_b")
+HudSecundario/base_type = &"Label"
+HudSecundario/colors/font_color = Color(0.84, 0.87, 0.93, 1)
+HudSecundario/font_sizes/font_size = 18
+HudSecundario/fonts/font = ExtResource("2_barlow_md")
+HudTecla/base_type = &"PanelContainer"
+HudTecla/styles/panel = SubResource("StyleBoxFlat_tecla")
+HudTeclaTexto/base_type = &"Label"
+HudTeclaTexto/colors/font_color = Color(0.07, 0.08, 0.11, 1)
+HudTeclaTexto/colors/font_outline_color = Color(0, 0, 0, 0)
+HudTeclaTexto/constants/outline_size = 0
+HudTeclaTexto/constants/shadow_outline_size = 0
+HudTeclaTexto/colors/font_shadow_color = Color(0, 0, 0, 0)
+HudTeclaTexto/font_sizes/font_size = 22
+HudTeclaTexto/fonts/font = ExtResource("4_cond_xb")
+HudVeloLateral/base_type = &"PanelContainer"
+HudVeloLateral/styles/panel = SubResource("StyleBoxTexture_lateral")
+HudVelo/base_type = &"PanelContainer"
+HudVelo/styles/panel = SubResource("StyleBoxTexture_velo")
+Label/colors/font_color = Color(0.97, 0.98, 1, 1)
+Label/colors/font_outline_color = Color(0.02, 0.025, 0.045, 0.95)
+Label/colors/font_shadow_color = Color(0, 0, 0, 0.55)
+Label/constants/outline_size = 6
+Label/constants/shadow_offset_x = 0
+Label/constants/shadow_offset_y = 2
+Label/constants/shadow_outline_size = 8

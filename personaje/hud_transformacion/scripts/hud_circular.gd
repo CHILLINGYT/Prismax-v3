@@ -86,14 +86,17 @@ var _est_mostrado: float = 1.0
 # no hay nada a mano). El aviso se construye aquí, en código, como el resto del
 # diseño del HUD, y se funde con un Tween: mientras el texto no cambie no se
 # toca nada, así que estando en la zona el mensaje queda fijo (sin parpadeos).
-const AVISO_ALTO := 46.0
 const AVISO_MARGEN_INFERIOR := 132.0
-const AVISO_FUNDIDO := 0.18
+## Estilo nuevo (tema central + keycap, componente AvisoInteraccion). `false` =
+## el panel anterior hecho a mano (para comparar).
+const AVISO_ESTILO_NUEVO := true
 
+var _aviso_nuevo: AvisoInteraccion
 var _aviso: PanelContainer
 var _aviso_etiqueta: Label
 var _aviso_visible := false
 var _aviso_tween: Tween
+const AVISO_FUNDIDO := 0.18
 
 
 func _ready() -> void:
@@ -135,6 +138,12 @@ func _ready() -> void:
 # el borde descentrado.
 # ---------------------------------------------------------------------------
 func _construir_aviso() -> void:
+	if AVISO_ESTILO_NUEVO:
+		_aviso_nuevo = AvisoInteraccion.new()
+		_aviso_nuevo.name = "Aviso"
+		$Raiz.add_child(_aviso_nuevo)
+		_aviso_nuevo.anclar_abajo_centro(AVISO_MARGEN_INFERIOR)
+		return
 	_aviso = PanelContainer.new()
 	_aviso.name = "Aviso"
 	_aviso.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -188,6 +197,12 @@ func _process(delta: float) -> void:
 
 	# --- Aviso contextual ---
 	var texto: String = _jugador.texto_interaccion() if _jugador != null else ""
+	if _aviso_nuevo != null:
+		if texto.is_empty():
+			_aviso_nuevo.ocultar()
+		else:
+			_aviso_nuevo.mostrar(texto)
+		return
 	if texto.is_empty():
 		if _aviso_visible:
 			_aviso_visible = false

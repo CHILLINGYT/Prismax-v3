@@ -61,14 +61,33 @@ const LUZ_CALIDA := Color(1.0, 0.94, 0.86)
 const VANO := Vector3(-3.805, 0.0, 0.221)
 ## Vano interior del dormitorio principal (abierto y transitable a pie).
 const VANO_DORMITORIO := Vector3(-3.76, 0.0, -2.91)
-## Dónde aparece Leo: en el pasillo, delante de la puerta principal ubicada según la foto.
-const PASILLO := Vector3(-4.48, 0.0, 0.221)
-## Hacia dónde mira al aparecer: hacia la puerta en el pasillo.
-const MIRA := Vector3(-3.805, 0.0, 0.221)
+## Dónde aparece Leo: en el pasillo, JUNTO a la puerta principal (la única puerta
+## cerrada del modelo, la de la foto), pero un paso hacia el salón y MIRANDO HACIA
+## LA VIVIENDA, no de narices contra la hoja.
+## Por qué así (medido, no supuesto):
+##   · `_tests/sonda_casa_lado_puerta.gd`: al OTRO lado del plano de la puerta
+##     (x > -0,69 de la escena) hay suelo libre, pero `_tests/sonda_casa_paso.gd`
+##     demuestra que es un BOLSILLO CERRADO (5 celdas alcanzables, cercado por
+##     Object_10 al norte y Object_12 al sur): aparecer ahí dejaba a Leo encerrado;
+##   · mirando a la puerta, la cámara se iba contra la pared del baño (el pasillo
+##     mide 1,05 m): mirando al salón, detrás queda el pasillo libre y la cámara
+##     respira. El cartel de salida sigue a mano (0,68 m del Area3D, radio 1,1 m).
+const PASILLO := Vector3(-4.441, 0.0, -0.111)
+## Hacia dónde mira al aparecer: hacia el salón (sur del pasillo), con la puerta
+## a su espalda, que es como se entra de verdad en una casa.
+const MIRA := Vector3(-4.441, 0.0, 1.722)
 ## La salida: EN LA PUERTA PRINCIPAL, un palmo hacia el pasillo.
 ## Al estar en el plano de la puerta, el radio y el lado (`normal`) cubren justo el
 ## pasillo de delante: el aviso se ofrece ahí y sólo ahí.
 const SALIDA := Vector3(-3.98, 0.0, 0.221)
+## CAMA del dormitorio principal (la de la foto: mesas de luz y lámparas colgantes
+## a los dos lados). Centro del colchón en coordenadas del GLB, medido con el mapa
+## de alturas de `_tests/sonda_cama.gd` (colchón x 0,25..2,55 · z −1,6..+0,5 en la
+## escena, cabecero al sur). Semiejes en metros de la escena.
+const CAMA := Vector3(-2.066, 0.0, -1.402)
+const CAMA_SEMIEJES := Vector2(1.15, 1.05)
+## Interruptor de "dormir en la cama".
+const CAMA_DORMIR_ACTIVA := true
 
 # --- Vanos EXTERIORES del modelo (sonda): cristal invisible -------------------
 ## [centro en el modelo, tamaño en metros del modelo]. Son los tres huecos que dan
@@ -84,6 +103,14 @@ const VANOS := [
 const VISTA_SEMILLA := 20260214
 const VISTA_SUELO_Y := -6.5          ## 2 pisos por debajo de la casa
 const VISTA_ANILLO := Vector2(16.0, 80.0)
+## Aire (m) que se le deja a la FACHADA: ningún edificio de la vista puede quedar
+## a menos de (radio de la casa + su propia media diagonal + este margen).
+## CAUSA RAÍZ del "muro azul" que tapaba las ventanas del salón/comedor: el anillo
+## empezaba a 16 m del CENTRO y los edificios miden hasta 22 × 22 m, así que uno
+## de 22 m de lado colocado a 16 m metía su esquina a 5 m del centro, o sea DENTRO
+## de la casa (la caja mide 8,46 × 12,79 m). No era una pared ni un viewport: era
+## un edificio del paisaje atravesando el salón.
+const VISTA_AIRE_FACHADA := 12.0
 const VISTA_EDIFICIOS := 40
 const VISTA_LADO := Vector2(9.0, 22.0)
 const VISTA_ALTO := Vector2(7.0, 30.0)
@@ -107,6 +134,8 @@ var _cuerpos_malla := 0
 var _cristales := 0
 var _cristales_datos: Array = []
 var _vista_posiciones: Array[Vector3] = []
+var _vista_empujados := 0                    ## edificios de la vista corridos fuera de la casa
+var _vista_min_dist := 0.0                   ## m del centro a la cara más cercana de un edificio
 var _edificios := 0
 var _ventanas := 0
 var _radio_original := -1.0                  ## radio de cápsula del jugador fuera de casa
@@ -199,6 +228,12 @@ func _marcadores() -> void:
 	var destino := get_node_or_null("MiraEntrada") as Node3D
 	if destino != null:
 		destino.position = _de_modelo(MIRA)
+	if CAMA_DORMIR_ACTIVA and get_node_or_null("CamaDormir") == null:
+		var cama := CamaDormir.new()
+		cama.name = "CamaDormir"
+		cama.semiejes = CAMA_SEMIEJES
+		add_child(cama)
+		cama.position = _de_modelo(CAMA)
 	var nodo_salida := get_node_or_null("SalidaInterior") as SalidaInterior
 	if nodo_salida == null:
 		return
@@ -433,7 +468,7 @@ func _colocar_jugador() -> void:
 		_jugador.call("colocar_en", punto.global_position + Vector3.UP * 0.05, destino.global_position)
 	else:
 		_jugador.global_position = punto.global_position + Vector3.UP * 0.05
-	print("[casa] Leo aparece en el pasillo, delante de la puerta principal (%s)" % str(punto.global_position))
+	print("[casa] Leo aparece junto a la puerta principal, mirando a la vivienda (%s)" % str(punto.global_position))
 
 
 ## Cielo y entorno: los MISMOS del juego (el material del cielo del asset Sky 3D
@@ -623,12 +658,25 @@ func _vista() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = VISTA_SEMILLA
 	var rejilla: Array[Transform3D] = []
+	# Radio de la casa en planta: ningún edificio puede entrar en este círculo.
+	var radio_casa := Vector2(
+			maxf(absf(_caja.position.x), absf(_caja.end.x)),
+			maxf(absf(_caja.position.z), absf(_caja.end.z))).length()
+	_vista_empujados = 0
+	_vista_min_dist = 1e9
 	for i in VISTA_EDIFICIOS:
 		var angulo := TAU * float(i) / float(VISTA_EDIFICIOS) + rng.randf_range(-0.07, 0.07)
 		var dist := rng.randf_range(VISTA_ANILLO.x, VISTA_ANILLO.y)
 		var ancho := rng.randf_range(VISTA_LADO.x, VISTA_LADO.y)
 		var fondo := rng.randf_range(VISTA_LADO.x, VISTA_LADO.y)
 		var alto := rng.randf_range(VISTA_ALTO.x, VISTA_ALTO.y)
+		# Fuera de la casa SIEMPRE: la media diagonal del edificio es lo que puede
+		# asomar hacia el centro por mucho que gire la esquina.
+		var minima := radio_casa + Vector2(ancho, fondo).length() * 0.5 + VISTA_AIRE_FACHADA
+		if dist < minima:
+			dist = minima
+			_vista_empujados += 1
+		_vista_min_dist = minf(_vista_min_dist, dist - Vector2(ancho, fondo).length() * 0.5)
 		var centro := Vector3(cos(angulo) * dist, VISTA_SUELO_Y + alto * 0.5, sin(angulo) * dist)
 		var edificio := MeshInstance3D.new()
 		edificio.name = "Edificio%d" % i
@@ -642,6 +690,8 @@ func _vista() -> void:
 		_ventanas_de(rejilla, centro, ancho, alto, fondo, rng)
 	_edificios = VISTA_EDIFICIOS
 	_ventanas = rejilla.size()
+	print("[casa] vista de la ciudad: %d edificios, %d corridos fuera de la casa | la cara más cercana queda a %.1f m del centro (la casa llega a %.1f m)" % [
+			_edificios, _vista_empujados, _vista_min_dist, radio_casa])
 	if rejilla.is_empty():
 		return
 	_mat_ventana = _mat_nueva_ventana()
@@ -819,6 +869,17 @@ func vista_posiciones() -> Array[Vector3]:
 
 func edificios() -> int:
 	return _edificios
+
+
+## Edificios de la vista que hubo que correr para que no entraran en la casa.
+func vista_empujados() -> int:
+	return _vista_empujados
+
+
+## Distancia (m) del centro de la casa a la CARA más cercana de cualquier edificio
+## de la vista: tiene que ser mayor que el radio de la casa (si no, tapa ventanas).
+func vista_distancia_minima() -> float:
+	return _vista_min_dist
 
 
 func ventanas() -> int:
