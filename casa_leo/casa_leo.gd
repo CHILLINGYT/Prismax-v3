@@ -40,31 +40,35 @@ const ESCALA := 1.2
 ## cercano la atravesaba, así que se veía el interior desde fuera. Con volumen y
 ## margen se acerca al personaje en cuanto hay pared, marco, mueble o ventana de
 ## por medio. La máscara es la capa del mundo (1), la de las paredes.
-const CAMARA_RADIO := 0.20      ## m: volumen de la cámara
-const CAMARA_MARGEN := 0.30     ## m: separación mínima a cualquier superficie
+const CAMARA_RADIO := 0.16      ## m: volumen de la cámara
+const CAMARA_MARGEN := 0.22     ## m: separación mínima a cualquier superficie
 ## --- Tarea 3 (paso por las puertas) -----------------------------------------
 ## Los vanos reales del piso miden ~0,85 m y la cápsula del jugador (radio 0,40 =
 ## 0,80 m de ancho) los pasaba rozando: el dormitorio, el cuarto del norte y casi
 ## todo el salón quedaban sin acceso. DENTRO DE LA CASA se le da a Leo una cápsula
-## más estrecha (0,60 m de ancho, como una persona) y al salir se le devuelve la
+## más estrecha (0,50 m de ancho, como una persona) y al salir se le devuelve la
 ## suya. No se toca el modelo, ni las animaciones, ni el personaje: solo su radio
 ## de choque mientras está en casa (aquí no hay combate ni enemigos).
-const RADIO_EN_CASA := 0.30
+const RADIO_EN_CASA := 0.25
 ## Grosor (m) del suelo y del techo de la caja de seguridad.
 const GROSOR := 0.4
 const LUZ_CALIDA := Color(1.0, 0.94, 0.86)
 
 # --- Puntos REALES del modelo (coordenadas del GLB) --------------------------
-## Vano del dormitorio: el acceso de la primera captura.
-const VANO := Vector3(-3.76, 0.0, -3.00)
-## Dónde aparece Leo: en el pasillo, delante del vano (como en la captura).
-const PASILLO := Vector3(-4.55, 0.0, -2.95)
-## Hacia dónde mira al aparecer: por el vano, hacia la cama.
-const MIRA := Vector3(-3.40, 0.0, -3.00)
-## La salida: EN LA PUERTA, un palmo hacia el pasillo (nunca dentro del dormitorio).
-## Al estar en el plano del vano, el radio y el lado (`normal`) cubren justo el
+## Tarea 1: Puerta principal de entrada/salida del apartamento (la puerta cerrada
+## en la pared derecha/este del pasillo, junto a la entrada del salón, que da al
+## exterior del piso: x = -3,805, z ∈ [-0,159, +0,601], centro z = +0,221).
+const VANO := Vector3(-3.805, 0.0, 0.221)
+## Vano interior del dormitorio principal (abierto y transitable a pie).
+const VANO_DORMITORIO := Vector3(-3.76, 0.0, -2.91)
+## Dónde aparece Leo: en el pasillo, delante de la puerta principal ubicada según la foto.
+const PASILLO := Vector3(-4.48, 0.0, 0.221)
+## Hacia dónde mira al aparecer: hacia la puerta en el pasillo.
+const MIRA := Vector3(-3.805, 0.0, 0.221)
+## La salida: EN LA PUERTA PRINCIPAL, un palmo hacia el pasillo.
+## Al estar en el plano de la puerta, el radio y el lado (`normal`) cubren justo el
 ## pasillo de delante: el aviso se ofrece ahí y sólo ahí.
-const SALIDA := Vector3(-3.95, 0.0, -3.00)
+const SALIDA := Vector3(-3.98, 0.0, 0.221)
 
 # --- Vanos EXTERIORES del modelo (sonda): cristal invisible -------------------
 ## [centro en el modelo, tamaño en metros del modelo]. Son los tres huecos que dan
@@ -108,10 +112,12 @@ var _ventanas := 0
 var _radio_original := -1.0                  ## radio de cápsula del jugador fuera de casa
 var _capsula_jugador: CapsuleShape3D
 var _caras_dobles := 0                       ## materiales puestos a doble cara
+var _hojas_abiertas := 0                     ## hojas interiores abiertas por pivote/rotación
 
 
 func _ready() -> void:
 	_modelo_a_escala()
+	_hojas_abiertas = _abrir_puertas_interiores()
 	_caja = _medir_modelo()
 	_colisiones()
 	_cristales = _cristales_de_vanos()
@@ -123,14 +129,14 @@ func _ready() -> void:
 	_hora_del_ciclo()
 	_marcadores()
 	_colocar_jugador()
-	_camara()
 	_paso_del_jugador()
+	_camara()
 	_caras_dobles = _modelo_completo()
 	set_process(true)
 	_listo = true
-	print("[casa] interior listo | modelo %.2f × %.2f × %.2f m (escala ×%.2f, techo a %.2f m) | colisiones de malla: %d | cristales: %d | ciudad: %d edificios y %d ventanas" % [
+	print("[casa] interior listo | modelo %.2f × %.2f × %.2f m (escala ×%.2f, techo a %.2f m) | colisiones de malla: %d | hojas abiertas: %d | cristales: %d | ciudad: %d edificios y %d ventanas" % [
 			_caja.size.x, _caja.size.y, _caja.size.z, ESCALA,
-			_caja.position.y + _caja.size.y, _cuerpos_malla, _cristales,
+			_caja.position.y + _caja.size.y, _cuerpos_malla, _hojas_abiertas, _cristales,
 			_edificios, _ventanas])
 
 
@@ -214,14 +220,158 @@ func _camara() -> void:
 	if brazo == null:
 		push_warning("CasaLeo: no se encontró el brazo de la cámara del jugador.")
 		return
-	var esfera := SphereShape3D.new()
-	esfera.radius = CAMARA_RADIO
-	brazo.shape = esfera
-	brazo.margin = CAMARA_MARGEN
-	brazo.collision_mask = 1
-	brazo.add_excluded_object(_jugador.get_rid())
+	# TODOS los brazos de cámara del jugador (el normal y los de las formas
+	# acuática y de vuelo): ninguno puede asomarse fuera de las paredes de casa.
+	var brazos := 0
+	for nodo in _jugador.find_children("*", "SpringArm3D", true, false):
+		var b := nodo as SpringArm3D
+		if b == null:
+			continue
+		var esfera := SphereShape3D.new()
+		esfera.radius = CAMARA_RADIO
+		b.shape = esfera
+		b.margin = maxf(b.margin, CAMARA_MARGEN)
+		b.collision_mask = b.collision_mask | 1
+		b.add_excluded_object(_jugador.get_rid())
+		var dueno := b.get_parent()
+		while dueno != null and dueno != _jugador:
+			if dueno is CollisionObject3D:
+				b.add_excluded_object((dueno as CollisionObject3D).get_rid())
+			dueno = dueno.get_parent()
+		brazos += 1
+	print("[casa] %d brazos de cámara con volumen dentro de casa" % brazos)
+	if pivote != null and pivote.has_method("forzar_ajuste_inmediato"):
+		pivote.call("forzar_ajuste_inmediato")
 	print("[casa] cámara con volumen (r %.2f m) y margen %.2f m: no atraviesa paredes ni ventanas" % [
 			CAMARA_RADIO, CAMARA_MARGEN])
+
+
+## Tarea 3: abre las puertas interiores semicerradas del modelo (los dos baños
+## del pasillo en Object_4) separando sus hojas como nodos `MeshInstance3D` con
+## pivote en sus bisagras reales y girándolas a 90° abiertas, conservando intactos
+## los marcos, las paredes y la puerta exterior cerrada del pasillo.
+func _abrir_puertas_interiores() -> int:
+	var modelo := get_node_or_null("Modelo") as Node3D
+	if modelo == null:
+		return 0
+	var mi4 := modelo.find_child("Object_4", true, false) as MeshInstance3D
+	if mi4 == null or mi4.mesh == null or mi4.mesh.get_surface_count() == 0:
+		return 0
+	var t4 := _transform_hasta(mi4, modelo)
+	var arr := mi4.mesh.surface_get_arrays(0)
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+	if idx.is_empty():
+		return 0
+	var mat4 := mi4.get_active_material(0)
+	var norms: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var uvs: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV]
+	var idx_pared := PackedInt32Array()
+	var idx_b2 := PackedInt32Array()
+	var idx_b3 := PackedInt32Array()
+	var n := int(idx.size() / 3.0)
+	for k in range(n):
+		var i0 := idx[k * 3]
+		var i1 := idx[k * 3 + 1]
+		var i2 := idx[k * 3 + 2]
+		var v0: Vector3 = t4 * verts[i0]
+		var v1: Vector3 = t4 * verts[i1]
+		var v2: Vector3 = t4 * verts[i2]
+		var tmin := v0.min(v1.min(v2))
+		var tmax := v0.max(v1.max(v2))
+		if _es_hoja_bano2(tmin, tmax):
+			idx_b2.append(i0); idx_b2.append(i1); idx_b2.append(i2)
+		elif _es_hoja_bano3(tmin, tmax):
+			idx_b3.append(i0); idx_b3.append(i1); idx_b3.append(i2)
+		else:
+			idx_pared.append(i0); idx_pared.append(i1); idx_pared.append(i2)
+	mi4.mesh = _construir_malla_superficie(verts, norms, uvs, idx_pared, mat4)
+	var abiertas := 0
+	var padre := mi4.get_parent() as Node3D
+	if padre != null:
+		if not idx_b2.is_empty():
+			_crear_nodo_hoja_abierta(padre, "HojaPuertaBano2", verts, norms, uvs, idx_b2, mat4,
+					Vector3(-5.02, 0.0, -1.880) - t4.origin, deg_to_rad(120.0))
+			abiertas += 1
+		if not idx_b3.is_empty():
+			_crear_nodo_hoja_abierta(padre, "HojaPuertaBano3", verts, norms, uvs, idx_b3, mat4,
+					Vector3(-5.02, 0.0, -0.022) - t4.origin, deg_to_rad(120.0))
+			abiertas += 1
+	print("[casa] puertas interiores abiertas por pivote/rotación: %d hojas (marcos y paredes intactos)" % abiertas)
+	return abiertas
+
+
+func _construir_malla_superficie(verts: PackedVector3Array, norms: PackedVector3Array,
+		uvs: PackedVector2Array, indices: PackedInt32Array, mat: Material) -> ArrayMesh:
+	var nuevo := []
+	nuevo.resize(Mesh.ARRAY_MAX)
+	nuevo[Mesh.ARRAY_VERTEX] = verts
+	if not norms.is_empty():
+		nuevo[Mesh.ARRAY_NORMAL] = norms
+	if not uvs.is_empty():
+		nuevo[Mesh.ARRAY_TEX_UV] = uvs
+	nuevo[Mesh.ARRAY_INDEX] = indices
+	var malla := ArrayMesh.new()
+	malla.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, nuevo)
+	if mat != null:
+		malla.surface_set_material(0, mat)
+	return malla
+
+
+func _crear_nodo_hoja_abierta(padre: Node3D, nombre: String, verts_orig: PackedVector3Array,
+		norms: PackedVector3Array, uvs: PackedVector2Array, indices: PackedInt32Array,
+		mat: Material, pivote_local: Vector3, giro_y: float) -> void:
+	var mapa_v := {}
+	var verts_compactos := PackedVector3Array()
+	var norms_compactos := PackedVector3Array()
+	var uvs_compactos := PackedVector2Array()
+	var idx_compactos := PackedInt32Array()
+	for idx_v in indices:
+		if not mapa_v.has(idx_v):
+			var nuevo_i := verts_compactos.size()
+			mapa_v[idx_v] = nuevo_i
+			verts_compactos.append(verts_orig[idx_v] - pivote_local)
+			if not norms.is_empty():
+				norms_compactos.append(norms[idx_v])
+			if not uvs.is_empty():
+				uvs_compactos.append(uvs[idx_v])
+		idx_compactos.append(int(mapa_v[idx_v]))
+	var nodo := MeshInstance3D.new()
+	nodo.name = nombre
+	nodo.mesh = _construir_malla_superficie(verts_compactos, norms_compactos, uvs_compactos, idx_compactos, mat)
+	nodo.position = pivote_local
+	nodo.rotation.y = giro_y
+	padre.add_child(nodo)
+
+
+func _es_hoja_bano2(tmin: Vector3, tmax: Vector3) -> bool:
+	if tmax.z > -1.875 or tmin.z < -2.560:
+		return false
+	if tmin.x < -5.009 or tmax.x > -4.590:
+		return false
+	if tmax.x <= -4.980 and tmin.z >= -1.891:
+		return false
+	return true
+
+
+func _es_hoja_bano3(tmin: Vector3, tmax: Vector3) -> bool:
+	if tmax.z > -0.015 or tmin.z < -0.700:
+		return false
+	if tmin.x < -5.009 or tmax.x > -4.590:
+		return false
+	if tmax.x <= -4.980 and tmin.z >= -0.033:
+		return false
+	return true
+
+
+func _transform_hasta(nodo: Node, tope: Node) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var cur := nodo
+	while cur != null and cur != tope:
+		if cur is Node3D:
+			t = (cur as Node3D).transform * t
+		cur = cur.get_parent()
+	return t
 
 
 ## Tarea 3: el radio de choque de Leo DENTRO de la casa (ver RADIO_EN_CASA). Al
@@ -283,7 +433,7 @@ func _colocar_jugador() -> void:
 		_jugador.call("colocar_en", punto.global_position + Vector3.UP * 0.05, destino.global_position)
 	else:
 		_jugador.global_position = punto.global_position + Vector3.UP * 0.05
-	print("[casa] Leo aparece en el pasillo, delante del vano del dormitorio (%s)" % str(punto.global_position))
+	print("[casa] Leo aparece en el pasillo, delante de la puerta principal (%s)" % str(punto.global_position))
 
 
 ## Cielo y entorno: los MISMOS del juego (el material del cielo del asset Sky 3D
@@ -332,11 +482,23 @@ func _colisiones() -> void:
 	cuerpo.collision_mask = 0
 	var minimo := _caja.position
 	var maximo := _caja.position + _caja.size
+	var centro_y := minimo.y + _caja.size.y * 0.5
+	var alto := _caja.size.y + GROSOR * 2.0
 	# Debajo del suelo real y por encima del techo real: no estorban a nada.
 	_caja_colision(cuerpo, "Piso", Vector3(_caja.size.x + GROSOR * 2.0, GROSOR, _caja.size.z + GROSOR * 2.0),
 			Vector3(minimo.x + _caja.size.x * 0.5, minimo.y - GROSOR * 0.5, minimo.z + _caja.size.z * 0.5))
 	_caja_colision(cuerpo, "Techo", Vector3(_caja.size.x + GROSOR * 2.0, GROSOR, _caja.size.z + GROSOR * 2.0),
 			Vector3(minimo.x + _caja.size.x * 0.5, maximo.y + GROSOR * 0.5, minimo.z + _caja.size.z * 0.5))
+	# Contención perimetral invisible por fuera de la fachada (no tapa visualmente
+	# ninguna ventana, pero garantiza que ni jugador ni cámara salgan del edificio).
+	_caja_colision(cuerpo, "ParedOeste", Vector3(GROSOR, alto, _caja.size.z + GROSOR * 2.0),
+			Vector3(minimo.x - GROSOR * 0.5 - 0.15, centro_y, minimo.z + _caja.size.z * 0.5))
+	_caja_colision(cuerpo, "ParedEste", Vector3(GROSOR, alto, _caja.size.z + GROSOR * 2.0),
+			Vector3(maximo.x + GROSOR * 0.5 + 0.15, centro_y, minimo.z + _caja.size.z * 0.5))
+	_caja_colision(cuerpo, "ParedNorte", Vector3(_caja.size.x + GROSOR * 2.0, alto, GROSOR),
+			Vector3(minimo.x + _caja.size.x * 0.5, centro_y, minimo.z - GROSOR * 0.5 - 0.15))
+	_caja_colision(cuerpo, "ParedSur", Vector3(_caja.size.x + GROSOR * 2.0, alto, GROSOR),
+			Vector3(minimo.x + _caja.size.x * 0.5, centro_y, maximo.z + GROSOR * 0.5 + 0.15))
 
 
 func _caja_colision(cuerpo: StaticBody3D, nombre: String, tam: Vector3, centro: Vector3) -> void:
@@ -370,11 +532,24 @@ func _cristales_de_vanos() -> int:
 ## paredes, los vanos y los muebles quedan exactos (los vanos siguen abiertos
 ## porque son huecos de la geometría). Medido: ~102 ms para las seis mallas.
 func _colisiones_malla() -> void:
-	var modelo := get_node_or_null("Modelo")
+	var modelo := get_node_or_null("Modelo") as Node3D
 	if modelo == null:
 		return
 	for mi in _mallas_bajo(modelo):
+		if String(mi.name).begins_with("HojaPuerta"):
+			continue
 		mi.create_trimesh_collision()
+		var t_glb := _transform_hasta(mi, modelo)
+		for forma_nodo in mi.find_children("*", "CollisionShape3D", true, false):
+			var cs := forma_nodo as CollisionShape3D
+			if cs == null or not (cs.shape is ConcavePolygonShape3D):
+				continue
+			var concavo := cs.shape as ConcavePolygonShape3D
+			concavo.backface_collision = true
+			var nombre := String(mi.name)
+			if nombre == "Object_10" or nombre == "Object_12" or nombre == "Object_13":
+				var caras_filtradas := _filtrar_caras_colision(nombre, concavo.get_faces(), t_glb)
+				concavo.set_faces(caras_filtradas)
 	_cuerpos_malla = 0
 	for hijo in modelo.find_children("*", "StaticBody3D", true, false):
 		var cuerpo := hijo as StaticBody3D
@@ -383,6 +558,40 @@ func _colisiones_malla() -> void:
 		cuerpo.collision_layer = 1
 		cuerpo.collision_mask = 0
 		_cuerpos_malla += 1
+
+
+func _filtrar_caras_colision(nombre: String, caras: PackedVector3Array, t_glb: Transform3D) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	var n := int(caras.size() / 3.0)
+	for k in range(n):
+		var l0: Vector3 = caras[k * 3]
+		var l1: Vector3 = caras[k * 3 + 1]
+		var l2: Vector3 = caras[k * 3 + 2]
+		var v0: Vector3 = t_glb * l0
+		var v1: Vector3 = t_glb * l1
+		var v2: Vector3 = t_glb * l2
+		var tmin := v0.min(v1.min(v2))
+		var tmax := v0.max(v1.max(v2))
+		var omitir := false
+		if nombre == "Object_10":
+			# Hojas interiores abiertas de los 2 dormitorios y sus pomos (los marcos quedan en x <= -3.725).
+			if tmin.x >= -3.726 and tmax.x <= -2.955 and tmax.y <= 2.10:
+				if (tmin.z >= -3.340 and tmax.z <= -3.215) or (tmin.z >= -5.060 and tmax.z <= -4.935):
+					omitir = true
+			# Escalón milimétrico de alfombras (el piso ya tiene colisión continua a y = 0).
+			if tmax.y <= 0.085 and tmin.x >= -3.65 and tmax.x <= -0.04 and tmin.z >= -6.15 and tmax.z <= -0.44:
+				omitir = true
+		elif nombre == "Object_12" or nombre == "Object_13":
+			# Alfombra del salón y estrechamiento esquina mostrador-sofá para paso al ala oeste.
+			if tmax.y <= 0.040 and tmin.x >= -6.10 and tmax.x <= -0.40 and tmin.z >= 0.30 and tmax.z <= 4.20:
+				omitir = true
+			elif tmax.y > 0.040 and tmax.y < 1.20 and tmax.x >= -5.18 and tmin.x <= -4.48 and tmax.z >= 1.25 and tmin.z <= 1.82:
+				omitir = true
+		if not omitir:
+			out.append(l0)
+			out.append(l1)
+			out.append(l2)
+	return out
 
 
 func _mallas_bajo(nodo: Node) -> Array[MeshInstance3D]:
@@ -643,6 +852,14 @@ func radio_de_fuera() -> float:
 
 func caras_dobles() -> int:
 	return _caras_dobles
+
+
+func hojas_abiertas() -> int:
+	return _hojas_abiertas
+
+
+func vano_dormitorio() -> Vector3:
+	return _de_modelo(VANO_DORMITORIO)
 
 
 func puerta_interior() -> Vector3:

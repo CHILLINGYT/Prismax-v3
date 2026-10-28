@@ -51,10 +51,12 @@ func _ready() -> void:
 	_check(_casa.edificios() == 40 and _casa.ventanas() > 500,
 			"ciudad fuera de las ventanas: %d edificios y %d ventanas" % [_casa.edificios(), _casa.ventanas()])
 
-	# --- 1) Aparece delante del vano, con la salida a mano --------------------
+	# --- 1) PRUEBA A: Aparece delante de la puerta principal cerrada (foto 1) --
 	var puerta := _casa.puerta_interior()
 	var d0 := Vector2(_jug.global_position.x - puerta.x, _jug.global_position.z - puerta.z).length()
-	_check(d0 < 1.3, "aparece delante del vano del dormitorio (a %.2f m de la puerta)" % d0)
+	_check(d0 < 1.3, "aparece delante de la puerta principal del pasillo (a %.2f m de la puerta)" % d0)
+	_check(absf(puerta.z - 1.40) < 0.15 and absf(puerta.x - (-0.69)) < 0.15,
+			"la puerta está en la ubicación de la foto (pared derecha del pasillo: %s)" % str(puerta))
 	_check(_jug.global_position.x > -2.15 and _jug.global_position.x < -0.70,
 			"aparece DENTRO del pasillo (x %.2f; el pasillo va de -2,07 a -0,81)" % _jug.global_position.x)
 	var salida := _casa.salida()
@@ -62,7 +64,38 @@ func _ready() -> void:
 	var texto := String(_jug.call("texto_interaccion"))
 	_check(texto == TEXTO_SALIDA, "el HUD recibe el aviso exacto ('%s')" % texto)
 
-	# --- 2) Por el vano del dormitorio, a pie --------------------------------
+	# --- 2) PRUEBA B y D: Cámara segura + Geometría completa a doble cara ------
+	_check(_casa.caras_dobles() >= 5, "geometría completa con %d materiales a doble cara (sin recortes)" % _casa.caras_dobles())
+	_check(_casa.hojas_abiertas() == 2, "las %d hojas interiores de los baños se abrieron por pivote/rotación" % _casa.hojas_abiertas())
+	_check(is_equal_approx(_casa.radio_del_jugador(), _casa.paso_en_casa()) and is_equal_approx(_casa.radio_de_fuera(), 0.40),
+			"radio de cápsula en casa %.2f m (fuera %.2f m guardado para restaurar)" % [_casa.radio_del_jugador(), _casa.radio_de_fuera()])
+	var pivote_cam := _jug.get_node_or_null("PivoteCamara") as Node3D
+	var brazo_cam := _jug.get_node_or_null("PivoteCamara/Brazo") as SpringArm3D
+	var cam := _jug.get_node_or_null("PivoteCamara/Brazo/Camara") as Camera3D
+	_check(brazo_cam != null and brazo_cam.shape is SphereShape3D and brazo_cam.margin >= 0.18,
+			"el SpringArm3D tiene forma esférica y margen (%.2f m)" % (brazo_cam.margin if brazo_cam != null else -1.0))
+	if pivote_cam != null and cam != null:
+		var yaw_orig := pivote_cam.rotation.y
+		var cam_dentro := true
+		for i in range(8):
+			pivote_cam.rotation.y = yaw_orig + TAU * float(i) / 8.0
+			if pivote_cam.has_method("forzar_ajuste_inmediato"):
+				pivote_cam.call("forzar_ajuste_inmediato")
+			var pc := cam.global_position
+			if pc.x < caja.position.x - 0.05 or pc.x > caja.end.x + 0.05 or pc.z < caja.position.z - 0.05 or pc.z > caja.end.z + 0.05:
+				cam_dentro = false
+		pivote_cam.rotation.y = yaw_orig
+		if pivote_cam.has_method("forzar_ajuste_inmediato"):
+			pivote_cam.call("forzar_ajuste_inmediato")
+		_check(cam_dentro, "la cámara gira 360° en el pasillo sin salirse nunca de las paredes")
+
+	# --- 3) PRUEBA C: Puertas interiores transitables (dormitorio y baño) -----
+	await _ir_a(Vector2(-1.45, -1.75), 180)
+	await _ir_a(Vector2(-2.60, -1.75), 140)
+	var p_bano := _jug.global_position
+	_check(p_bano.x < -2.15, "entró A PIE al baño interior cuya puerta estaba cerrada (x %.2f)" % p_bano.x)
+	await _ir_a(Vector2(-1.45, -1.75), 140)
+	await _ir_a(Vector2(-1.45, -2.45), 120)
 	await _ir_a(Vector2(1.8, -2.45), 200)
 	var p1 := _jug.global_position
 	_check(p1.x > 0.2, "pasó A PIE por el vano del dormitorio (x %.2f; el vano está en -0,63)" % p1.x)
@@ -73,16 +106,17 @@ func _ready() -> void:
 	# Y dentro del dormitorio no se cae: sigue apoyado.
 	_check(_jug.is_on_floor(), "sigue apoyado en el suelo del dormitorio")
 
-	# --- 3) Vuelve al pasillo: la salida se ofrece otra vez -------------------
+	# --- 4) Vuelve al pasillo y a la puerta principal: la salida se ofrece ----
 	await _ir_a(Vector2(-1.45, -2.45), 220)
 	var p2 := _jug.global_position
 	_check(p2.x < -0.85, "regresó al pasillo andando (x %.2f)" % p2.x)
-	_check(bool(salida.call("en_rango")), "delante de la puerta la salida se ofrece otra vez")
+	await _ir_a(Vector2(-1.45, 1.40), 220)
+	_check(bool(salida.call("en_rango")), "delante de la puerta principal la salida se ofrece otra vez")
 
-	# --- 4) Por el pasillo hasta el salón y freno en el muro sur -------------
-	await _ir_a(Vector2(-1.45, 2.2), 300)
+	# --- 5) Por el pasillo hasta el salón y freno en el mobiliario ------------
+	await _ir_a(Vector2(-1.45, 2.2), 160)
 	var p3 := _jug.global_position
-	_check(p3.z > 1.4, "bajó por el pasillo hasta el salón (z %.2f; el salón empieza en 1,55)" % p3.z)
+	_check(p3.z > 1.8, "bajó por el pasillo hasta el salón (z %.2f)" % p3.z)
 	await _ir_a(Vector2(-1.45, 6.4), 260)
 	var p4 := _jug.global_position
 	# La marcha recta hacia el ventanal se topa con el MOBILIARIO del modelo (la

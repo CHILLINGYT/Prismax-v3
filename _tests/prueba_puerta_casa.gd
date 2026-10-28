@@ -147,6 +147,14 @@ func _ready() -> void:
 	_check(paso.x < -1.5 and absf(paso.z) < 0.5,
 			"andando hacia adelante va RECTO a la calle, sin diagonales (dx %.2f, dz %.2f)" % [paso.x, paso.z])
 	_check(not otra.esperando_alejarse(), "al alejarse, la puerta vuelve a estar disponible")
+	# PRUEBA E (regresión): en la calle, sin nada detrás, la cámara conserva su
+	# distancia de siempre (la corrección anti-paredes no la acerca sin motivo).
+	var piv_cam := _jug.get_node_or_null("PivoteCamara")
+	if piv_cam != null and piv_cam.has_method("distancia_actual"):
+		for i in 30:
+			await get_tree().process_frame
+		var dist := float(piv_cam.call("distancia_actual"))
+		_check(dist > 2.3, "fuera de casa la cámara sigue a su distancia normal (%.2f m de 2,6)" % dist)
 	_jug.global_position = _puerta.global_position + Vector3(-1.5, 0.0, 0.0)
 	await get_tree().physics_frame
 	await get_tree().physics_frame

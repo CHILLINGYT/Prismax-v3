@@ -14,9 +14,9 @@ extends Node3D
 
 const CASA := "res://casa_leo/casa_leo.tscn"
 const PASO := 0.25          ## m por celda
-const RADIO := 0.30   ## el mismo radio que usa Leo DENTRO de la casa         ## m (la del jugador es 0,40: se prueba un pelo menos)
-const ALTO := 1.85          ## m (la del jugador es 1,90)
-const ALTURA_PIE := 0.95    ## m: centro de la cápsula
+const RADIO := 0.25   ## el mismo radio que usa Leo DENTRO de la casa
+const ALTO := 1.80          ## m (por encima de alfombras de 1-3 cm y bajo dinteles)
+const ALTURA_PIE := 1.02    ## m: centro de la cápsula (pie a 0,12 m)
 const X_MIN := -4.5
 const X_MAX := 4.5
 const Z_MIN := -7.0
