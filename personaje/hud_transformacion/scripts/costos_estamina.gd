@@ -21,9 +21,10 @@ extends RefCounted
 ##     al confirmar el impacto.
 ##   · Los gastos sostenidos nunca bloquean (no hay energía negativa): consumen
 ##     lo que quede y la regeneración se apaga mientras consuman.
-##   · El caminar es siempre posible y NO cuesta estamina (sólo el correr/esprint
-##     con SHIFT, el turbo y el vuelo consumen al moverse). Si la estamina llega
-##     a cero se bloquea el correr/esprintar/turbo, nunca el movimiento básico.
+##   · El caminar es siempre posible y NO cuesta estamina (consumen al moverse
+##     el correr/esprint con SHIFT, el turbo, el nado y la carga del supersalto;
+##     VOLAR NO CONSUME). Con la estamina a cero se bloquea el
+##     correr/esprintar/turbo, nunca el movimiento básico.
 ##
 ## La estamina VIVE en `EstadisticasJugador` (una por personaje, igual que la vida
 ## y la resistencia). Este archivo sólo dice CUÁNTO cuesta cada cosa y cómo pintar
@@ -76,9 +77,21 @@ const MOVIMIENTO := {
 	&"humano": {&"correr": 6.0},
 	&"velocista": {&"esprintar": 9.0, &"supervelocidad": 14.0},
 	&"pes": {&"correr": 5.0, &"nadar": 3.5, &"nadar_rapido": 7.5, &"turbo": 16.0},
-	&"tanque": {&"correr": 4.0},
+	# FUERZA: correr por el suelo y la CARGA del supersalto (ESPACIO mantenido).
+	# `cargar_super` va por SEGUNDO, no por ejecución: una carga COMPLETA (1,4 s,
+	# el F_SUPER_CARGA_MAX del controlador) cuesta ~10 puntos, que es justo lo que
+	# costaba la activación `super_salto` de la tabla HABILIDADES. El supersalto
+	# sigue valiendo lo mismo: sólo que ahora se paga poco a poco mientras se
+	# carga, en vez de entero de golpe al ejecutarse (y una carga corta cuesta
+	# menos, que es lo coherente con "a más tiempo de carga, más gasto total").
+	&"tanque": {&"correr": 4.0, &"cargar_super": 7.15},
 	&"combate": {&"correr": 7.0},
-	&"aguila": {&"correr": 5.5, &"volar": 5.5, &"volar_boost": 11.0, &"volar_picada": 7.5},
+	# ÁGUILA: VOLAR NO CUESTA NADA. Volar, el boost y la picada están a 0: el
+	# movimiento de vuelo es gratis se permanezca el tiempo que se permanezca en
+	# el aire. Lo que sí sigue costando es el esprint con SHIFT en TIERRA
+	# (`correr`, al ir por el suelo) y las HABILIDADES (despegue, palmazo, garras)
+	# y ATAQUES (golpe, pluma) del águila, que van en sus propias tablas.
+	&"aguila": {&"correr": 5.5, &"volar": 0.0, &"volar_boost": 0.0, &"volar_picada": 0.0},
 }
 
 ## ATAQUES: puntos por EJECUCIÓN (golpe que arranca de verdad).
@@ -94,8 +107,13 @@ const ATAQUES := {
 ## HABILIDADES: puntos por EJECUCIÓN (activación real, después de sus chequeos).
 const HABILIDADES := {
 	&"humano": {},
-	&"velocista": {&"dash": 10.0, &"supervelocidad": 10.0},
+	# Dash del Velocista: activación REDUCIDA A LA MITAD (era 10.0). No cambia la
+	# velocidad, ni la distancia, ni las animaciones, ni el estado del dash.
+	&"velocista": {&"dash": 5.0, &"supervelocidad": 10.0},
 	&"pes": {&"proyectil": 8.0, &"esfera": 14.0, &"prision": 16.0, &"oleada": 25.0, &"turbo": 12.0},
+	# `super_salto` ya NO se cobra entero al ejecutarse: es la REFERENCIA del gasto
+	# total de la carga (ver `cargar_super` en MOVIMIENTO: 7,15/s × 1,4 s ≈ 10).
+	# Se deja con su valor de siempre como valor de diseño del supersalto.
 	&"tanque": {&"embestida": 12.0, &"pisotón": 18.0, &"roca": 22.0, &"super_salto": 10.0},
 	&"combate": {},
 	&"aguila": {&"despegue": 10.0, &"palmazo": 12.0, &"garras": 15.0},

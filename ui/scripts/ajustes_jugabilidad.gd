@@ -35,11 +35,30 @@ const SENS_DIVISOR := 6.0
 ## interfaz solo alterna su visibilidad; el menú de pausa NO está en el grupo.
 const GRUPO_HUD := &"hud_juego"
 
+## Tamaño de la GUÍA DE CONTROLES: TRES opciones. El tamaño de REFERENCIA es la
+## guía tal como está definida (Grande = 100 %); Mediano = 75 % y Chico = 50 %.
+## Se guarda el ÍNDICE de la opción elegida. Es un ajuste SÓLO de esa guía.
+const HUD_TAM_GRANDE := 0
+const HUD_TAM_MEDIANO := 1
+const HUD_TAM_CHICO := 2
+const HUD_TAM_TEXTO := ["GRANDE", "MEDIANO", "CHICO"]
+## Escala de cada opción sobre el tamaño de referencia (4/4, 3/4 y 2/4).
+const HUD_TAM_FACTOR := [1.0, 0.75, 0.5]
+
 var sensibilidad: int = SENS_DEFECTO
 var invertir_eje_vertical: bool = false
 ## Pendiente de implementación: por ahora solo se guarda y se muestra.
 var mostrar_ayudas: bool = false
 var ocultar_hud: bool = false
+## PANEL DE CONTROLES DE HABILIDADES (inferior izquierda, durante la partida):
+##   · `hud_controles_visible`: lo enciende/apaga ENTERO. Apagado no ocupa nada ni
+##     intercepta entrada (el nodo se oculta y todo su mouse_filter es IGNORE).
+##   · `hud_controles_tamano`: índice de HUD_TAM_FACTOR (GRANDE/MEDIANO/CHICO).
+## Los dos son INDEPENDIENTES del resto del HUD: `ocultar_hud` no los toca (el
+## panel no está en el grupo `hud_juego`) y cambiar este panel no cambia ningún
+## otro elemento de la interfaz, ni al revés.
+var hud_controles_visible: bool = true
+var hud_controles_tamano: int = HUD_TAM_GRANDE
 
 func _ready() -> void:
 	_cargar()
@@ -98,6 +117,41 @@ func poner_ocultar_hud(v: bool) -> void:
 func alternar_ocultar_hud() -> void:
 	poner_ocultar_hud(not ocultar_hud)
 
+# ------------------------------------------ Panel de controles de habilidades
+## Enciende/apaga el panel de controles de habilidades de la partida.
+func poner_hud_controles_visible(v: bool) -> void:
+	if v == hud_controles_visible:
+		return
+	hud_controles_visible = v
+	_guardar()
+	cambiado.emit()
+
+func alternar_hud_controles_visible() -> void:
+	poner_hud_controles_visible(not hud_controles_visible)
+
+## Cambia el TAMAÑO de la guía (GRANDE / MEDIANO / CHICO): afecta sólo a la guía.
+func poner_hud_controles_tamano(indice: int) -> void:
+	indice = clampi(indice, 0, HUD_TAM_FACTOR.size() - 1)
+	if indice == hud_controles_tamano:
+		return
+	hud_controles_tamano = indice
+	_guardar()
+	cambiado.emit()
+
+## Recorre las TRES opciones en círculo (las flechas < > del menú).
+func pasar_hud_controles_tamano(paso: int) -> void:
+	poner_hud_controles_tamano(wrapi(hud_controles_tamano + paso, 0, HUD_TAM_FACTOR.size()))
+
+## Factor de escala de la guía: 1.0 = tamaño de REFERENCIA (GRANDE), 0.75
+## (MEDIANO) o 0.5 (CHICO). Nunca es 0 ni negativo, así que no puede dejar la guía
+## invisible ni provocar una división por cero.
+func factor_hud_controles() -> float:
+	return float(HUD_TAM_FACTOR[clampi(hud_controles_tamano, 0, HUD_TAM_FACTOR.size() - 1)])
+
+## Texto legible del tamaño elegido ("GRANDE" / "MEDIANO" / "CHICO").
+func texto_hud_controles_tamano() -> String:
+	return String(HUD_TAM_TEXTO[clampi(hud_controles_tamano, 0, HUD_TAM_TEXTO.size() - 1)])
+
 # ---------------------------------------------------------------- HUD
 ## Alterna la visibilidad (reversible) de todos los nodos del grupo `hud_juego`.
 func _aplicar_hud() -> void:
@@ -124,6 +178,12 @@ func _guardar() -> void:
 	cf.set_value(SECCION, "invertir_eje_vertical", invertir_eje_vertical)
 	cf.set_value(SECCION, "mostrar_ayudas", mostrar_ayudas)
 	cf.set_value(SECCION, "ocultar_hud", ocultar_hud)
+	cf.set_value(SECCION, "hud_controles_visible", hud_controles_visible)
+	cf.set_value(SECCION, "hud_controles_tamano", hud_controles_tamano)
+	# La clave de la versión anterior (nivel 6..16) se retira si existía: ya se
+	# tradujo al leerla y no debe quedar una opción duplicada en el archivo.
+	if cf.has_section_key(SECCION, "hud_controles_escala"):
+		cf.erase_section_key(SECCION, "hud_controles_escala")
 	cf.save(RUTA)
 
 func _cargar() -> void:
@@ -134,3 +194,22 @@ func _cargar() -> void:
 	invertir_eje_vertical = bool(cf.get_value(SECCION, "invertir_eje_vertical", false))
 	mostrar_ayudas = bool(cf.get_value(SECCION, "mostrar_ayudas", false))
 	ocultar_hud = bool(cf.get_value(SECCION, "ocultar_hud", false))
+	hud_controles_visible = bool(cf.get_value(SECCION, "hud_controles_visible", true))
+	hud_controles_tamano = _tamano_guardado(cf)
+
+## Lee el tamaño guardado de la guía. Si el archivo viene de la versión anterior
+## (guardaba un nivel 6..16, con 10 = 100 %), se traduce a la opción más parecida
+## — 10 pasa a GRANDE (que ES el 100 % de referencia) — para que la preferencia
+## del jugador no se pierda al actualizar.
+func _tamano_guardado(cf: ConfigFile) -> int:
+	if cf.has_section_key(SECCION, "hud_controles_tamano"):
+		return clampi(int(cf.get_value(SECCION, "hud_controles_tamano", HUD_TAM_GRANDE)),
+				0, HUD_TAM_FACTOR.size() - 1)
+	if cf.has_section_key(SECCION, "hud_controles_escala"):
+		var nivel := clampi(int(cf.get_value(SECCION, "hud_controles_escala", 10)), 6, 16)
+		if nivel <= 7:
+			return HUD_TAM_CHICO
+		if nivel <= 12:
+			return HUD_TAM_MEDIANO
+		return HUD_TAM_GRANDE
+	return HUD_TAM_GRANDE

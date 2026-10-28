@@ -1335,19 +1335,22 @@ func _tramo_tierra_estamina(delta: float) -> void:
 	var clave := &"esprintar" if forma == Forma.VELOCISTA else &"correr"
 	CostosEstamina.gastar_movimiento(self, clave, delta)
 
-## Consumo del ÁGUILA: volar (con boost/picada) mientras vuela de verdad, y el
-## esprint terrestre con SHIFT al correr por el suelo. El cuerpo real es "Vuelo".
+## Consumo del ÁGUILA: VOLAR NO CONSUME ESTAMINA (decisión de diseño) y el
+## esprint terrestre con SHIFT sí, al correr por el suelo. El cuerpo real es
+## "Vuelo".
 func _procesar_estamina_vuelo(delta: float) -> void:
 	if estadisticas == null or not (vuelo is CharacterBody3D):
 		return
 	var fc := vuelo.get_node_or_null("FlightController")
 	if fc != null and bool(fc.is_flying):
-		var clave := &"volar"
-		if bool(fc.is_diving):
-			clave = &"volar_picada"
-		elif fc.has_method("is_boosting") and bool(fc.is_boosting()):
-			clave = &"volar_boost"
-		CostosEstamina.gastar_movimiento(self, clave, delta)
+		# VOLAR NO GASTA: ni volar, ni el boost, ni la picada, se permanezca el
+		# tiempo que se permanezca en el aire. Aquí NO se llama a ningún gasto a
+		# propósito: una llamada con coste 0 seguiría tocando el reloj de
+		# regeneración (`gastar_continuo` lo reinicia antes de mirar la cantidad),
+		# así que la única forma de que volar no gaste NADA —ni retrase la
+		# regeneración— es no entrar en el gasto. Con la estamina agotada se
+		# puede seguir volando igual; lo que queda bloqueado son los ataques y
+		# habilidades que no se puedan pagar, y cada uno lo comprueba en su sitio.
 		return
 	var cuerpo := vuelo as CharacterBody3D
 	if Vector2(cuerpo.velocity.x, cuerpo.velocity.z).length() >= CostosEstamina.UMBRAL_MOVIMIENTO:
@@ -3637,8 +3640,21 @@ func _procesar_fuerza(delta: float) -> void:
 		elif not Input.is_action_pressed("saltar"):
 			_ejecutar_super()
 		else:
+			# ESTAMINA: la carga consume POCO A POCO (coste por segundo × delta) y
+			# sólo aquí, mientras ESPACIO siga pulsado. Al soltar se pasa a
+			# `_ejecutar_super`, que ya NO vuelve a cobrar (el supersalto se paga
+			# una sola vez, aquí). Cuanto más tiempo se mantenga la tecla, más
+			# cuesta. Como el gasto sostenido reinicia el reloj de regeneración en
+			# cada fotograma, la estamina NO se acumula durante la carga.
 			f_super_carga = minf(f_super_carga + delta, F_SUPER_CARGA_MAX)
+			CostosEstamina.gastar_movimiento(self, &"cargar_super", delta)
 			_actualizar_carga_super()
+			# Si la estamina se agota durante la carga, se corta de forma SEGURA:
+			# se limpian los efectos y no se ejecuta nada (el toque de ESPACIO
+			# vuelve a ser el salto normal de siempre), así el personaje nunca
+			# queda bloqueado ni a medio cargar.
+			if _est_agotada():
+				_cancelar_super()
 	elif is_on_floor() and Input.is_action_just_pressed("saltar") and not f_agachado \
 			and not _esta_levantando_roca():
 		if _puede_cargar_super():
@@ -4096,14 +4112,10 @@ func _ejecutar_super() -> void:
 		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
 		_sonar_fuerza_salto()
 		return
-	# ESTAMINA: el supersalto (carga completa) se paga al EJECUTARSE. Sin energía
-	# no hay supersalto, pero el salto básico sigue disponible: nunca se bloquea.
-	if not CostosEstamina.activar_habilidad(self, &"super_salto"):
-		velocity.y = F_SALTO
-		f_salto_aire = true
-		_reproducir_fuerza(ANIM_F_JUMP, BLEND_SALTO, true)
-		_sonar_fuerza_salto()
-		return
+	# ESTAMINA: el supersalto YA se pagó durante la carga (el gasto por segundo de
+	# `cargar_super` se calibró para que una carga COMPLETA cueste exactamente lo
+	# mismo que costaba esta activación). Aquí NO se vuelve a cobrar: un mismo
+	# supersalto se paga UNA sola vez.
 	var fr := clampf(inverse_lerp(F_SUPER_CARGA_MIN, F_SUPER_CARGA_MAX, cargado), 0.0, 1.0)
 	velocity.y = lerpf(F_SUPER_VEL_MIN, F_SUPER_VEL_MAX, fr)
 	f_salto_aire = true
@@ -5085,7 +5097,12 @@ func _procesar_normal(delta: float) -> void:
 		var retrocede := Input.is_action_pressed("mover_atras") and not Input.is_action_pressed("mover_adelante")
 		_orientar(delta, -dir if retrocede else dir)
 
-	if is_on_floor() and _clic_ataca():
+	# ESTAMINA: el clic sólo llega al sistema de combate si la estamina alcanza
+	# para el golpe. Sin energía el golpe no arranca (ni avanza el combo, ni hay
+	# animación, ni daño), y da igual mantener el botón o machacarlo: cada golpe
+	# válido se cobra UNA vez en `_on_golpe_realizado`, que es donde el golpe
+	# arranca de verdad.
+	if is_on_floor() and _clic_ataca() and CostosEstamina.puede_ataque(self, &"golpe"):
 		combate.intentar_golpe()
 	if Input.is_action_just_pressed("emote"):
 		_intentar_emote()
@@ -5095,9 +5112,20 @@ func _procesar_normal(delta: float) -> void:
 		_iniciar_carga()
 
 func _on_golpe_realizado(indice: int) -> void:
-	# ESTAMINA: un golpe REALIZADO cuesta una vez (el velocista es el que más
-	# gasta por golpe: su combo es pura velocidad).
-	CostosEstamina.activar_ataque(self, &"golpe")
+	# ESTAMINA: cada golpe del Velocista (incluidos los encadenados del combo) se
+	# cobra UNA vez AQUÍ, que es donde el golpe arranca de verdad: la animación,
+	# el impulso y el daño pendiente salen todos de este mismo sitio, así que no
+	# hay forma de cobrarlo dos veces ni de cobrarlo sin ejecutar.
+	#
+	# Si la estamina no alcanza, el golpe NO SALE: se sale de aquí ANTES de tocar
+	# la animación, el avance y el impacto (no hay daño). El combo se reinicia
+	# para que el siguiente golpe pagado vuelva a empezar por combo-1: así no se
+	# puede encadenar gratis manteniendo el botón, machacando el clic, ni
+	# aprovechando la regeneración (que sólo devuelve lo ya gastado y nunca
+	# regala un golpe).
+	if not CostosEstamina.activar_ataque(self, &"golpe"):
+		combate.cancelar_combo()
+		return
 	_sonar_golpe()
 	_en_modo_ataque = true
 	_t_modo_ataque = TIEMPO_MODO_ATAQUE
