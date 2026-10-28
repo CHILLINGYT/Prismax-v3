@@ -14,7 +14,7 @@ extends MarginContainer
 ## CALIDAD: cicla el perfil grafico (BAJA -> MEDIA -> ALTA) usando el sistema
 ##          AjustesGraficos ya existente; no duplica su logica.
 enum Action { CONTINUE, NEW_GAME, QUIT, CONFIG, CATEGORY, BACK, CALIDAD,
-		OPTIMIZACION, DIST_CARGA, DIST_PRECARGA, DIAGNOSTICO }
+		OPTIMIZACION, DIST_CARGA, DIST_PRECARGA, DIAGNOSTICO, AMBIENTE }
 
 @export var action: Action = Action.CONTINUE
 @export_multiline var description: String = ""
