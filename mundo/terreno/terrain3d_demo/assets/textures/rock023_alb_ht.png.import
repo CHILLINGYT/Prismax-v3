@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c307hdmos4gtm"
-path.bptc="res://.godot/imported/rock023_nrm_rgh.png-dd524905a15817dac8149681cddc8975.bptc.ctex"
+uid="uid://c88j3oj0lf6om"
+path.bptc="res://.godot/imported/rock023_alb_ht.png-d9b15c1dd1aaacf996b4e2c15d21cdff.bptc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://demo/assets/textures/rock023_nrm_rgh.png"
-dest_files=["res://.godot/imported/rock023_nrm_rgh.png-dd524905a15817dac8149681cddc8975.bptc.ctex"]
+source_file="res://mundo/terreno/terrain3d_demo/assets/textures/rock023_alb_ht.png"
+dest_files=["res://.godot/imported/rock023_alb_ht.png-d9b15c1dd1aaacf996b4e2c15d21cdff.bptc.ctex"]
 
 [params]
 

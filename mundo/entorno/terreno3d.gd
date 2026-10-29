@@ -46,7 +46,7 @@ const CONTROL := "res://mundo/entorno/control_isla.res"
 ## idénticos.
 const TEXTURA_ARENA := "res://assets/generated/arena_playa_hd.png"
 ## Texturas y mallas de vegetación del complemento (pasto, roca y tarjeta de hierba).
-const ASSETS := "res://demo/data/assets.tres"
+const ASSETS := "res://mundo/terreno/terrain3d_demo/data/assets.tres"
 ## Mata de pasto dibujada para las tarjetas de vegetación baja.
 const TEXTURA_PASTO := "res://assets/generated/pasto_mata.png"
 ## Cobertura del mapa de altura: esquina noroeste y lado en metros.
@@ -153,7 +153,7 @@ func _anadir_arena(assets: Terrain3DAssets) -> void:
 	ta.albedo_texture = load(TEXTURA_ARENA)
 	# La normal del terreno del complemento le da a la arena un grano fino en
 	# lugar de una superficie lisa.
-	ta.normal_texture = load("res://demo/assets/textures/ground037_nrm_rgh.png")
+	ta.normal_texture = load("res://mundo/terreno/terrain3d_demo/assets/textures/ground037_nrm_rgh.png")
 	# Propiedades alineadas con las texturas de la demo (rock023, ground037) para que
 	# el array de texturas del complemento sea homogéneo.
 	ta.normal_depth = 1.0
