@@ -3,7 +3,7 @@ extends Node3D
 ## =============================================================================
 ##  VEHÍCULOS APARCADOS EN LA CIUDAD (moto, auto y camioneta)
 ## =============================================================================
-##  Coloca EXACTAMENTE UNO de cada modelo de `res://modelos 3d autos/` aparcado
+##  Coloca EXACTAMENTE UNO de cada modelo de `res://mundo/entorno/vehiculos/modelos/` aparcado
 ##  contra el bordillo, siguiendo la trama REAL que calcula el generador de ciudad
 ##  (el mismo camino que las farolas): se lee su trazado (ancho de calzada, paso
 ##  entre calles, extensión y origen) y se aparca en la CALZADA, pegado al bordillo

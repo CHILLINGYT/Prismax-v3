@@ -11,9 +11,9 @@ extends SceneTree
 
 const MODELOS := {
 	"CASA": "res://mundo/casa_leo/modelo/appartement.glb",
-	"MOTO": "res://modelos 3d autos/vespa.glb",
-	"AUTO": "res://modelos 3d autos/free_1972_datsun_240k_gt.glb",
-	"CAMIONETA": "res://modelos 3d autos/free_zuk_3d_model.glb",
+	"MOTO": "res://mundo/entorno/vehiculos/modelos/vespa.glb",
+	"AUTO": "res://mundo/entorno/vehiculos/modelos/free_1972_datsun_240k_gt.glb",
+	"CAMIONETA": "res://mundo/entorno/vehiculos/modelos/free_zuk_3d_model.glb",
 }
 
 func _init() -> void:

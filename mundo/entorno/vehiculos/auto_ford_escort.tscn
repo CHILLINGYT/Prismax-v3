@@ -7,7 +7,7 @@
 ; el ancho real del Escort; no se estira ningún eje.
 
 [ext_resource type="Script" path="res://mundo/entorno/vehiculos/vehiculo.gd" id="1_vehiculo"]
-[ext_resource type="PackedScene" path="res://auto profe/Ford_Escort_Wagon_Bordo.glb" id="2_modelo"]
+[ext_resource type="PackedScene" path="res://mundo/entorno/vehiculos/modelos/ford_escort/Ford_Escort_Wagon_Bordo.glb" id="2_modelo"]
 
 [node name="AutoFordEscort" type="StaticBody3D"]
 collision_layer = 1

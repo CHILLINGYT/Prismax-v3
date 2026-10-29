@@ -3,7 +3,7 @@ extends StaticBody3D
 ## =============================================================================
 ##  VEHÍCULO APARCADO (ajuste del modelo importado + caja de colisión)
 ## =============================================================================
-##  Los tres modelos de `res://modelos 3d autos/` vienen de fuera con tamaños y
+##  Los tres modelos de `res://mundo/entorno/vehiculos/modelos/` vienen de fuera con tamaños y
 ##  orígenes MUY distintos: uno mide 1,35 m y otro 4,75 m, y sus vértices no están
 ##  centrados (el del Datsun, por ejemplo, trae nodos a más de 10 m del origen).
 ##  Aquí se hace siempre lo mismo, sobre el nodo que envuelve al modelo:
