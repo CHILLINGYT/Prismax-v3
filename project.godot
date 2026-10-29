@@ -43,7 +43,7 @@ mouse_cursor/custom_image="uid://tofapj58p7x"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dialogue_manager/plugin.gd")
+enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg")
 
 [input]
 
