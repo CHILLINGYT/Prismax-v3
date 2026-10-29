@@ -34,7 +34,7 @@ extends Node3D
 ##    PRISMAX_PERF_SIN_CAPTURA=1  no guardar PNG (sólo medir)
 ## =============================================================================
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const SEMILLA := 20261011
 const VENTANA := Vector2i(1280, 720)
 const ESPERA_MAX_GEN := 45.0

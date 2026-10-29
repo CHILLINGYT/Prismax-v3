@@ -34,7 +34,7 @@ const ConfigCombate := preload("res://personaje/transformaciones/transformacion 
 const GerenteScript := preload("res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd")
 const ClaseEnemigo := preload("res://Enemigos Prueba/Scripts/enemigo_prueba.gd")
 
-const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const ESCENA_PRINCIPAL := "res://ui/scenes/IntroVideo.tscn"
 const FORMA_COMBATE := 4
 const C_LIBRE := 0

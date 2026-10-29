@@ -6,7 +6,7 @@ extends Node
 ## jugador y se cierra sola.
 ##   godot --path . res://pruebas/medir_ambiente_ps2.tscn   (con timeout externo)
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const CFG := "user://ajustes_graficos.cfg"
 const SEMILLA := 20261011
 const MEDIR := 4.0

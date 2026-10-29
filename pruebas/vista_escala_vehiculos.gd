@@ -4,7 +4,7 @@ extends Node
 ## altura de los ojos. Sirve para juzgar la PROPORCIÓN (no la colocación).
 ## Las fotos quedan en res://pruebas/capturas/escala_*.png
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const CARPETA := "res://pruebas/capturas"
 
 var _mundo: Node

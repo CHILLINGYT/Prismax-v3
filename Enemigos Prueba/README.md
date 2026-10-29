@@ -1,7 +1,7 @@
 # Enemigos de prueba (`res://Enemigos Prueba/`)
 
 Sistema de enemigos para probar el combate EN LA PARTIDA PRINCIPAL
-(`res://ziba/escenas/ziba_prototipo.tscn`). No forma parte de la ficción del
+(`res://mundo/escena/ziba_prototipo.tscn`). No forma parte de la ficción del
 juego: son maniquíes de combate con IA de cerco.
 
 Los enemigos se dibujan con **modelos Mixamo riggeados** (65 huesos `mixamorig_*`)

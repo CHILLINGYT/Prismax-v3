@@ -4,7 +4,7 @@ extends CharacterBody3D
 ## Enemigo cápsula de prueba (una escena reutilizable, un solo controlador).
 ##
 ## Vive en res://Enemigos Prueba/ y está pensado para la PARTIDA PRINCIPAL
-## (res://ziba/escenas/ziba_prototipo.tscn): el gerente (GerenteEnemigosPrueba)
+## (res://mundo/escena/ziba_prototipo.tscn): el gerente (GerenteEnemigosPrueba)
 ## crea seis copias con la tecla G y las coordina.
 ##
 ## Contratos que habla (los REALES del proyecto, no inventados):

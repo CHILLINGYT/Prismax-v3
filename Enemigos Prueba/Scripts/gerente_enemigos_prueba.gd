@@ -2,7 +2,7 @@ class_name GerenteEnemigosPrueba
 extends Node3D
 
 ## Gerente de los enemigos de prueba de la PARTIDA PRINCIPAL
-## (res://ziba/escenas/ziba_prototipo.tscn). No es una escena de prueba: vive en
+## (res://mundo/escena/ziba_prototipo.tscn). No es una escena de prueba: vive en
 ## el mundo real y funciona con cualquier transformación del jugador.
 ##
 ## Tecla G (acción "enemigos_prueba"): genera CINCO enemigos alrededor del

@@ -3,7 +3,7 @@ extends Node3D
 ##  ARNÉS DE AUDITORÍA DE RENDIMIENTO — FASE 2 (SOLO MIDE)
 ## =============================================================================
 ##  Qué hace:
-##   · Carga el mundo REAL (res://ziba/escenas/ziba_prototipo.tscn) como escena
+##   · Carga el mundo REAL (res://mundo/escena/ziba_prototipo.tscn) como escena
 ##     INDEPENDIENTE (no embebida en el editor), con una semilla FIJA, para que
 ##     dos ejecuciones construyan exactamente la misma ciudad.
 ##   · Separa: carga de recursos, instanciación, generación síncrona (add_child),
@@ -31,7 +31,7 @@ extends Node3D
 ##    el `sky` del entorno  |  niebla_off -> apaga `fog_enabled` del entorno.
 ## =============================================================================
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const SEMILLA := 20261011
 const VENTANA := Vector2i(1280, 720)
 const ASENTAR := 1.5

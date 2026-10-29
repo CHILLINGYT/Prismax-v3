@@ -19,7 +19,7 @@ extends Node3D
 const JUGADOR := preload("res://personaje/base/escenas/leo_jugador.tscn")
 const ESC_MUERTE := "res://personaje/transformaciones/Muerte.fbx"
 const ESC_MORIDO := "res://personaje/transformaciones/Morido.fbx"
-const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const ESCENA_CARGA := "res://ui/scenes/LoadingScreen.tscn"
 const LARGO_MUERTE := 4.367
 const LARGO_MORIDO := 0.067

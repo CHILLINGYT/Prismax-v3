@@ -22,7 +22,7 @@ extends Node3D
 ##   MEDICION perfil=... fps=.. frame_ms=.. p95_ms=.. max_ms=.. proc_ms=.. phys_ms=..
 ##            draw=.. prim=.. obj=.. npc=.. enem=..
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 
 ## Espera generosa a que terminen terreno, ciudad, bosque y peatones (la primera
 ## generación es síncrona y tarda ~10-15 s: medir antes daría números falsos).

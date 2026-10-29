@@ -5,7 +5,7 @@ extends Node
 ## Este nodo NO es la escena actual: pone el mundo como escena actual y se queda
 ## colgado de la raíz, así sobrevive a la pantalla de carga, al interior y a la vuelta.
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const TEXTO_ENTRAR := "Presiona E para entrar a la casa de Leo"
 const TEXTO_SALIR := "Presiona E para salir a la ciudad"
 

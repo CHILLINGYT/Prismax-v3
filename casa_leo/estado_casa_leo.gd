@@ -24,7 +24,7 @@ extends RefCounted
 ##  reloj sigue siendo el de siempre (`CicloDiaNoche`), no hay un segundo reloj.
 
 const CASA := "res://casa_leo/casa_leo.tscn"
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const CARGA := "res://ui/scenes/LoadingScreen.tscn"
 ## Tiempo (ms) que la puerta ignora la E justo después de volver de la casa.
 const BLOQUEO_MS := 900

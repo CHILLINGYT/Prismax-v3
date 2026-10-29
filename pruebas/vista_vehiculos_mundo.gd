@@ -3,7 +3,7 @@ extends Node
 ## aparcado, desde la acera y en diagonal, para ver el cordón, las ruedas y los
 ## edificios de alrededor. Las fotos quedan en res://pruebas/capturas/.
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const CARPETA := "res://pruebas/capturas"
 
 var _mundo: Node

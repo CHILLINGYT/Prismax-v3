@@ -8,7 +8,7 @@ extends Node
 #
 #   godot --headless --path <proyecto> res://pruebas/prueba_eventos_mundo.tscn
 
-const MUNDO := preload("res://ziba/escenas/ziba_prototipo.tscn")
+const MUNDO := preload("res://mundo/escena/ziba_prototipo.tscn")
 const IDS := [&"E1", &"E2", &"E3", &"E4", &"E5", &"E6", &"E7", &"E8", &"E9", &"E10", &"B1", &"B2"]
 
 var _pasadas := 0

@@ -9,7 +9,7 @@ extends Node3D
 ##
 ## Uso: godot --path . pruebas/diagnostico_cuello.tscn
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const ESPERA_GENERACION := 22.0
 const ASENTAR := 2.0
 const MEDIR := 4.0

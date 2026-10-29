@@ -15,7 +15,7 @@ extends CanvasLayer
 const MenuOptionRes := preload("res://ui/scripts/menu_option.gd")
 
 ## Escena del mundo que se reinicia con NEW GAME.
-const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 
 ## Escena de carga: misma que usa el menu principal, para no duplicar la logica
 ## de carga del mundo (un unico flujo).

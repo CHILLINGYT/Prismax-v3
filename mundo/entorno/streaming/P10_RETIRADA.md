@@ -24,7 +24,7 @@ de la ciudad (fuera de alcance; P9-D2).
 
 ## Interruptor central
 - El nodo se llama **`StreamingMundo`**, hijo directo de `ZibaPrototipo` en
-  `res://ziba/escenas/ziba_prototipo.tscn`.
+  `res://mundo/escena/ziba_prototipo.tscn`.
 - Su propiedad **`activo`** (por defecto `false`) es el interruptor maestro.
   - `activo = false` → no hace nada (comportamiento original).
   - `activo = true` → crea y arranca los dos subgestores.
@@ -42,7 +42,7 @@ XDG_DATA_HOME=/tmp/p10/xdg \
 Esperado: `===== RESULTADO STREAMING MUNDO: 13 OK, 0 FALLOS =====`.
 
 ## Prueba del mundo completo (PENDIENTE de verificación)
-Arrancar el juego real (`res://ziba/escenas/ziba_prototipo.tscn`) con
+Arrancar el juego real (`res://mundo/escena/ziba_prototipo.tscn`) con
 `StreamingMundo.activo = true` y recorrer ciudad/bosque. **No se pudo ejecutar en
 esta sesión por presión de memoria** (memoria disponible ~440 MB); ver el informe.
 
@@ -50,7 +50,7 @@ esta sesión por presión de memoria** (memoria disponible ~440 MB); ver el info
 # 2) Retirada MANUAL (sin Git, con el Explorador de archivos)
 
 1. Cierra Godot.
-2. **Deshaz la integración en la escena** `res://ziba/escenas/ziba_prototipo.tscn`:
+2. **Deshaz la integración en la escena** `res://mundo/escena/ziba_prototipo.tscn`:
    abre el archivo con un editor de texto y borra EXACTAMENTE estas dos partes
    añadidas por P10:
    - la línea `[ext_resource ... path="res://mundo/entorno/streaming/gestor_streaming_mundo.gd" id="44_streaming"]`

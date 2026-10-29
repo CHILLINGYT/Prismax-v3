@@ -6,7 +6,7 @@ extends Node
 ##     portal, el marcador y el punto de salida se pueden pisar (o están dentro de
 ##     un edificio / tapados por una colisión).
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 
 var _mundo: Node
 var _ciudad: Node

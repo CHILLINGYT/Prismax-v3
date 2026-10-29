@@ -18,7 +18,7 @@ const MenuOptionRes := preload("res://ui/scripts/menu_option.gd")
 
 ## Scene loaded when the player starts a new game. This is the existing world
 ## scene; the menu only decides WHEN it loads, never how the world is built.
-const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 
 ## Escena de carga intermedia: carga el mundo en segundo plano, lo instancia y
 ## genera la ciudad por etapas, y solo entonces lo revela. El menu NO carga el

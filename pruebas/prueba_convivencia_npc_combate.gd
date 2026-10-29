@@ -7,7 +7,7 @@ extends Node3D
 ##
 ##   godot --headless --path . pruebas/prueba_convivencia_npc_combate.tscn
 
-const MUNDO := preload("res://ziba/escenas/ziba_prototipo.tscn")
+const MUNDO := preload("res://mundo/escena/ziba_prototipo.tscn")
 const RUTA_NPC := "res://NPCs/Scripts/npc_citizen.gd"
 
 var _pasadas := 0

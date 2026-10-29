@@ -6,7 +6,7 @@ extends Node
 ##   4. lo mismo de NOCHE → mundo_puerta_noche.png
 ## Se ejecuta con el binario: godot --path . res://pruebas/vista_hud_mundo.tscn
 
-const MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const CARPETA := "res://pruebas/capturas"
 
 
