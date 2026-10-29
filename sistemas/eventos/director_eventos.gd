@@ -34,7 +34,7 @@ signal evento_aparecido(id: StringName)
 signal evento_activado(id: StringName)
 signal evento_terminado(id: StringName)
 
-const ESCENA_TUBO := preload("res://eventos/tubo_evento.tscn")
+const ESCENA_TUBO := preload("res://sistemas/eventos/tubo_evento.tscn")
 
 ## Tipos del gerente (GerenteEnemigosPrueba.Tipo).
 const TIPO_MELEE := 1

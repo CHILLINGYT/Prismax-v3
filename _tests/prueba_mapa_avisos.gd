@@ -19,7 +19,7 @@ const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
 const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
 const GerenteScript := preload("res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd")
-const DirectorScript := preload("res://eventos/director_eventos.gd")
+const DirectorScript := preload("res://sistemas/eventos/director_eventos.gd")
 const ScriptMinimapa := preload("res://personaje/hud_transformacion/scripts/minimapa.gd")
 const Avisos := preload("res://personaje/hud_transformacion/scripts/minimapa_avisos.gd")
 

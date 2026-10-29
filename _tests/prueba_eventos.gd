@@ -16,7 +16,7 @@ const JUGADOR := preload("res://personaje/base/escenas/leo_jugador.tscn")
 const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
 const GerenteScript := preload("res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd")
-const DirectorScript := preload("res://eventos/director_eventos.gd")
+const DirectorScript := preload("res://sistemas/eventos/director_eventos.gd")
 const ESCENA_BARCO := preload("res://world/barco.tscn")
 
 var _pasadas := 0
@@ -287,7 +287,7 @@ func _correr() -> void:
 	_dir.set("radio_generacion", 5.0)
 
 	# ============================================================= TUBO (Mejora 2)
-	var tubo_pre := preload("res://eventos/tubo_evento.tscn").instantiate()
+	var tubo_pre := preload("res://sistemas/eventos/tubo_evento.tscn").instantiate()
 	var vis := tubo_pre.get_node("Visual") as MeshInstance3D
 	var cm := vis.mesh as CylinderMesh
 	_check("Tubo: más ancho que antes (radio > 0.5)", cm.top_radius > 0.5, "r=%.2f" % cm.top_radius)

@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://eventos/tubo_evento.gd" id="1_tubo"]
+[ext_resource type="Script" path="res://sistemas/eventos/tubo_evento.gd" id="1_tubo"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_tubo"]
 top_radius = 0.75
