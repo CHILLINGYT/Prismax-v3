@@ -25,8 +25,8 @@ const SECCION := "graficos"
 ## PERFIL DE CALIDAD (Baja / Media / Alta), pensado para que el juego sea fluido
 ## en equipos modestos. Los números NO son decorativos: salen de medir el mundo
 ## real en este equipo (Intel ADL-N, Forward+) con:
-##    _tests/diagnostico_cuello.gd   (¿quién se come el fotograma?)
-##    _tests/medir_rendimiento.gd    (comparativa por perfil)
+##    pruebas/diagnostico_cuello.gd   (¿quién se come el fotograma?)
+##    pruebas/medir_rendimiento.gd    (comparativa por perfil)
 ##
 ## Lo medido, que es lo que decide los valores:
 ##   · El fotograma NO está limitado por píxeles: bajar la escala 3D a 0.50 subió
@@ -46,7 +46,7 @@ enum Calidad { BAJA, MEDIA, ALTA }
 const CALIDAD_NOMBRES: Array[String] = ["BAJA", "MEDIA", "ALTA"]
 ## Cielo ESTÁTICO que usa sólo el perfil BAJA (recurso aparte: el cielo
 ## dinámico del juego no se modifica). Se carga de forma perezosa.
-const RUTA_CIELO_BAJA := "res://Cielo/cielo_panorama_baja.tres"
+const RUTA_CIELO_BAJA := "res://mundo/cielo/cielo_panorama_baja.tres"
 
 ## Tabla por perfil. `ALTA` == configuración original del proyecto (escala 1.0,
 ## SSAO encendido, sombras del sol sin recortar, sin tocar la vegetación).
@@ -605,11 +605,11 @@ var _env_minimapa: Environment = null
 
 func _sincronizar_minimapa() -> void:
 	if _cam_minimapa == null or not is_instance_valid(_cam_minimapa):
-		_cam_minimapa = null
-		var r := get_tree().root.find_children("CamaraMinimapa", "Camera3D", true, false)
-		if r.is_empty():
+		# Por GRUPO (lo pone minimapa.gd): en modo PS2 esto corre cada fotograma
+		# mientras no haya minimapa, y recorrer todo el árbol de la ciudad era caro.
+		_cam_minimapa = get_tree().get_first_node_in_group(&"camara_minimapa") as Camera3D
+		if _cam_minimapa == null:
 			return
-		_cam_minimapa = r[0] as Camera3D
 	if modo_ambiente != Ambiente.PS2 or _entorno_copia == null:
 		_cam_minimapa.environment = null
 		return

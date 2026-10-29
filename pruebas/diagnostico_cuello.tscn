@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://pruebas/diagnostico_cuello.gd" id="1_diag"]
+
+[node name="DiagnosticoCuello" type="Node3D"]
+script = ExtResource("1_diag")

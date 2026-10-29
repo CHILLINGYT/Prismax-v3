@@ -1,0 +1,75 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://mundo/casa_leo/casa_leo.gd" id="1_casa"]
+[ext_resource type="PackedScene" path="res://mundo/casa_leo/modelo/appartement.glb" id="2_modelo"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="3_jugador"]
+[ext_resource type="Script" path="res://mundo/casa_leo/salida_interior.gd" id="4_salida"]
+[ext_resource type="Sky" path="res://mundo/cielo/cielo_ciudad.tres" id="5_cielo"]
+[ext_resource type="Script" path="res://mundo/cielo/sky3d_puente.gd" id="6_cielo3d"]
+[ext_resource type="Script" path="res://mundo/cielo/ciclo_dia_noche.gd" id="7_ciclo"]
+
+[sub_resource type="Environment" id="Environment_casa"]
+background_mode = 2
+sky = ExtResource("5_cielo")
+ambient_light_source = 3
+ambient_light_sky_contribution = 0.6
+tonemap_mode = 2
+ssao_enabled = true
+ssao_radius = 1.5
+fog_enabled = true
+fog_light_color = Color(0.73, 0.76, 0.81, 1)
+fog_density = 0.0002
+fog_sky_affect = 0.0
+
+[node name="CasaLeo" type="Node3D"]
+script = ExtResource("1_casa")
+
+[node name="Entorno" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_casa")
+
+[node name="Sol" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.76604444, -0.45451945, 0.45451945, 0, 0.70710677, 0.70710677, -0.6427876, -0.5416752, 0.5416752, 0, 0, 0)
+light_color = Color(1, 0.95686275, 0.8627451, 1)
+light_energy = 1.25
+shadow_enabled = true
+
+[node name="Cielo3D" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
+script = ExtResource("6_cielo3d")
+sol = NodePath("../Sol")
+entorno = NodePath("../Entorno")
+
+[node name="CicloDiaNoche" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
+script = ExtResource("7_ciclo")
+sol = NodePath("../Sol")
+entorno = NodePath("../Entorno")
+duracion_dia_segundos = 600.0
+duracion_noche_segundos = 420.0
+duracion_amanecer_segundos = 90.0
+duracion_anochecer_segundos = 90.0
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, -0.439385, 0.369214, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 3, 0)
+light_energy = 0.35
+shadow_enabled = false
+
+[node name="LuzCalida" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+light_color = Color(1, 0.94, 0.86, 1)
+light_energy = 1.6
+omni_range = 12.0
+shadow_enabled = false
+
+[node name="Modelo" parent="." instance=ExtResource("2_modelo")]
+
+[node name="Colision" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="PuntoEntrada" type="Marker3D" parent="."]
+
+[node name="MiraEntrada" type="Marker3D" parent="."]
+
+[node name="Jugador" parent="." instance=ExtResource("3_jugador")]
+
+[node name="SalidaInterior" type="Node3D" parent="."]
+script = ExtResource("4_salida")

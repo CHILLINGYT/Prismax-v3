@@ -121,7 +121,6 @@ func _intentar_agarrar() -> void:
 	_estado = Estado.CARGANDO
 	var tw := create_tween()
 	tw.tween_property(objetivo, "position", Vector3.ZERO, 0.12)  # ...y "vuela" a la garra
-	print("[Garras] ¡Presa agarrada! ", objetivo.name)
 
 func _soltar() -> void:
 	if _cargado == null:
@@ -134,7 +133,6 @@ func _soltar() -> void:
 	objeto.freeze = false
 	objeto.collision_layer = _capa_respaldo
 	objeto.linear_velocity = Vector3.ZERO  # caída suave
-	print("[Garras] Soltado: ", objeto.name)
 
 ## Lanzamiento: patada procedural y, al pico, la presa sale disparada
 ## hacia donde mira la cámara.

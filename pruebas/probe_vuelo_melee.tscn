@@ -1,0 +1,36 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://pruebas/probe_vuelo_melee.gd" id="1_sonda"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jugador"]
+[ext_resource type="PackedScene" path="res://enemigos/Scenes/enemigo_prueba.tscn" id="3_enemigo"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(80, 1, 80)
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.55, 0.66, 0.8, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.8, 0.8, 0.8, 1)
+ambient_light_energy = 0.7
+
+[node name="ProbeVueloMelee" type="Node3D"]
+script = ExtResource("1_sonda")
+
+[node name="Entorno" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.71, -0.4, 0.58, 0, 0.82, 0.57, -0.7, 0.41, -0.58, 0, 12, 6)
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="Colision" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Jugador" parent="." instance=ExtResource("2_jugador")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+
+[node name="Enemigo" parent="." instance=ExtResource("3_enemigo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -2.2)

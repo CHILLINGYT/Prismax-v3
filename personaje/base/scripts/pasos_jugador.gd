@@ -13,7 +13,7 @@ extends Node
 ## fotograma largo se salte el contacto de golpe.
 ##
 ## Los clips de pisada son RECORTES del banco original de cada transformación
-## (res://Audio/personaje/pasos/<forma>/paso_NN.tres). Los bancos originales
+## (res://audio/personaje/pasos/<forma>/paso_NN.tres). Los bancos originales
 ## quedan intactos: sólo se leen para hornear los recortes
 ## (ver .backup_pasos/_captura_pasos.gd, que documenta el corte).
 
@@ -28,7 +28,7 @@ signal golpe
 #   bajo sobre el suelo (apoyo completo). Medida muestreando a 240 Hz la altura
 #   del tobillo de los huesos reales del esqueleto de cada modelo
 #   (.backup_pasos/_fases_contacto.gd, mismo método del relevamiento).
-# "carpeta": subcarpeta de res://Audio/personaje/pasos/ con los recortes.
+# "carpeta": subcarpeta de res://audio/personaje/pasos/ con los recortes.
 # "guarda": segundos mínimos sin disparar tras un CAMBIO de clip de locomoción
 #   (evita el paso duplicado del fundido entre clips).
 # "sep":    segundos mínimos entre dos disparos seguidos de la misma forma
@@ -64,7 +64,7 @@ const TABLA := {
 		# Locomoción terrestre del águila: el clip retargeteado del personaje de
 		# COMBATE (vuelo_walk, ver personaje/base/scripts/retarget_locomocion_vuelo.gd)
 		# con los MISMOS recortes de pisada del combate. Fases MEDIDAS sobre el clip
-		# retargeteado y alineado al suelo (_tests/probe_fases_vuelo_walk.tscn,
+		# retargeteado y alineado al suelo (pruebas/probe_fases_vuelo_walk.tscn,
 		# mínimo real del tobillo/punta): 0.3203 / 0.8125 (el clip del combate mide
 		# 0.3359 / 0.8203 — la diferencia es de una muestra de 240 Hz).
 		# "sep" CORTO (0.06) a propósito: la forma vuela a 5 m/s caminando y 8,5 m/s
@@ -76,13 +76,13 @@ const TABLA := {
 }
 
 ## Carpeta de los recortes de pisada.
-const RUTA_PASOS := "res://Audio/personaje/pasos"
+const RUTA_PASOS := "res://audio/personaje/pasos"
 ## Cantidad de reproductores del fondo común. Si todos están ocupados, el paso
 ## nuevo se DESCARTA (nunca se corta un paso a medias).
 const REPRODUCTORES := 6
 ## Sonido de golpe de la forma Combate (banco ORIGINAL, cortado en origen por
 ## offset medido en vez de recortado: es un golpe único, no un banco de pasos).
-const RUTA_GOLPE_COMBATE := "res://Audio/personaje/transformacion/combate/golpe.mp3"
+const RUTA_GOLPE_COMBATE := "res://audio/personaje/transformacion/combate/golpe.mp3"
 ## Silencio de cabecera MEDIDO del golpe (s): se salta para que el impacto
 ## audible caiga en el fotograma del golpe, no 75 ms después. El archivo no se toca.
 const AUD_INICIO_GOLPE_COMBATE := 0.070
@@ -263,12 +263,14 @@ func _variantes_de(carpeta: String) -> Array:
 	if _variantes.has(carpeta):
 		return _variantes[carpeta]
 	var lista: Array = []
-	var dir := DirAccess.open("%s/%s" % [RUTA_PASOS, carpeta])
-	if dir == null:
+	var ruta_carpeta := "%s/%s" % [RUTA_PASOS, carpeta]
+	if not DirAccess.dir_exists_absolute(ruta_carpeta):
 		push_warning("[Pasos] Sin carpeta de recortes: %s/%s" % [RUTA_PASOS, carpeta])
 		_variantes[carpeta] = lista
 		return lista
-	var nombres := dir.get_files()
+	# `ResourceLoader.list_directory`: en el juego EXPORTADO los .tres se remapean
+	# (.remap) y DirAccess no los vería; en el editor la lista es la misma.
+	var nombres := ResourceLoader.list_directory(ruta_carpeta)
 	nombres.sort()
 	for n in nombres:
 		var s := String(n)

@@ -43,7 +43,7 @@ const TARGET_GROUP := &"damageable"
 ## que no golpea a nadie se oye terminar, pero NUNCA se disfraza de un impacto contra
 ## un enemigo que no recibió daño. La oleada (water_surge) trae su propio reproductor
 ## (más voces y más alcance) y desactiva este con `sonido_impacto_propio`.
-const AUD_IMPACTO_AGUA := preload("res://Audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav")
+const AUD_IMPACTO_AGUA := preload("res://audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav")
 ## Voces en rueda: dos impactos seguidos (o dos a la vez) no se cortan entre sí, y
 ## nunca se crean nodos por impacto.
 const VOCES_IMPACTO_AGUA := 4

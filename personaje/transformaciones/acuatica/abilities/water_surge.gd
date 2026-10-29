@@ -26,7 +26,7 @@ extends "res://personaje/transformaciones/acuatica/abilities/water_ability.gd"
 ## UNA vez por cada objetivo alcanzado de verdad y nunca al crear la ola ni cuando no
 ## toca a nadie: el marcador _hit_ids garantiza que un mismo objetivo no vuelva a
 ## sonar en toda la ejecución de la habilidad.
-const AUD_OLA_IMPACTO := preload("res://Audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav")
+const AUD_OLA_IMPACTO := preload("res://audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav")
 
 ## Reproductores en rueda: varios impactos seguidos (o dos a la vez) no se cortan
 ## entre sí y NUNCA se crean nodos nuevos mientras dura la habilidad.

@@ -17,7 +17,7 @@ extends Control
 ## exacto de tiempo.
 
 ## Escena de destino por defecto si nadie la fijó (permite probar esta escena sola).
-const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 ## A dónde volver si algo falla.
 const ESCENA_MENU := "res://ui/scenes/MainMenu.tscn"
 

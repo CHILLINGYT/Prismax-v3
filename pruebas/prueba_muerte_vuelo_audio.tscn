@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://pruebas/prueba_muerte_vuelo_audio.gd" id="1_prueba"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jugador"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(120, 1, 120)
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.55, 0.66, 0.8, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.8, 0.8, 0.8, 1)
+ambient_light_energy = 0.7
+
+[node name="PruebaMuerteVueloAudio" type="Node3D"]
+script = ExtResource("1_prueba")
+
+[node name="Entorno" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.71, -0.4, 0.58, 0, 0.82, 0.57, -0.7, 0.41, -0.58, 0, 12, 6)
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="Colision" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Jugador" parent="." instance=ExtResource("2_jugador")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)

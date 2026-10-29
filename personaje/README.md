@@ -156,7 +156,7 @@ Se conservan los nombres internos con sufijo `(1)` (p. ej. `scripts (1)/`,
 - `ui/scenes/MainMenu.tscn`, `PauseMenu.tscn`, `VideoBackground.tscn`,
   `GameLogo.tscn` y los scripts generales (`main_menu.gd`, `menu_option.gd`,
   `pause_menu.gd`): menú general, fuera de `personaje/`.
-- Sistemas ajenos al personaje: `NPCs/`, `generador_ciudad.gd`, `camara_libre.gd`,
+- Sistemas ajenos al personaje: `npcs/`, `generador_ciudad.gd`, `camara_libre.gd`,
   `ciudad2.tscn`, `Exports/glTF (Godot)/`, `Textures/`, `assets/`, `npc assetss/`,
   `addons/ziva_agent/`. No se tocaron.
 

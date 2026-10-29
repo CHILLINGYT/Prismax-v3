@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://.backup_pasos/_fases_contacto.gd" id="1_fases"]
-
-[node name="FasesContacto" type="Node"]
-script = ExtResource("1_fases")

@@ -1,0 +1,39 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://pruebas/prueba_disparo_tirador.gd" id="1_suite"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jug"]
+[ext_resource type="Script" path="res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd" id="3_gestor"]
+[ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="4_config"]
+[ext_resource type="Script" path="res://enemigos/Scripts/gerente_enemigos_prueba.gd" id="5_gerente"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(80, 1, 80)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_pista"]
+size = Vector2(80, 80)
+
+[node name="PruebaDisparoTirador" type="Node3D"]
+script = ExtResource("1_suite")
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.5, 0)
+
+[node name="Forma" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Pista" type="MeshInstance3D" parent="Suelo"]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("PlaneMesh_pista")
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866, 0, -0.866, 0.5, 0, 6, 0)
+
+[node name="CombatManager" type="Node" parent="."]
+script = ExtResource("3_gestor")
+config = ExtResource("4_config")
+
+[node name="EnemigosPrueba" type="Node3D" parent="."]
+script = ExtResource("5_gerente")
+
+[node name="Jugador" parent="." instance=ExtResource("2_jug")]
+position = Vector3(0, 0.05, 0)

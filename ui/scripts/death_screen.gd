@@ -22,7 +22,7 @@ const MenuOptionRes := preload("res://ui/scripts/menu_option.gd")
 
 ## Escena del mundo que se reinicia con NUEVA PARTIDA (la misma que usan el menú
 ## principal y el menú de pausa: un único flujo de carga).
-const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 ## Pantalla de carga intermedia: carga y prepara el mundo antes de revelarlo.
 const ESCENA_CARGA := "res://ui/scenes/LoadingScreen.tscn"
 ## Menú principal real del juego.

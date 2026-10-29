@@ -1,0 +1,267 @@
+[gd_scene format=3 uid="uid://cf7g1lnty3shw"]
+
+[ext_resource type="PackedScene" uid="uid://caueivavcv3mb" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jugador"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/cargar_poder.tres" id="3_46ggp"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/salto_aire.tres" id="3_kcr08"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/calentamiento_ataque.tres" id="3_skkuo"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_adelante.tres" id="4_87dcj"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/caminar_hacia_atras.tres" id="5_qwo3x"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo.tres" id="6_qwo3x"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/dash.tres" id="6_vl4ji"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_1.tres" id="7_y4rbe"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_velocidad.tres" id="7_yu6gv"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_2.tres" id="8_3efv8"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/saltar.tres" id="9_kcr08"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/superduper_velocidad.tres" id="9_luf5j"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_3.tres" id="9_u66f0"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_4.tres" id="10_dkl4u"]
+[ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_modo_ataque.tres" id="14_x5dtm"]
+[ext_resource type="PackedScene" path="res://ui/scenes/PauseMenu.tscn" id="15_pausa"]
+[ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://mundo/ciudad/generador_ciudad.gd" id="16_ciudad"]
+[ext_resource type="Sky" path="res://mundo/cielo/cielo_ciudad.tres" id="17_cielo"]
+[ext_resource type="Script" path="res://mundo/cielo/ciclo_dia_noche.gd" id="18_ciclo"]
+[ext_resource type="Script" uid="uid://4oqk8xkyuyxf" path="res://mundo/entorno/farolas.gd" id="25_farolas"]
+[ext_resource type="Script" uid="uid://cgg5chg1c4qf7" path="res://mundo/cielo/sky3d_puente.gd" id="24_cielo3d"]
+[ext_resource type="Script" path="res://mundo/entorno/terreno3d.gd" id="19_isla"]
+[ext_resource type="PackedScene" path="res://mundo/agua/Scenes/Ocean.tscn" id="21_oceano"]
+[ext_resource type="Script" path="res://mundo/entorno/bosque.gd" id="22_bosque"]
+[ext_resource type="PackedScene" path="res://mundo/entorno/LimitesMundo.tscn" id="23_limites"]
+[ext_resource type="PackedScene" path="res://mundo/entorno/barco.tscn" id="26_barco"]
+[ext_resource type="PackedScene" path="res://mundo/entorno/muelle.tscn" id="27_muelle"]
+[ext_resource type="Script" path="res://mundo/entorno/camara_captura.gd" id="28_captura"]
+[ext_resource type="Script" path="res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd" id="29_combat"]
+[ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="30_config"]
+[ext_resource type="Script" uid="uid://dqjke8x5yd2ao" path="res://enemigos/Scripts/gerente_enemigos_prueba.gd" id="31_gerente"]
+[ext_resource type="Script" uid="uid://dfm5npml16np4" path="res://mundo/entorno/ambiente_dinamico.gd" id="43_ambiente"]
+[ext_resource type="PackedScene" path="res://npcs/Scenes/NPC_Estatico_Obrero.tscn" id="44_obrero"]
+[ext_resource type="Script" uid="uid://b6iih6r15h7hi" path="res://sistemas/eventos/director_eventos.gd" id="44_eventos"]
+[ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://mundo/entorno/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
+[ext_resource type="PackedScene" path="res://ui/scenes/PanelMision.tscn" id="46_mision"]
+[ext_resource type="Script" path="res://mundo/entorno/vehiculos.gd" id="47_vehiculos"]
+[ext_resource type="Script" path="res://mundo/casa_leo/puerta_casa_leo.gd" id="48_casa"]
+[ext_resource type="Script" uid="uid://dumpmnjjb6o4s" path="res://ui/scripts/cartel_objetivo.gd" id="46_cartel"]
+[ext_resource type="Theme" path="res://ui/tema/tema_juego.tres" id="91_tema"]
+
+[sub_resource type="Environment" id="Environment_ciudad"]
+background_mode = 2
+sky = ExtResource("17_cielo")
+ambient_light_source = 3
+ambient_light_sky_contribution = 0.6
+tonemap_mode = 2
+ssao_enabled = true
+fog_enabled = true
+fog_light_color = Color(0.73, 0.76, 0.81, 1)
+fog_density = 0.00035
+fog_sky_affect = 0.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cartel"]
+bg_color = Color(0.11, 0.12, 0.14, 0.92)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+
+[node name="ZibaPrototipo" type="Node3D" unique_id=1645821614]
+
+[node name="Entorno" type="WorldEnvironment" parent="." unique_id=754659190]
+environment = SubResource("Environment_ciudad")
+
+[node name="Sol" type="DirectionalLight3D" parent="." unique_id=2126018630]
+transform = Transform3D(0.76604444, -0.45451945, 0.45451945, 0, 0.70710677, 0.70710677, -0.6427876, -0.5416752, 0.5416752, 0, 0, 0)
+light_color = Color(1, 0.95686275, 0.8627451, 1)
+light_energy = 1.25
+shadow_enabled = true
+
+[node name="Cielo3D" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
+script = ExtResource("24_cielo3d")
+sol = NodePath("../Sol")
+entorno = NodePath("../Entorno")
+
+[node name="CicloDiaNoche" type="Node3D" parent="." node_paths=PackedStringArray("sol", "entorno")]
+script = ExtResource("18_ciclo")
+sol = NodePath("../Sol")
+entorno = NodePath("../Entorno")
+duracion_dia_segundos = 600.0
+duracion_noche_segundos = 420.0
+duracion_amanecer_segundos = 90.0
+duracion_anochecer_segundos = 90.0
+fase_inicial = 0.325
+
+[node name="Terreno" type="Node3D" parent="."]
+script = ExtResource("19_isla")
+
+[node name="Oceano" parent="." instance=ExtResource("21_oceano")]
+
+[node name="Barco" parent="." instance=ExtResource("26_barco")]
+transform = Transform3D(-0.70710678, 0, -0.70710678, 0, 1, 0, 0.70710678, 0, -0.70710678, 277.1, -2.05, 277.1)
+
+[node name="Muelle" parent="." instance=ExtResource("27_muelle")]
+transform = Transform3D(0.616, 0, 0.788, 0, 1, 0, -0.788, 0, 0.616, 144.2, -0.16, 95.2)
+
+[node name="Bosque" type="Node3D" parent="."]
+script = ExtResource("22_bosque")
+
+[node name="LimitesMundo" parent="." instance=ExtResource("23_limites")]
+
+[node name="Ciudad" type="Node3D" parent="." unique_id=338105555]
+script = ExtResource("16_ciudad")
+crear_camara_y_luz = false
+generar_en_editor = false
+camara_libre = false
+
+[node name="NPC_Estatico_Obrero" parent="." instance=ExtResource("44_obrero")]
+
+[node name="PanelMision" parent="." instance=ExtResource("46_mision")]
+
+[node name="Farolas" type="Node3D" parent="." node_paths=PackedStringArray("ciudad", "ciclo")]
+script = ExtResource("25_farolas")
+ciudad = NodePath("../Ciudad")
+ciclo = NodePath("../CicloDiaNoche")
+
+[node name="Vehiculos" type="Node3D" parent="." node_paths=PackedStringArray("ciudad")]
+script = ExtResource("47_vehiculos")
+ciudad = NodePath("../Ciudad")
+
+[node name="PuertaCasaLeo" type="Node3D" parent="." node_paths=PackedStringArray("ciudad")]
+script = ExtResource("48_casa")
+ciudad = NodePath("../Ciudad")
+
+[node name="CamaraAerea" type="Camera3D" parent="."]
+current = false
+script = ExtResource("28_captura")
+
+[node name="CombatManager" type="Node" parent="."]
+script = ExtResource("29_combat")
+config = ExtResource("30_config")
+
+[node name="EnemigosPrueba" type="Node3D" parent="."]
+script = ExtResource("31_gerente")
+
+[node name="DirectorEventos" type="Node3D" parent="."]
+script = ExtResource("44_eventos")
+
+[node name="StreamingMundo" type="Node" parent="."]
+script = ExtResource("45_streaming")
+activo = false
+modo_diagnostico = false
+
+[node name="Jugador" parent="." unique_id=110866062 instance=ExtResource("2_jugador")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1436781, 4)
+collision_mask = 3
+
+[node name="Modelo" parent="Jugador/Visual/Pose/Volteo" parent_id_path=PackedInt32Array(110866062, 1889189844) index="0" unique_id=575471977]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04462242, 0)
+
+[node name="Skeleton3D" parent="Jugador/Visual/Pose/Volteo/Modelo" index="0" unique_id=1790161205]
+bones/0/position = Vector3(0.0013391983, 0.5638954, -0.006681502)
+bones/0/rotation = Quaternion(-0.036755793, -0.36739174, -0.012595481, 0.92925435)
+bones/1/rotation = Quaternion(-0.0010900572, 0.04099177, -0.007233684, 0.9991327)
+bones/2/rotation = Quaternion(0.10063454, 0.08249706, -0.010109719, 0.9914458)
+bones/3/rotation = Quaternion(0.10063441, 0.08249713, -0.010109709, 0.9914458)
+bones/4/rotation = Quaternion(0.014010742, -0.011196737, 0.001605245, 0.9998379)
+bones/5/rotation = Quaternion(-0.054468956, 0.17692325, -0.012970553, 0.98263067)
+bones/7/rotation = Quaternion(-0.59569997, -0.38591474, 0.6092888, -0.35352296)
+bones/8/rotation = Quaternion(0.37998322, -0.10140053, 0.027159117, 0.9190175)
+bones/9/rotation = Quaternion(0.03157907, 0.04999849, 0.40393755, 0.91287315)
+bones/10/rotation = Quaternion(-0.17691937, 0.40368038, -0.0050376584, 0.8976171)
+bones/11/rotation = Quaternion(0.1904793, 0.10018977, 0.2663197, 0.9395497)
+bones/12/rotation = Quaternion(-0.0064623146, 0.00042994856, 0.042840622, 0.999061)
+bones/13/rotation = Quaternion(1.7185695e-05, 0.0004183057, 0.009913769, 0.9999508)
+bones/15/rotation = Quaternion(0.018851755, -0.009271312, 0.08868816, 0.99583787)
+bones/16/rotation = Quaternion(0.13225679, -0.0020748037, 0.029861595, 0.9907634)
+bones/17/rotation = Quaternion(5.248189e-05, -0.0016405069, -0.022197383, 0.9997523)
+bones/19/rotation = Quaternion(0.6507033, -0.34295484, 0.5710131, 0.36457017)
+bones/20/rotation = Quaternion(0.32358932, 0.121681176, 0.20374496, 0.915954)
+bones/21/rotation = Quaternion(0.082708366, 0.03683395, -0.35273895, 0.9313313)
+bones/22/rotation = Quaternion(0.08629178, -0.330522, -0.117937274, 0.93241614)
+bones/23/rotation = Quaternion(0.10051779, 0.0388679, -0.23338602, 0.96639353)
+bones/24/rotation = Quaternion(0.07445926, -0.002269464, 0.11058966, 0.99107045)
+bones/25/rotation = Quaternion(-0.0001838766, 0.0016862751, -0.11250852, 0.99364936)
+bones/27/rotation = Quaternion(0.042697836, 0.013908872, -0.05367113, 0.9975484)
+bones/28/rotation = Quaternion(0.13775535, -7.162522e-05, 0.023146974, 0.99019575)
+bones/29/rotation = Quaternion(-1.9428322e-05, -0.00033548762, -0.0028134105, 0.99999607)
+bones/31/rotation = Quaternion(0.06810522, 0.22698922, 0.96888584, -0.07139903)
+bones/32/rotation = Quaternion(-0.3253371, 0.11589035, 0.024344187, 0.9381538)
+bones/33/rotation = Quaternion(0.46069783, -0.08459863, 0.040530596, 0.8825859)
+bones/34/rotation = Quaternion(0.34748197, -0.17372781, 0.040420316, 0.92056566)
+bones/36/rotation = Quaternion(-0.11921241, 0.04053649, 0.98719174, 0.0979687)
+bones/37/rotation = Quaternion(-0.3134661, 0.08046762, -0.07659115, 0.943079)
+bones/38/rotation = Quaternion(0.55944157, 0.13395575, 0.03245139, 0.8173298)
+bones/39/rotation = Quaternion(0.33668447, 0.19485903, -0.066406384, 0.9188383)
+
+[node name="AnimationPlayer" parent="Jugador/Visual/Pose/Volteo/Modelo" index="1" unique_id=1696814342]
+libraries/calentamiento_ataque = ExtResource("3_skkuo")
+libraries/caminar_hacia_adelante = ExtResource("4_87dcj")
+libraries/caminar_hacia_atras = ExtResource("5_qwo3x")
+libraries/cargar_poder_click-derecho = ExtResource("3_46ggp")
+libraries/combo-1 = ExtResource("7_y4rbe")
+libraries/combo-2 = ExtResource("8_3efv8")
+libraries/combo-3 = ExtResource("9_u66f0")
+libraries/combo-4 = ExtResource("10_dkl4u")
+libraries/dash-con-shift = ExtResource("6_vl4ji")
+libraries/inactivo = ExtResource("6_qwo3x")
+libraries/inactivo_despues-despues-de-30s-velocidad = ExtResource("7_yu6gv")
+libraries/inactivo_modo_ataque = ExtResource("14_x5dtm")
+"libraries/jumping up(1)" = ExtResource("3_kcr08")
+libraries/saltar = ExtResource("9_kcr08")
+libraries/superduper_velocidad = ExtResource("9_luf5j")
+
+[node name="Pausa" parent="." unique_id=263530486 instance=ExtResource("15_pausa")]
+
+[node name="CartelObjetivo" type="CanvasLayer" parent="."]
+visible = false
+layer = 70
+script = ExtResource("46_cartel")
+
+[node name="Margen" type="MarginContainer" parent="CartelObjetivo"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("91_tema")
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Cartel" type="PanelContainer" parent="CartelObjetivo/Margen"]
+mouse_filter = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+theme_type_variation = &"HudVelo"
+
+[node name="Columna" type="VBoxContainer" parent="CartelObjetivo/Margen/Cartel"]
+mouse_filter = 2
+theme_override_constants/separation = 3
+
+[node name="Etiqueta" type="Label" parent="CartelObjetivo/Margen/Cartel/Columna"]
+mouse_filter = 2
+theme_type_variation = &"HudEtiqueta"
+text = "OBJETIVO"
+horizontal_alignment = 1
+
+[node name="Acento" type="Panel" parent="CartelObjetivo/Margen/Cartel/Columna"]
+custom_minimum_size = Vector2(46, 2)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_type_variation = &"HudAcento"
+
+[node name="Texto" type="Label" parent="CartelObjetivo/Margen/Cartel/Columna"]
+mouse_filter = 2
+theme_type_variation = &"HudObjetivo"
+text = "habla con el hombre en la plaza"
+horizontal_alignment = 1
+
+[node name="AmbienteDinamico" type="Node" parent="."]
+script = ExtResource("43_ambiente")
+ruta_jugador = NodePath("../Jugador")
+
+[editable path="Jugador"]
+[editable path="Jugador/Visual/Pose/Volteo/Modelo"]

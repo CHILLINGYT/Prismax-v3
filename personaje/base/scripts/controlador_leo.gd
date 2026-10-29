@@ -82,7 +82,7 @@ const PROFUNDIDAD_VADEO := 0.55
 ## caminando por la playa (vadea antes de ponerse a nadar).
 const PROFUNDIDAD_NADO := 0.95
 ## Cota (m) de la superficie VISIBLE del océano: es la del plano de
-## res://Agua/Scenes/Ocean.tscn (-2.05), 5 cm por debajo de Relieve.NIVEL_MAR para
+## res://mundo/agua/Scenes/Ocean.tscn (-2.05), 5 cm por debajo de Relieve.NIVEL_MAR para
 ## que la línea de costa no quede coplanaria con la malla del terreno. El nado usa
 ## ESTA cota, de modo que el cuerpo flota donde se ve el agua.
 const SUPERFICIE_MAR := -2.05
@@ -681,7 +681,7 @@ const VEL_ATAQUE_DANIO := 7.0
 const VEL_ATAQUE_DANIO_REMATE := VEL_ATAQUE_DANIO * 1.6
 const VEL_ATAQUE_IMPACTO := 0.10      # respaldo (s) si el clip no estuviera cargado
 ## Instante de CONTACTO de cada golpe del combo, como FRACCIÓN de la duración de su
-## clip. Medido sobre los clips reales (sonda `_tests/sonda_contacto_velocista_v2`)
+## clip. Medido sobre los clips reales (sonda `pruebas/sonda_contacto_velocista_v2`)
 ## midiendo cuánto se adelanta la mano o el pie que golpea respecto al torso: el
 ## máximo de esa extensión es el fotograma en que el golpe conecta de verdad.
 ##   combo-1 jab izquierdo    0,12 s de 0,933 s -> 0,129
@@ -966,7 +966,6 @@ var _f_mira: Control = null
 
 # --- Estado velocista ---
 var _dir_dash: Vector3 = Vector3.ZERO
-var _pos_dash_inicio: Vector3 = Vector3.ZERO
 var _objetivo_dash: Vector3 = Vector3.ZERO
 var _t_dash: float = 0.0
 var _t_carga: float = 0.0
@@ -5172,7 +5171,7 @@ func _programar_impacto_velocista(indice: int) -> void:
 ## contacto. El instante se mide sobre la POSICIÓN REAL del clip que se está
 ## reproduciendo (no con un temporizador, que se desfasa): el daño cae justo cuando
 ## la mano o el pie alcanzan su máxima extensión (fracciones medidas con
-## `_tests/sonda_contacto_velocista_v2`). Si el clip ya no es el del golpe —saltó,
+## `pruebas/sonda_contacto_velocista_v2`). Si el clip ya no es el del golpe —saltó,
 ## hizo dash, se transformó o empezó otro combo— el impacto pendiente se descarta.
 func _revisar_contacto_velocista() -> void:
 	if _vel_impacto_indice <= 0:
@@ -5394,7 +5393,6 @@ func _iniciar_dash(dir: Vector3) -> void:
 	_orientar_instant(dir)
 	_objetivo_dash = global_position + dir * distancia_objetivo_dash
 	_objetivo_dash.y = global_position.y
-	_pos_dash_inicio = global_position
 	_t_dash = 0.0
 	_bloqueo_anim = 0.0
 	efectos.iniciar_dash(dir)
@@ -5417,7 +5415,6 @@ func _procesar_dash(delta: float) -> void:
 func _terminar_dash() -> void:
 	estado = Estado.NORMAL
 	velocity = _dir_dash * velocidad_max
-	print("[Leo] dash recorrido: ", snappedf((global_position - _pos_dash_inicio).length(), 0.01), " m")
 	efectos.terminar_dash()
 
 func _procesar_caida_dash() -> void:

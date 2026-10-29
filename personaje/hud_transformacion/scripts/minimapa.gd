@@ -192,6 +192,8 @@ func _construir_vista() -> void:
 	# 2) Cámara cenital ortográfica.
 	_cam = Camera3D.new()
 	_cam.name = "CamaraMinimapa"
+	# Grupo: AjustesGraficos la localiza por aquí (antes recorría todo el árbol).
+	_cam.add_to_group(&"camara_minimapa")
 	_cam.top_level = true   # su transformación no depende del jugador (es global)
 	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
 	_cam.size = metros_visibles
@@ -589,10 +591,12 @@ func _distancia_al_jugador(pos: Vector3) -> float:
 ## sistema de amenazas del gestor tiene en cuenta). Es barato: una lista pequeña,
 ## sin copias, y se relee cada fotograma para que el aviso salga al instante.
 func _actualizar_amenazas() -> void:
-	if _ids_amenaza.is_empty() and get_tree().get_nodes_in_group("combat_manager").is_empty():
+	# Una sola consulta del grupo por fotograma (antes se pedía dos veces).
+	var gestores := get_tree().get_nodes_in_group("combat_manager")
+	if _ids_amenaza.is_empty() and gestores.is_empty():
 		return
 	_ids_amenaza.clear()
-	for mgr in get_tree().get_nodes_in_group("combat_manager"):
+	for mgr in gestores:
 		var amenazas: Variant = mgr.get("threats")
 		if amenazas == null or not (amenazas is Object):
 			continue

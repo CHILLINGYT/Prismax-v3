@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://.backup_cartel_objetivo/_prueba_cartel.gd" id="1_prueba"]
-
-[node name="PruebaCartel" type="Node"]
-script = ExtResource("1_prueba")

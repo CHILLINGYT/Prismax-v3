@@ -10,8 +10,11 @@ config_version=5
 
 [application]
 
+config/name="PRISMAX"
 run/main_scene="res://ui/scenes/IntroVideo.tscn"
 config/features=PackedStringArray("4.7")
+boot_splash/show_image=false
+config/icon="uid://dtd66hapwwnta"
 
 [audio]
 
@@ -25,7 +28,7 @@ AjustesControles="*res://ui/scripts/ajustes_controles.gd"
 AjustesAudio="*res://ui/scripts/ajustes_audio.gd"
 SonidoUI="*res://ui/scripts/sonido_ui.gd"
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
-Misiones="*res://misiones/gestor_misiones.gd"
+Misiones="*res://sistemas/misiones/gestor_misiones.gd"
 
 [dialogue_manager]
 
@@ -33,12 +36,14 @@ runtime/balloon_path="res://ui/scenes/DialogueBalloon.tscn"
 
 [display]
 
+window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+mouse_cursor/custom_image="uid://tofapj58p7x"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dialogue_manager/plugin.gd")
+enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg")
 
 [input]
 
@@ -191,6 +196,10 @@ enemigos_tirador={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":74,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+
+[internationalization]
+
+locale/translations_pot_files=PackedStringArray("res://npcs/Dialogues/ivan.dialogue")
 
 [physics]
 

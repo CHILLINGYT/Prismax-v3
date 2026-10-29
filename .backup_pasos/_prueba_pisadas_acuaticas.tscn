@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://.backup_pasos/_prueba_pisadas_acuaticas.gd" id="1_pr"]
-
-[node name="PruebaPisadasAcuaticas" type="Node"]
-script = ExtResource("1_pr")
