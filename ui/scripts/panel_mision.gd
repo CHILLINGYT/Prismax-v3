@@ -14,7 +14,9 @@ extends CanvasLayer
 
 const TITULO := "Derrota a los\ncriminales"
 const TEXTO_COMPLETADO := "(completado)"
-const COLOR_TEXTO := Color(0.95, 0.96, 0.98, 1.0)
+## Jerarquía dentro de la tarjeta: el TÍTULO va en casi blanco y el contador un
+## punto más apagado, para que la vista vaya primero al nombre de la misión.
+const COLOR_TEXTO := Color(0.82, 0.86, 0.93, 1.0)
 const COLOR_COMPLETADO := Color(0.95, 0.24, 0.20, 1.0)
 
 @onready var _raiz: Control = $Raiz

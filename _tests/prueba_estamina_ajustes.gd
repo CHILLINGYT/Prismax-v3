@@ -290,29 +290,26 @@ func _textos_filas(panel: PanelHabilidadesHUD) -> Array[String]:
 	# habilidades tenga el personaje. El recorrido respeta el ORDEN lógico (la
 	# primera mitad y después la segunda), que es como las pinta la guía.
 	var filas: Array[Node] = []
-	var columnas := panel.get_node_or_null("Caja/Marco/Contenido/Columnas")
+	var columnas := panel.find_child("Columnas", true, false)
 	if columnas != null:
 		for col in columnas.get_children():
 			for f in col.get_children():
 				filas.append(f)
-	else:
-		var unico := panel.get_node_or_null("Caja/Marco/Contenido/Filas")
-		if unico != null:
-			filas = unico.get_children()
 	if filas.is_empty():
 		return salida
+	# Cada fila es `TECLA — Descripción (nota)`: se lee por orden de etiquetas,
+	# saltando el guion, así que la nota del final no estorba.
 	for fila in filas:
 		var tecla := ""
 		var accion := ""
 		for hijo in fila.get_children():
-			if hijo is PanelContainer:
-				for t in hijo.get_children():
-					if t is Label:
-						tecla = (t as Label).text
-			elif hijo is VBoxContainer:
-				var nombres := (hijo as VBoxContainer).get_children()
-				if not nombres.is_empty() and nombres[0] is Label:
-					accion = (nombres[0] as Label).text
+			var l := hijo as Label
+			if l == null or l.text == "—":
+				continue
+			if tecla == "":
+				tecla = l.text
+			elif accion == "":
+				accion = l.text
 		salida.append("%s = %s" % [tecla, accion])
 	return salida
 
@@ -321,6 +318,14 @@ func _probar_panel() -> void:
 	add_child(_panel)
 	await _esperar(20)
 	_check("6. El panel encuentra al jugador del mundo", _panel._jugador != null)
+	# La prueba de la guía necesita la guía ENCENDIDA (el ajuste del jugador puede
+	# estar apagado). Se enciende aquí y se restaura al final, como todo lo demás.
+	AjustesJugabilidad.poner_hud_controles_visible(true)
+	await _esperar(4)
+	_check("6. Con el ajuste encendido la guía está visible y con filas",
+			_panel.visible and _textos_filas(_panel).size() > 0,
+			"visible=%s filas=%d ajuste=%s" % [str(_panel.visible),
+					_textos_filas(_panel).size(), str(AjustesJugabilidad.hud_controles_visible)])
 	# El panel sigue SIEMPRE al personaje real: se comprueba primero con una
 	# transformación DE VERDAD (la que hace el juego por el menú) y después forma
 	# por forma, comparando las filas con el catálogo REAL de controles.
@@ -373,15 +378,74 @@ func _probar_panel() -> void:
 	_check("6. Las habilidades de OTROS personajes no aparecen",
 			not _contiene(filas_f, "Dash") and not _contiene(filas_f, "Plumas"),
 			"filas=%s" % str(filas_f))
+	# --- UNA SOLA COLUMNA: todas las filas una debajo de la otra -------------
+	# Se usa VUELO, la forma con MÁS habilidades (10): es donde antes se partía en
+	# dos columnas, así que es la prueba más dura.
+	_jug.forma_cambiada.emit(&"aguila")
+	await _esperar(5)
+	var cols_una: Node = _panel.find_child("Columnas", true, false)
+	var n_contenedores := cols_una.get_child_count() if cols_una != null else -1
+	_check("6. La lista tiene UN único contenedor de filas (una sola columna)",
+			n_contenedores == 1, "contenedores=%d" % n_contenedores)
+	var rects: Array[Rect2] = []
+	if n_contenedores == 1:
+		for f in cols_una.get_child(0).get_children():
+			rects.append((f as Control).get_global_rect())
+	var misma_x := true
+	var apiladas := true
+	for i in rects.size():
+		if i > 0:
+			if not is_equal_approx(rects[i].position.x, rects[0].position.x):
+				misma_x = false
+			# Cada fila EMPIEZA en o por debajo del final de la anterior: nunca al lado.
+			if rects[i].position.y + 0.5 < rects[i - 1].end.y:
+				apiladas = false
+	var xs: Array[float] = []
+	var ys: Array[float] = []
+	for r in rects:
+		xs.append(r.position.x)
+		ys.append(r.position.y)
+	_check("6. VUELO: sus %d habilidades van todas en la MISMA columna" % rects.size(),
+			rects.size() >= 8 and misma_x,
+			"filas=%d  x=%s" % [rects.size(), str(xs)])
+	_check("6. Ninguna fila queda al lado de otra: cada una empieza debajo de la anterior",
+			rects.size() >= 8 and apiladas, "y por fila=%s" % str(ys))
+	# Y la guía sigue estrecha: el ancho lo decide la fila más larga, no la pantalla.
+	var vista_col := get_viewport().get_visible_rect().size
+	var rect_vuelo := (_panel.get_node("Caja") as Control).get_global_rect()
+	_check("6. La guía no se estira a lo ancho (ni se sale de la pantalla)",
+			rect_vuelo.size.x <= vista_col.x * 0.6 and rect_vuelo.end.x <= vista_col.x,
+			"ancho=%.0f px de %.0f (%.0f %%)" % [rect_vuelo.size.x, vista_col.x,
+					rect_vuelo.size.x / vista_col.x * 100.0])
+	_jug.forma_cambiada.emit(&"tanque")
+	await _esperar(3)
 	# --- Colocación: lado DERECHO, elevada, y sin pisar nada del HUD ni la misión ---
 	var vista := get_viewport().get_visible_rect().size
 	var caja: Control = _panel.get_node("Caja")
 	var rect := caja.get_global_rect()
-	_check("6. Está en el lado DERECHO de la pantalla",
-			rect.position.x > vista.x * 0.5 and rect.end.x <= vista.x,
+	# Vuelta al cuadrante inferior IZQUIERDO, con margen por la izquierda y sin
+	# pegarse al borde inferior.
+	_check("6. Está en el cuadrante inferior IZQUIERDO, con margen a la izquierda",
+			rect.position.x >= 16.0 and rect.position.x < vista.x * 0.5,
 			"x=%.1f..%.1f de %.1f" % [rect.position.x, rect.end.x, vista.x])
 	_check("6. Subida del borde inferior, con margen visible",
-			vista.y - rect.end.y >= 150.0, "margen inferior=%.1f px" % (vista.y - rect.end.y))
+			vista.y - rect.end.y >= 30.0, "margen inferior=%.1f px" % (vista.y - rect.end.y))
+	# SIN fondo: no puede quedar NINGÚN elemento de fondo detrás del texto.
+	var fondos := _panel.find_children("*", "PanelContainer", true, false).size() \
+			+ _panel.find_children("*", "Panel", true, false).size()
+	_check("6. NO tiene fondo: ni rectángulo, ni tarjeta, ni panel detrás del texto",
+			fondos == 0, "elementos de fondo=%d" % fondos)
+	# Contraste: cada rótulo lleva contorno oscuro (se lee sobre cielo y sobre suelo).
+	var rotulos := _panel.find_children("*", "Label", true, false)
+	var con_contorno := 0
+	for l in rotulos:
+		var lab := l as Label
+		if lab.get_theme_constant("outline_size") > 0 \
+				and lab.get_theme_color("font_outline_color").a > 0.4:
+			con_contorno += 1
+	_check("6. Todos los rótulos llevan contorno para leerse sobre cualquier fondo",
+			rotulos.size() > 0 and con_contorno == rotulos.size(),
+			"%d de %d" % [con_contorno, rotulos.size()])
 	_check("6. Cabe entera dentro de la pantalla",
 			rect.position.x >= 0.0 and rect.position.y >= 0.0 and rect.end.y <= vista.y,
 			"guia=%s vista=%s" % [str(rect), str(vista)])
@@ -407,6 +471,8 @@ func _probar_panel() -> void:
 	if mision != Rect2():
 		_check("6. No se superpone con el panel de MISIÓN",
 				not rect.intersects(mision), "guia=%s mision=%s" % [str(rect), str(mision)])
+	# --- Cartel de MISIÓN: sigue bajo el minimapa, más chico y sin recortes ---
+	print("        cartel de misión: ", await _revisar_mision())
 	# Independencia: el ajuste de ocultar el HUD NO la toca.
 	AjustesJugabilidad.poner_ocultar_hud(true)
 	await _esperar(2)
@@ -453,7 +519,7 @@ func _probar_panel() -> void:
 		# referencia) y visible. Se usa para comprobar la proporción porque las
 		# métricas de una tipografía sí se redondean a píxeles enteros y no son
 		# exactamente lineales con el tamaño.
-		var col0 := _panel.get_node_or_null("Caja/Marco/Contenido/Columnas")
+		var col0 := _panel.find_child("Columnas", true, false)
 		var h := 0.0
 		var cw := 0.0
 		if col0 != null and col0.get_child_count() > 0 \
@@ -543,6 +609,67 @@ func _rect_mision() -> Rect2:
 	var r := p.get_global_rect() if p != null else Rect2()
 	m.queue_free()
 	return r
+
+## Minimapa REAL del jugador (para medir el cartel de misión contra él).
+func _buscar_minimapa() -> Control:
+	var pila: Array[Node] = [self]
+	while not pila.is_empty():
+		var n: Node = pila.pop_back()
+		if n is Minimapa:
+			return n as Control
+		for c in n.get_children():
+			pila.append(c)
+	return null
+
+## Comprueba el cartel de misión REAL: que siga DEBAJO del minimapa con
+## separación, que sea más chico que antes (156x156), que la jerarquía título /
+## contador esté clara y que ningún texto se recorte. Sólo MIDE: no toca la
+## lógica de misiones ni decide nada.
+func _revisar_mision() -> String:
+	var escena: PackedScene = load("res://ui/scenes/PanelMision.tscn")
+	if escena == null:
+		_check("7. Se pudo cargar el cartel de misión", false)
+		return "no cargó"
+	var m := escena.instantiate()
+	add_child(m)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel := m.get_node_or_null("Raiz/Panel") as Control
+	var minimapa := _buscar_minimapa()
+	if panel == null or minimapa == null:
+		_check("7. Cartel de misión y minimapa localizados en el HUD real", false,
+				"panel=%s minimapa=%s" % [str(panel != null), str(minimapa != null)])
+		m.queue_free()
+		return "faltan nodos"
+	var r := panel.get_global_rect()
+	var rm := minimapa.get_global_rect()
+	var res := "cartel=%s  minimapa=%s" % [str(r), str(rm)]
+	_check("7. El cartel sigue DEBAJO del minimapa y con separación",
+			r.position.y >= rm.end.y and r.position.y - rm.end.y >= 8.0,
+			"separación=%.1f px  %s" % [r.position.y - rm.end.y, res])
+	_check("7. No se superpone con el minimapa", not r.intersects(rm), res)
+	_check("7. Es MÁS PEQUEÑO que antes (156x156)",
+			r.size.x <= 150.0 and r.size.y <= 120.0,
+			"%.0fx%.0f px (antes 156x156)" % [r.size.x, r.size.y])
+	var recortadas := 0
+	for l in panel.find_children("*", "Label", true, false):
+		var lab := l as Label
+		var nec := lab.get_combined_minimum_size()
+		if lab.size.x + 0.5 < nec.x or lab.size.y + 0.5 < nec.y:
+			recortadas += 1
+	_check("7. Ningún texto del cartel se recorta ni se sale de la tarjeta",
+			recortadas == 0, "etiquetas recortadas=%d" % recortadas)
+	var titulo := m.get_node_or_null("Raiz/Panel/Columna/Titulo") as Label
+	var estado := m.get_node_or_null("Raiz/Panel/Columna/Estado") as Label
+	var jerarquia := titulo != null and estado != null \
+			and titulo.get_theme_font_size("font_size") > estado.get_theme_font_size("font_size") \
+			and titulo.get_theme_color("font_color").v >= estado.get_theme_color("font_color").v
+	_check("7. Jerarquía clara: el título destaca sobre el contador", jerarquia,
+			"título=%d px, contador=%d px" % [
+					titulo.get_theme_font_size("font_size") if titulo != null else -1,
+					estado.get_theme_font_size("font_size") if estado != null else -1])
+	m.queue_free()
+	return res
 
 func _contiene(filas: Array[String], texto: String) -> bool:
 	for f in filas:

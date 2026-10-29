@@ -3,20 +3,20 @@
 [ext_resource type="Script" path="res://ui/scripts/panel_mision.gd" id="1_panel"]
 
 [sub_resource type="StyleBoxFlat" id="Estilo_panel"]
-content_margin_left = 14.0
-content_margin_top = 10.0
-content_margin_right = 14.0
-content_margin_bottom = 10.0
-bg_color = Color(0.06, 0.07, 0.09, 0.62)
+content_margin_left = 11.0
+content_margin_top = 8.0
+content_margin_right = 11.0
+content_margin_bottom = 8.0
+bg_color = Color(0.06, 0.07, 0.09, 0.46)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(1, 1, 1, 0.12)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+border_color = Color(1, 1, 1, 0.1)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
 
 [node name="PanelMision" type="CanvasLayer"]
 layer = 20
@@ -36,29 +36,33 @@ layout_mode = 0
 anchors_preset = 0
 offset_left = 16.0
 offset_top = 224.0
-offset_right = 172.0
-offset_bottom = 380.0
+offset_right = 16.0
+offset_bottom = 224.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("Estilo_panel")
 
 [node name="Columna" type="VBoxContainer" parent="Raiz/Panel"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 5
 alignment = 1
 
 [node name="Titulo" type="Label" parent="Raiz/Panel/Columna"]
 layout_mode = 2
 size_flags_vertical = 1
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.95, 0.96, 0.98, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.97, 0.98, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.65)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 15
 text = "Derrota a los\ncriminales"
 
 [node name="Estado" type="Label" parent="Raiz/Panel/Columna"]
 layout_mode = 2
 size_flags_vertical = 1
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.95, 0.96, 0.98, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.82, 0.86, 0.93, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.6)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 13
 text = "0 / 20"

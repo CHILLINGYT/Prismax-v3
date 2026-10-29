@@ -1,12 +1,18 @@
 jugador listo | guía: contexto=humano visible=true filas=3
-tamaño 0 -> guía [P: (1076.0, 281.0), S: (176.0, 131.0)]  filas=3
+tamaño 0 -> guía [P: (24.0, 511.0), S: (268.0, 81.0)]  filas=3
 captura 01_grande.png -> err=0  2546x1292 px
-tamaño 1 -> guía [P: (1115.0, 307.0), S: (137.0, 105.0)]  filas=3
+tamaño 1 -> guía [P: (24.0, 531.0), S: (203.0, 61.0)]  filas=3
 captura 02_mediano.png -> err=0  2546x1292 px
-tamaño 2 -> guía [P: (1164.0, 335.0), S: (88.0, 77.0)]  filas=3
+tamaño 2 -> guía [P: (24.0, 549.0), S: (138.0, 43.0)]  filas=3
 captura 03_chico.png -> err=0  2546x1292 px
 apagada -> visible=false
 captura 04_apagada.png -> err=0  2546x1292 px
+fondo CLARO: (0.93, 0.93, 0.9, 1.0)
+captura 05_fondo_claro.png -> err=0  2546x1292 px
+fondo OSCURO: (0.06, 0.06, 0.07, 1.0)
+captura 06_fondo_oscuro.png -> err=0  2546x1292 px
+águila -> guía [P: (24.0, 315.0), S: (402.0, 277.0)]  filas=10
+captura 07_una_columna.png -> err=0  2546x1292 px
 [menu] JugabilidadContent encontrado=true
 [menu]   /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/Etiqueta = SENSIBILIDAD DEL RATÓN
 [menu]   /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/SensibilidadFila/SensibilidadValor = 5
@@ -21,9 +27,9 @@ captura 04_apagada.png -> err=0  2546x1292 px
 [menu]   /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HabilidadesFila/HabilidadesValor = SÍ
 [menu]   /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/Etiqueta = TAMAÑO DE LA GUÍA
 [menu]   /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/TamanoHabilidadesValor = GRANDE
-[menu] flecha > : 2 -> 0  (GRANDE)
-[menu] flecha > : 1  (MEDIANO)
-[menu] flecha < : 2  (CHICO)
+[menu] flecha > : 0 -> 1  (MEDIANO)
+[menu] flecha > : 2  (CHICO)
+[menu] flecha < : 0  (GRANDE)
 [menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/Etiqueta = SENSIBILIDAD DEL RATÓN
 [menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/SensibilidadFila/SensibilidadValor = 5
 [menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/InvertirFila/Etiqueta = INVERTIR EJE VERTICAL
@@ -36,4 +42,27 @@ captura 04_apagada.png -> err=0  2546x1292 px
 [menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HabilidadesFila/Etiqueta = MOSTRAR GUÍA DE CONTROLES
 [menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HabilidadesFila/HabilidadesValor = SÍ
 [menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/Etiqueta = TAMAÑO DE LA GUÍA
-[menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/TamanoHabilidadesValor = CHICO
+[menu]   tras cambiar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/TamanoHabilidadesValor = GRANDE
+[menu] alternar mostrar -> visible=false
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/Etiqueta = SENSIBILIDAD DEL RATÓN
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/SensibilidadGrupo/SensibilidadFila/SensibilidadValor = 5
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/InvertirFila/Etiqueta = INVERTIR EJE VERTICAL
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/InvertirFila/InvertirValor = NO
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/AyudasFila/Etiqueta/Nombre = MOSTRAR AYUDAS
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/AyudasFila/Etiqueta/Proximamente = (PRÓXIMAMENTE)
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/AyudasFila/AyudasValor = NO
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HudFila/Etiqueta = OCULTAR INTERFAZ (HUD)
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HudFila/HudValor = NO
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HabilidadesFila/Etiqueta = MOSTRAR GUÍA DE CONTROLES
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/HabilidadesFila/HabilidadesValor = NO
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/Etiqueta = TAMAÑO DE LA GUÍA
+[menu]   tras alternar: /root/SondaGuiaHUD/PauseMenu/Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila/TamanoHabilidadesValor = GRANDE
+[persist] cargar user://ajustes_jugabilidad.cfg -> 0
+[persist]   sensibilidad = 5
+[persist]   invertir_eje_vertical = false
+[persist]   mostrar_ayudas = false
+[persist]   ocultar_hud = false
+[persist]   hud_controles_visible = false
+[persist]   hud_controles_tamano = 0
+[persist] ajustes del jugador restaurados: visible=true tamano=0
+=== FIN de la sonda ===

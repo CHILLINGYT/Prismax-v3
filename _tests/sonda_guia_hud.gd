@@ -36,7 +36,7 @@ func _esperar(n: int) -> void:
 		await get_tree().process_frame
 
 func _filas(panel: Node) -> int:
-	var cols := panel.get_node_or_null("Caja/Marco/Contenido/Columnas")
+	var cols: Node = panel.find_child("Columnas", true, false)
 	if cols == null:
 		return 0
 	var n := 0
@@ -119,6 +119,42 @@ func _capturas() -> void:
 	_m("apagada -> visible=%s" % str(panel.visible))
 	await _capturar("04_apagada.png")
 	AjustesJugabilidad.poner_hud_controles_visible(true)
+	await _esperar(6)
+
+	# Contraste: la MISMA guía sobre una superficie CLARA y sobre una OSCURA, para
+	# comprobar que las asignaciones se leen en los dos extremos. Se usa un plano
+	# de color a pantalla completa en una capa POR DEBAJO de la guía (75), así el
+	# resultado no depende de dónde apunte la cámara.
+	AjustesJugabilidad.poner_hud_controles_tamano(AjustesJugabilidad.HUD_TAM_GRANDE)
+	AjustesJugabilidad.poner_hud_controles_visible(true)
+	await _esperar(8)
+	var fondo := CanvasLayer.new()
+	fondo.layer = 40
+	var plano := ColorRect.new()
+	plano.color = Color(0.93, 0.93, 0.90, 1.0)
+	plano.set_anchors_preset(Control.PRESET_FULL_RECT)
+	plano.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fondo.add_child(plano)
+	add_child(fondo)
+	await _esperar(8)
+	_m("fondo CLARO: %s" % str(plano.color))
+	await _capturar("05_fondo_claro.png")
+	plano.color = Color(0.06, 0.06, 0.07, 1.0)
+	await _esperar(8)
+	_m("fondo OSCURO: %s" % str(plano.color))
+	await _capturar("06_fondo_oscuro.png")
+	fondo.queue_free()
+	await _esperar(6)
+
+	# UNA SOLA COLUMNA con el personaje que MÁS habilidades tiene (vuelo, 10): así
+	# se ve que ninguna habilidad queda al lado de otra y que la guía no se estira.
+	jug.forma_cambiada.emit(&"aguila")
+	AjustesJugabilidad.poner_hud_controles_tamano(AjustesJugabilidad.HUD_TAM_GRANDE)
+	await _esperar(12)
+	_m("águila -> guía %s  filas=%d" % [
+			str((panel.get_node("Caja") as Control).get_global_rect()), _filas(panel)])
+	await _capturar("07_una_columna.png")
+	jug.forma_cambiada.emit(&"humano")
 	await _esperar(6)
 
 # ------------------------------------------------------------------- 2. menú
