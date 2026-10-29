@@ -2,7 +2,7 @@
 
 [ext_resource type="PackedScene" path="res://personaje/transformaciones/fuerza/model (1)/tripo_convert_69413d1d-9e71-458a-9b8b-ac8ba6650d4c (1).fbx" id="1_skin"]
 [ext_resource type="AnimationLibrary" path="res://Enemigos Prueba/Animations/enemigo_animations.tres" id="2_lib"]
-[ext_resource type="Script" path="res://Enemigos Prueba/Tests/verificacion_animaciones.gd" id="3_script"]
+[ext_resource type="Script" path="res://pruebas/enemigos/verificacion_animaciones.gd" id="3_script"]
 
 [sub_resource type="Environment" id="Environment_verif"]
 background_mode = 1

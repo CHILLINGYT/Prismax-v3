@@ -4,7 +4,7 @@ extends Node3D
 # No abre ventana; deja las comprobaciones en consola. Se ejecuta como escena,
 # igual que las suites de main, para que los autoloads ya existan:
 #
-#   godot --headless --path . res://Enemigos Prueba/Tests/prueba_enemigos_esqueleto.tscn
+#   godot --headless --path . res://pruebas/enemigos/prueba_enemigos_esqueleto.tscn
 #
 # Comprueba: escena/esqueleto/clips/barra, el contrato de daño completo de AMBOS
 # enemigos, el proyectil, y que el gerente genera/retira cada tipo sin tocar la

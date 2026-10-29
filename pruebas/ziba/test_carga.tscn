@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://ziba/tests/test_carga.gd" id="1_test"]
+[ext_resource type="Script" path="res://pruebas/ziba/test_carga.gd" id="1_test"]
 [ext_resource type="PackedScene" path="res://ziba/escenas/ziba_prototipo.tscn" id="2_proto"]
 
 [node name="TestCarga" type="Node3D"]

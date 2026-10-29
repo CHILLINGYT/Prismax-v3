@@ -1,7 +1,7 @@
 extends Node3D
 
 # Verificación EN VIVO de los enemigos CON ESQUELETO (cuerpo a cuerpo y tirador).
-# NO forma parte del juego: vive en res://Enemigos Prueba/Tests/.
+# NO forma parte del juego: vive en res://pruebas/enemigos/.
 #
 # A diferencia del monitor de las cápsulas (que filtra por su clase), este
 # reconoce a CUALQUIER enemigo del grupo "enemigos_prueba" con is_alive() y un

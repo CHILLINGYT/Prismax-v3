@@ -207,11 +207,11 @@ del modelo da **+0,76/+0,84** hacia él y las manos de golpe_1/2/3 acaban delant
 Ninguna de las dos forma parte del juego: viven en `res://pruebas/`.
 
 - **Enemigos con esqueleto (H/J):** suite headless propia y escena de verificación en vivo,
-  en `res://Enemigos Prueba/Tests/`:
+  en `res://pruebas/enemigos/`:
 
   ```
-  godot --headless --path . "res://Enemigos Prueba/Tests/prueba_enemigos_esqueleto.tscn"
+  godot --headless --path . "res://pruebas/enemigos/prueba_enemigos_esqueleto.tscn"
   ```
 
-  y, en vivo, abre `res://Enemigos Prueba/Tests/verificacion_enemigos_esqueleto.tscn` y pulsa
+  y, en vivo, abre `res://pruebas/enemigos/verificacion_enemigos_esqueleto.tscn` y pulsa
   **H** o **J**.
