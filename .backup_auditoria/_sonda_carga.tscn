@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://.backup_auditoria/_sonda_carga.gd" id="1_sonda"]
-
-[node name="SondaCarga" type="Node"]
-script = ExtResource("1_sonda")

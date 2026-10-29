@@ -2,3 +2,24 @@
 .godot/
 /android/
 addons/ziva_agent/
+
+# Temporales de Windows: copias "~" que deja el editor al recargar una
+# extensión (p. ej. ~libterrain.windows.debug.x86_64.dll) y sus .TMP
+~*
+*~
+*.TMP
+*.tmp
+
+# Copias de respaldo sueltas (el historial de git ya guarda las versiones)
+*.bak
+*.bak2
+*.prev
+*.orig
+
+# Artefactos de exportación (se generan con Proyecto > Exportar)
+/*.exe
+/*.pck
+/*.console.exe
+
+# Salidas de las pruebas que se regeneran en cada ejecución
+_tests/_resultado_*.txt
