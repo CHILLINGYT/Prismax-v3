@@ -2,14 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bmd1rf5pdx2kk"
+uid="uid://cfxp5dvw1mh0"
 path.s3tc="res://.godot/imported/Ford_Escort_Wagon_Bordo_tire.png-82624bc6b6337f0fc0335e916cd820a9.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
-}
-generator_parameters={
-"md5": "fba800ae1a79ec23acb68210557047e3"
 }
 
 [deps]

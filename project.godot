@@ -10,8 +10,11 @@ config_version=5
 
 [application]
 
+config/name="PRISMAX"
 run/main_scene="res://ui/scenes/IntroVideo.tscn"
 config/features=PackedStringArray("4.7")
+boot_splash/show_image=false
+config/icon="uid://dtd66hapwwnta"
 
 [audio]
 
@@ -33,8 +36,10 @@ runtime/balloon_path="res://ui/scenes/DialogueBalloon.tscn"
 
 [display]
 
+window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+mouse_cursor/custom_image="uid://tofapj58p7x"
 
 [editor_plugins]
 
