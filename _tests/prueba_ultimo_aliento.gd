@@ -136,9 +136,9 @@ func _caso_curacion(stats: EstadisticasJugador) -> void:
 	stats.aplicar_forma(forma)
 	var vmax: float = stats.vida_max
 	_poner(stats, forma, vmax * 0.05, 0.0)
-	_check(stats.en_ultimo_aliento(), "curación: con 5 %% de vida el efecto está ACTIVO")
+	_check(stats.en_ultimo_aliento(), "curación: con 5 % de vida el efecto está ACTIVO")
 	stats.curar(vmax * 0.5)
-	_check(not stats.en_ultimo_aliento(), "curación: al curar por encima del 10 %% el efecto se DESACTIVA")
+	_check(not stats.en_ultimo_aliento(), "curación: al curar por encima del 10 % el efecto se DESACTIVA")
 	var v: float = stats.vida
 	stats.recibir_danio(5.0)
 	_check(_cerca(v - stats.vida, 5.0), "curación: después el daño vuelve a ser normal (%.2f)" % (v - stats.vida))
