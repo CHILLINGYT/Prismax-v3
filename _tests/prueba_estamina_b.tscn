@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://_tests/prueba_estamina_b.gd" id="1_suite"]
-
-[node name="PruebaEstaminaB" type="Node3D"]
-script = ExtResource("1_suite")

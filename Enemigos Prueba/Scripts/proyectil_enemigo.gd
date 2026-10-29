@@ -35,7 +35,7 @@ extends Node3D
 ## punta), no una bala suelta. Sustituye a la bola visible; la lógica de vuelo, el
 ## barrido y el daño son exactamente los mismos.
 const ESCENA_MUNICION := "res://modelos 3d armas/bullet_6.5x55mm_swedish.glb"
-## Largo real del modelo (m) medido con `_tests/probe_armas.gd` sobre la escena
+## Largo real del modelo (m) medido con `pruebas/probe_armas.gd` sobre la escena
 ## importada: sirve para escalarlo de forma UNIFORME hasta el tamaño visible del
 ## proyectil. (El cartucho real mide 8 cm; a 26 m/s y a 10-20 m de distancia eso son
 ## un par de píxeles, así que el tamaño visible se mantiene en el que ya tenía la

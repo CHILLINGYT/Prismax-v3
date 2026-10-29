@@ -1,8 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://_tests/inspeccion_vuelo_modelo.gd" id="1_ivm"]
-
-[node name="InspeccionVueloModelo" type="Node3D"]
-script = ExtResource("1_ivm")
-camara_pos = Vector3(-1.0, 1.7, 4.6)
-camara_mira = Vector3(-1.0, 0.95, 0.0)

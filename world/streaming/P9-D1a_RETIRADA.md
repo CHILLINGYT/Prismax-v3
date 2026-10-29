@@ -21,9 +21,9 @@ ventanas, marcas).
 |---|------|-----|
 | 1 | `world/streaming/gestor_streaming_ciudad.gd` | `026e1f0a5c5ea4ab0d37a13f55064180` |
 | 2 | `world/streaming/gestor_streaming_ciudad.gd.uid` | `b81ff2d9476ff9f8029f408816bc076a` |
-| 3 | `_tests/streaming_ciudad_test.gd` | `55bee6ec22734cf0992aa871e56e8805` |
-| 4 | `_tests/streaming_ciudad_test.gd.uid` | `5aa57299dd80b36a73a890a675db840b` |
-| 5 | `_tests/streaming_ciudad_test.tscn` | `f39fb0437bc4ecf1ae2fa3724fec2db9` |
+| 3 | `pruebas/streaming_ciudad_test.gd` | `55bee6ec22734cf0992aa871e56e8805` |
+| 4 | `pruebas/streaming_ciudad_test.gd.uid` | `5aa57299dd80b36a73a890a675db840b` |
+| 5 | `pruebas/streaming_ciudad_test.tscn` | `f39fb0437bc4ecf1ae2fa3724fec2db9` |
 
 > `world/streaming/` TAMBIÉN contiene los archivos del prototipo previo P9-B del
 > bosque (`gestor_streaming_bosque.gd` + `.uid`). **No borres toda la carpeta**:
@@ -36,7 +36,7 @@ En una terminal, desde la carpeta del proyecto:
 ```bash
 XDG_DATA_HOME=/tmp/prismax_p9d1/xdg \
   /home/micro/Descargas/Godot_v4.7.2-stable_linux.x86_64 --headless --path . \
-  res://_tests/streaming_ciudad_test.tscn
+  res://pruebas/streaming_ciudad_test.tscn
 ```
 
 - Usa un directorio de usuario aislado (`XDG_DATA_HOME`) → **no toca tus preferencias**.
@@ -60,9 +60,9 @@ XDG_DATA_HOME=/tmp/prismax_p9d1/xdg \
 3. Borra **exactamente** estos 5 archivos:
    - `world/streaming/gestor_streaming_ciudad.gd`
    - `world/streaming/gestor_streaming_ciudad.gd.uid`
-   - `_tests/streaming_ciudad_test.gd`
-   - `_tests/streaming_ciudad_test.gd.uid`
-   - `_tests/streaming_ciudad_test.tscn`
+   - `pruebas/streaming_ciudad_test.gd`
+   - `pruebas/streaming_ciudad_test.gd.uid`
+   - `pruebas/streaming_ciudad_test.tscn`
    - (este mismo archivo, `world/streaming/P9-D1a_RETIRADA.md`, si ya no lo quieres)
 4. **NO borres** `world/streaming/gestor_streaming_bosque.gd` ni su `.uid` (son de P9-B),
    ni ningún otro archivo.
@@ -95,9 +95,9 @@ Borrado (excluye explícitamente el bosque de P9-B):
 ```bash
 rm -f world/streaming/gestor_streaming_ciudad.gd
 rm -f world/streaming/gestor_streaming_ciudad.gd.uid
-rm -f _tests/streaming_ciudad_test.gd
-rm -f _tests/streaming_ciudad_test.gd.uid
-rm -f _tests/streaming_ciudad_test.tscn
+rm -f pruebas/streaming_ciudad_test.gd
+rm -f pruebas/streaming_ciudad_test.gd.uid
+rm -f pruebas/streaming_ciudad_test.tscn
 rm -f world/streaming/P9-D1a_RETIRADA.md   # opcional
 ```
 
@@ -118,7 +118,7 @@ git status --porcelain --untracked-files=all | grep -E 'streaming_ciudad|gestor_
 - Rama: `backup/mi-trabajo` · HEAD: `104c798037b1b5884c1320e875766a953ac47c86`
 - 8 archivos modificados preexistentes (NO tocados por esta fase):
   `Enemigos Prueba/Scripts/proyectil_enemigo.gd`, `NPCs/Scripts/director_peatones.gd`,
-  `_tests/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
+  `pruebas/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
   `ui/scenes/MainMenu.tscn`, `ui/scripts/ajustes_graficos.gd`,
   `ui/scripts/main_menu.gd`, `ui/scripts/menu_option.gd`.
 - Preferencias reales (NO tocadas): `ajustes_graficos.cfg` md5

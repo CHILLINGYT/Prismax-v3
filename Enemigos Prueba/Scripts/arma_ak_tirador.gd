@@ -5,7 +5,7 @@ extends Node3D
 ## mano derecha. Sustituye al arma provisional hecha con cajas y cilindros, que se
 ## conserva en `arma_tirador.tscn` sin usar.
 ##
-## MEDIDAS REALES del modelo (comprobadas con `_tests/probe_armas.gd` sobre la escena
+## MEDIDAS REALES del modelo (comprobadas con `pruebas/probe_armas.gd` sobre la escena
 ## importada, componiendo TODA la cadena de padres):
 ##   · largo total 0.8893 m, eje largo = Z; la BOCA (freno de boca `comp_low`) está en
 ##     el extremo +Z (z 0.320..0.351) y la culata en -Z (z -0.538);

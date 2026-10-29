@@ -37,7 +37,7 @@ de la ciudad (fuera de alcance; P9-D2).
 ```bash
 XDG_DATA_HOME=/tmp/p10/xdg \
   /home/micro/Descargas/Godot_v4.7.2-stable_linux.x86_64 --headless --path . \
-  res://_tests/streaming_mundo_test.tscn
+  res://pruebas/streaming_mundo_test.tscn
 ```
 Esperado: `===== RESULTADO STREAMING MUNDO: 13 OK, 0 FALLOS =====`.
 
@@ -66,9 +66,9 @@ esta sesión por presión de memoria** (memoria disponible ~440 MB); ver el info
 3. Borra los archivos NUEVOS de P10:
    - `world/streaming/gestor_streaming_mundo.gd`
    - `world/streaming/gestor_streaming_mundo.gd.uid`
-   - `_tests/streaming_mundo_test.gd`
-   - `_tests/streaming_mundo_test.gd.uid`
-   - `_tests/streaming_mundo_test.tscn`
+   - `pruebas/streaming_mundo_test.gd`
+   - `pruebas/streaming_mundo_test.gd.uid`
+   - `pruebas/streaming_mundo_test.tscn`
    - `world/streaming/P10_RETIRADA.md` (este archivo, opcional)
 4. **NO borres** `world/streaming/gestor_streaming_ciudad.gd`(+uid) ni
    `gestor_streaming_bosque.gd`(+uid) salvo que quieras retirar también P9-D1a y
@@ -85,15 +85,15 @@ cd /home/micro/hola/Prismax-v3
 git status --porcelain --untracked-files=all | grep -E 'gestor_streaming_mundo|streaming_mundo'
 ```
 Debe listar solo `world/streaming/gestor_streaming_mundo.gd`(+`.uid`) y
-`_tests/streaming_mundo_test.gd`(+`.uid`)(+`.tscn`).
+`pruebas/streaming_mundo_test.gd`(+`.uid`)(+`.tscn`).
 
 Borrar los archivos nuevos (NO uses `git clean` ni `git reset --hard`):
 ```bash
 rm -f world/streaming/gestor_streaming_mundo.gd
 rm -f world/streaming/gestor_streaming_mundo.gd.uid
-rm -f _tests/streaming_mundo_test.gd
-rm -f _tests/streaming_mundo_test.gd.uid
-rm -f _tests/streaming_mundo_test.tscn
+rm -f pruebas/streaming_mundo_test.gd
+rm -f pruebas/streaming_mundo_test.gd.uid
+rm -f pruebas/streaming_mundo_test.tscn
 rm -f world/streaming/P10_RETIRADA.md   # opcional
 ```
 
@@ -127,7 +127,7 @@ git diff --stat -- ziba/escenas/ziba_prototipo.tscn   # debe quedar vacío
   `backup/mi-trabajo`).
 - 8 archivos modificados PREEXISTENTES (NO tocados por P10):
   `Enemigos Prueba/Scripts/proyectil_enemigo.gd`, `NPCs/Scripts/director_peatones.gd`,
-  `_tests/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
+  `pruebas/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
   `ui/scenes/MainMenu.tscn`, `ui/scripts/ajustes_graficos.gd`,
   `ui/scripts/main_menu.gd`, `ui/scripts/menu_option.gd`.
 - Modificado por P10: `ziba/escenas/ziba_prototipo.tscn` (solo las 2 adiciones).

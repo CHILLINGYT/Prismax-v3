@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://pruebas/streaming_mundo_test.gd" id="1_test"]
+[ext_resource type="Script" path="res://world/streaming/gestor_streaming_mundo.gd" id="2_mundo"]
+
+[node name="TestStreamingMundo" type="Node"]
+script = ExtResource("1_test")
+
+[node name="StreamingMundo" type="Node" parent="."]
+script = ExtResource("2_mundo")
+activo = false

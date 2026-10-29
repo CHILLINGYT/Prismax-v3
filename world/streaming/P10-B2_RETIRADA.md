@@ -25,7 +25,7 @@ escriben ahí; no hay gestores ni preferencias duplicadas.
   márgenes de 35 px, alineado y sin solaparse con el título.
 
 ## Archivos
-**Nuevos (solo pruebas, en `_tests/`):** `captura_pausa.gd/.tscn`,
+**Nuevos (solo pruebas, en `pruebas/`):** `captura_pausa.gd/.tscn`,
 `captura_menu.gd/.tscn`, `medir_layout.gd/.tscn` (más sus `.uid`).
 
 **Modificados:**

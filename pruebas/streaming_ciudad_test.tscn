@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://generador_ciudad.gd" id="1_ciudad"]
+[ext_resource type="Script" path="res://world/streaming/gestor_streaming_ciudad.gd" id="2_gestor"]
+[ext_resource type="Script" path="res://pruebas/streaming_ciudad_test.gd" id="3_test"]
+
+[node name="TestStreamingCiudad" type="Node3D"]
+script = ExtResource("3_test")
+
+[node name="Ciudad" type="Node3D" parent="."]
+script = ExtResource("1_ciudad")
+semilla = 20250901
+peatones_activos = false
+
+[node name="Jugador" type="Marker3D" parent="."]
+
+[node name="Gestor" type="Node" parent="."]
+script = ExtResource("2_gestor")
+activo = true
+r_activo = 120.0
+r_precarga = 200.0
+r_descarga = 280.0
+max_ops_por_fotograma = 8
+diagnostico = true

@@ -1,0 +1,22 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://pruebas/controles_test.gd" id="1_test"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jug"]
+[ext_resource type="PackedScene" path="res://ui/scenes/PauseMenu.tscn" id="3_menu"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(80, 1, 80)
+
+[node name="ControlesTest" type="Node3D"]
+script = ExtResource("1_test")
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="Colision" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Jugador" parent="." instance=ExtResource("2_jug")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+
+[node name="Pausa" parent="." instance=ExtResource("3_menu")]

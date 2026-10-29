@@ -25,8 +25,8 @@ const SECCION := "graficos"
 ## PERFIL DE CALIDAD (Baja / Media / Alta), pensado para que el juego sea fluido
 ## en equipos modestos. Los números NO son decorativos: salen de medir el mundo
 ## real en este equipo (Intel ADL-N, Forward+) con:
-##    _tests/diagnostico_cuello.gd   (¿quién se come el fotograma?)
-##    _tests/medir_rendimiento.gd    (comparativa por perfil)
+##    pruebas/diagnostico_cuello.gd   (¿quién se come el fotograma?)
+##    pruebas/medir_rendimiento.gd    (comparativa por perfil)
 ##
 ## Lo medido, que es lo que decide los valores:
 ##   · El fotograma NO está limitado por píxeles: bajar la escala 3D a 0.50 subió

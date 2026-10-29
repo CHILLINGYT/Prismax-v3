@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://pruebas/sonda_mando_casa.gd" id="1_sonda"]
+
+[node name="SondaMandoCasa" type="Node3D"]
+script = ExtResource("1_sonda")

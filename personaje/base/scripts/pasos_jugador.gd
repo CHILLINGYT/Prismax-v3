@@ -64,7 +64,7 @@ const TABLA := {
 		# Locomoción terrestre del águila: el clip retargeteado del personaje de
 		# COMBATE (vuelo_walk, ver personaje/base/scripts/retarget_locomocion_vuelo.gd)
 		# con los MISMOS recortes de pisada del combate. Fases MEDIDAS sobre el clip
-		# retargeteado y alineado al suelo (_tests/probe_fases_vuelo_walk.tscn,
+		# retargeteado y alineado al suelo (pruebas/probe_fases_vuelo_walk.tscn,
 		# mínimo real del tobillo/punta): 0.3203 / 0.8125 (el clip del combate mide
 		# 0.3359 / 0.8203 — la diferencia es de una muestra de 240 Hz).
 		# "sep" CORTO (0.06) a propósito: la forma vuela a 5 m/s caminando y 8,5 m/s

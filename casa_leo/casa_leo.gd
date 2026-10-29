@@ -25,7 +25,7 @@ extends Node3D
 ##  `CicloDiaNoche` de la ciudad y al salir se la devuelve. No hay un segundo
 ##  reloj: es la única cifra que viaja (ver `EstadoCasaLeo`).
 ##
-##  Los puntos del modelo (medidos con res://_tests/sonda_casa.gd sobre
+##  Los puntos del modelo (medidos con res://pruebas/sonda_casa.gd sobre
 ##  res://modelos 3d casa leo/appartement.glb):
 ##   · la caja mide 7,05 × 2,51 × 10,66 m y el suelo está a y = -0,01;
 ##   · el PASILLO va de x = -4,96 a x = -3,91 (1,05 m de ancho), en z de -5,1 a 0,3;
@@ -65,8 +65,8 @@ const VANO_DORMITORIO := Vector3(-3.76, 0.0, -2.91)
 ## cerrada del modelo, la de la foto), pero un paso hacia el salón y MIRANDO HACIA
 ## LA VIVIENDA, no de narices contra la hoja.
 ## Por qué así (medido, no supuesto):
-##   · `_tests/sonda_casa_lado_puerta.gd`: al OTRO lado del plano de la puerta
-##     (x > -0,69 de la escena) hay suelo libre, pero `_tests/sonda_casa_paso.gd`
+##   · `pruebas/sonda_casa_lado_puerta.gd`: al OTRO lado del plano de la puerta
+##     (x > -0,69 de la escena) hay suelo libre, pero `pruebas/sonda_casa_paso.gd`
 ##     demuestra que es un BOLSILLO CERRADO (5 celdas alcanzables, cercado por
 ##     Object_10 al norte y Object_12 al sur): aparecer ahí dejaba a Leo encerrado;
 ##   · mirando a la puerta, la cámara se iba contra la pared del baño (el pasillo
@@ -82,7 +82,7 @@ const MIRA := Vector3(-4.441, 0.0, 1.722)
 const SALIDA := Vector3(-3.98, 0.0, 0.221)
 ## CAMA del dormitorio principal (la de la foto: mesas de luz y lámparas colgantes
 ## a los dos lados). Centro del colchón en coordenadas del GLB, medido con el mapa
-## de alturas de `_tests/sonda_cama.gd` (colchón x 0,25..2,55 · z −1,6..+0,5 en la
+## de alturas de `pruebas/sonda_cama.gd` (colchón x 0,25..2,55 · z −1,6..+0,5 en la
 ## escena, cabecero al sur). Semiejes en metros de la escena.
 const CAMA := Vector3(-2.066, 0.0, -1.402)
 const CAMA_SEMIEJES := Vector2(1.15, 1.05)

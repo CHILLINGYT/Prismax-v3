@@ -193,18 +193,18 @@ del modelo da **+0,76/+0,84** hacia él y las manos de golpe_1/2/3 acaban delant
   existan al compilar el controlador:
 
   ```
-  godot --headless --path . res://_tests/prueba_enemigos_prueba.tscn
+  godot --headless --path . res://pruebas/prueba_enemigos_prueba.tscn
   ```
 
-  (También se puede abrir `res://_tests/prueba_enemigos_prueba.tscn` en el editor
+  (También se puede abrir `res://pruebas/prueba_enemigos_prueba.tscn` en el editor
   y pulsar F6.)
 
 - **En vivo**, con el jugador real y una pista plana: abre
-  `res://_tests/escena_verificacion_enemigos.tscn` y pulsa **G** en el juego. El
+  `res://pruebas/escena_verificacion_enemigos.tscn` y pulsa **G** en el juego. El
   monitor imprime cada medio segundo cuántos enemigos hay, cuántos atacan a la
   vez, el estado de la viñeta y la vida/escudo del jugador.
 
-Ninguna de las dos forma parte del juego: viven en `res://_tests/`.
+Ninguna de las dos forma parte del juego: viven en `res://pruebas/`.
 
 - **Enemigos con esqueleto (H/J):** suite headless propia y escena de verificación en vivo,
   en `res://Enemigos Prueba/Tests/`:

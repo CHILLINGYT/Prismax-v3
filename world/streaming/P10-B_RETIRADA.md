@@ -25,12 +25,12 @@ trozos de 200 m. La descarga tiene histéresis (+60 m) para no oscilar.
 - Prueba ligera (sin mundo):
   ```bash
   XDG_DATA_HOME=/tmp/p10b/xdg /home/micro/Descargas/Godot_v4.7.2-stable_linux.x86_64 \
-    --headless --path . res://_tests/ajustes_p10b_test.tscn
+    --headless --path . res://pruebas/ajustes_p10b_test.tscn
   ```
   Esperado: `===== RESULTADO P10-B AJUSTES: 21 OK, 0 FALLOS =====`.
 
 ## 2) Archivos de esta fase
-**Nuevos:** `_tests/ajustes_p10b_test.gd` (+`.uid`) y `_tests/ajustes_p10b_test.tscn`.
+**Nuevos:** `pruebas/ajustes_p10b_test.gd` (+`.uid`) y `pruebas/ajustes_p10b_test.tscn`.
 
 **Modificados (sólo se AÑADIERON bloques, no se cambió nada existente):**
 - `world/streaming/gestor_streaming_mundo.gd` — nuevos métodos `aplicar_radios()` y
@@ -66,8 +66,8 @@ trozos de 200 m. La descarga tiene histéresis (+60 m) para no oscilar.
    escena, selecciona esos dos nodos y bórralos.
 5. **`world/streaming/gestor_streaming_mundo.gd`** — borra las funciones
    `aplicar_radios()` y `set_diagnostico()`.
-6. **Archivos nuevos** — borra `_tests/ajustes_p10b_test.gd` (+`.uid`) y
-   `_tests/ajustes_p10b_test.tscn`.
+6. **Archivos nuevos** — borra `pruebas/ajustes_p10b_test.gd` (+`.uid`) y
+   `pruebas/ajustes_p10b_test.tscn`.
 7. Abre el juego: en GRÁFICOS ya no debe aparecer "OPTIMIZACIÓN AGRESIVA DEL MUNDO".
 
 ## 4) Retirada mediante GIT (sólo donde es seguro)
@@ -76,7 +76,7 @@ Los archivos NUEVOS son de esta fase y sin seguimiento:
 ```bash
 cd /home/micro/hola/Prismax-v3
 git status --porcelain --untracked-files=all | grep ajustes_p10b   # confirmar
-rm -f _tests/ajustes_p10b_test.gd _tests/ajustes_p10b_test.gd.uid _tests/ajustes_p10b_test.tscn
+rm -f pruebas/ajustes_p10b_test.gd pruebas/ajustes_p10b_test.gd.uid pruebas/ajustes_p10b_test.tscn
 ```
 
 `ui/scenes/PauseMenu.tscn` y `ui/scripts/pause_menu.gd` NO formaban parte de los 8
@@ -98,7 +98,7 @@ seguimiento): si retiras P10 entero, se borra con su guía (`P10_RETIRADA.md`).
 - Rama: `p10-streaming-integracion`.
 - 8 archivos modificados PREEXISTENTES (intactos, NO revertir):
   `Enemigos Prueba/Scripts/proyectil_enemigo.gd`, `NPCs/Scripts/director_peatones.gd`,
-  `_tests/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
+  `pruebas/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
   `ui/scenes/MainMenu.tscn`, `ui/scripts/ajustes_graficos.gd`,
   `ui/scripts/main_menu.gd`, `ui/scripts/menu_option.gd`.
 - Preferencias reales: `ajustes_graficos.cfg` md5 `3f2ad3952e188d1cded3bcb0e3765ceb`

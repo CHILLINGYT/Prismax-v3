@@ -10,7 +10,7 @@
 ; quisiera volver a ella basta con ponerle una SphereMesh al nodo `Malla`.
 ;
 ; `Municion` es el GLB del cartucho 6.5x55 (cartucho COMPLETO: culote + casco +
-; punta, no una bala suelta). Medido en `_tests/probe_armas.gd`: el modelo mide
+; punta, no una bala suelta). Medido en `pruebas/probe_armas.gd`: el modelo mide
 ; 0.448 m de largo y su EJE LARGO es +Y, con la punta (el extremo estrecho, radio
 ; 1,45 cm frente a 3,64 cm del culote) en +Y y el origen en el culote. Como el
 ; proyectil vuela hacia su -Z (`look_at` en `lanzar()`), el +Y del modelo tiene que

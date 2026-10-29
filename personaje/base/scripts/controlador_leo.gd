@@ -681,7 +681,7 @@ const VEL_ATAQUE_DANIO := 7.0
 const VEL_ATAQUE_DANIO_REMATE := VEL_ATAQUE_DANIO * 1.6
 const VEL_ATAQUE_IMPACTO := 0.10      # respaldo (s) si el clip no estuviera cargado
 ## Instante de CONTACTO de cada golpe del combo, como FRACCIÓN de la duración de su
-## clip. Medido sobre los clips reales (sonda `_tests/sonda_contacto_velocista_v2`)
+## clip. Medido sobre los clips reales (sonda `pruebas/sonda_contacto_velocista_v2`)
 ## midiendo cuánto se adelanta la mano o el pie que golpea respecto al torso: el
 ## máximo de esa extensión es el fotograma en que el golpe conecta de verdad.
 ##   combo-1 jab izquierdo    0,12 s de 0,933 s -> 0,129
@@ -5171,7 +5171,7 @@ func _programar_impacto_velocista(indice: int) -> void:
 ## contacto. El instante se mide sobre la POSICIÓN REAL del clip que se está
 ## reproduciendo (no con un temporizador, que se desfasa): el daño cae justo cuando
 ## la mano o el pie alcanzan su máxima extensión (fracciones medidas con
-## `_tests/sonda_contacto_velocista_v2`). Si el clip ya no es el del golpe —saltó,
+## `pruebas/sonda_contacto_velocista_v2`). Si el clip ya no es el del golpe —saltó,
 ## hizo dash, se transformó o empezó otro combo— el impacto pendiente se descarta.
 func _revisar_contacto_velocista() -> void:
 	if _vel_impacto_indice <= 0:

@@ -1,7 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://_tests/inspeccion_muerte_visual.gd" id="1_imv"]
-
-[node name="InspeccionMuerteFuerza" type="Node3D"]
-script = ExtResource("1_imv")
-id_forma = "tanque"

@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://_tests/vista_escala_vehiculos.gd" id="1_vista"]
-
-[node name="VistaEscalaVehiculos" type="Node"]
-script = ExtResource("1_vista")
