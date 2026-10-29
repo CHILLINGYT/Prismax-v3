@@ -17,7 +17,7 @@
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/combo_4.tres" id="10_dkl4u"]
 [ext_resource type="AnimationLibrary" path="res://personaje/transformaciones/velocidad/animaciones/inactivo_modo_ataque.tres" id="14_x5dtm"]
 [ext_resource type="PackedScene" path="res://ui/scenes/PauseMenu.tscn" id="15_pausa"]
-[ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://generador_ciudad.gd" id="16_ciudad"]
+[ext_resource type="Script" uid="uid://clhs7nbxsnkk4" path="res://mundo/ciudad/generador_ciudad.gd" id="16_ciudad"]
 [ext_resource type="Sky" path="res://mundo/cielo/cielo_ciudad.tres" id="17_cielo"]
 [ext_resource type="Script" path="res://mundo/cielo/ciclo_dia_noche.gd" id="18_ciclo"]
 [ext_resource type="Script" uid="uid://4oqk8xkyuyxf" path="res://mundo/entorno/farolas.gd" id="25_farolas"]

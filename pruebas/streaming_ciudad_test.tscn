@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://generador_ciudad.gd" id="1_ciudad"]
+[ext_resource type="Script" path="res://mundo/ciudad/generador_ciudad.gd" id="1_ciudad"]
 [ext_resource type="Script" path="res://mundo/entorno/streaming/gestor_streaming_ciudad.gd" id="2_gestor"]
 [ext_resource type="Script" path="res://pruebas/streaming_ciudad_test.gd" id="3_test"]
 
