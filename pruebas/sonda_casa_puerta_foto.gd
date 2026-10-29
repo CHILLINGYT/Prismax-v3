@@ -3,7 +3,7 @@ extends Node
 ## para identificar la puerta de la foto de referencia. Marca con esferas de color
 ## las puertas conocidas del modelo (coordenadas del GLB), sin tocar la casa.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const CARPETA := "res://pruebas/capturas"
 
 ## [nombre, posición de cámara (escena), punto mirado (escena)]

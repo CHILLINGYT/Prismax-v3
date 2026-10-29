@@ -1,9 +1,9 @@
 [gd_scene load_steps=10 format=3]
 
-[ext_resource type="Script" path="res://casa_leo/casa_leo.gd" id="1_casa"]
-[ext_resource type="PackedScene" path="res://modelos 3d casa leo/appartement.glb" id="2_modelo"]
+[ext_resource type="Script" path="res://mundo/casa_leo/casa_leo.gd" id="1_casa"]
+[ext_resource type="PackedScene" path="res://mundo/casa_leo/modelo/appartement.glb" id="2_modelo"]
 [ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="3_jugador"]
-[ext_resource type="Script" path="res://casa_leo/salida_interior.gd" id="4_salida"]
+[ext_resource type="Script" path="res://mundo/casa_leo/salida_interior.gd" id="4_salida"]
 [ext_resource type="Sky" path="res://mundo/cielo/cielo_ciudad.tres" id="5_cielo"]
 [ext_resource type="Script" path="res://mundo/cielo/sky3d_puente.gd" id="6_cielo3d"]
 [ext_resource type="Script" path="res://mundo/cielo/ciclo_dia_noche.gd" id="7_ciclo"]

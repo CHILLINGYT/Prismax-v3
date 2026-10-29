@@ -21,7 +21,7 @@ extends Node3D
 ##   7. los tres vanos exteriores están CERRADOS por un cristal invisible (rayos);
 ##   8. fuera hay ciudad de verdad: edificios delante de cada ventana.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const TEXTO_SALIDA := "Presiona E para salir a la ciudad"
 
 var _ok := 0

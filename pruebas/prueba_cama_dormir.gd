@@ -2,7 +2,7 @@ extends Node
 ## PRUEBA de "dormir en la cama" (casa de Leo → ciudad real), con fin automático.
 ##   godot --path . res://pruebas/prueba_cama_dormir.tscn   (con timeout externo)
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const CFG := "user://ajustes_graficos.cfg"
 var _ok := 0
 var _fallos := 0

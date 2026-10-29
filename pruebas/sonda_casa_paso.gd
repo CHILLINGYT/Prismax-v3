@@ -12,7 +12,7 @@ extends Node3D
 ##
 ## Con eso se ven las habitaciones que hoy no se pueden pisar y por qué.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const PASO := 0.25          ## m por celda
 const RADIO := 0.25   ## el mismo radio que usa Leo DENTRO de la casa
 const ALTO := 1.80          ## m (por encima de alfombras de 1-3 cm y bajo dinteles)

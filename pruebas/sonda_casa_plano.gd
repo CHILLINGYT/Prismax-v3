@@ -6,7 +6,7 @@ extends Node
 ##   · esfera AZUL     = vano del dormitorio
 ## Además imprime la correspondencia píxel ↔ (x, z) del plano.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const CARPETA := "res://pruebas/capturas"
 const TAM := 14.0        ## tamaño ortográfico (m) del plano
 

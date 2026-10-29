@@ -3,7 +3,7 @@ extends Node
 ## la cámara real del jugador, para identificar la puerta de la foto de referencia.
 ## Coordenadas en el espacio del MODELO (GLB); se convierten con la escala de la casa.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const CARPETA := "res://pruebas/capturas"
 
 ## [nombre, dónde se planta Leo (GLB), hacia dónde mira (GLB)]

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://ccb7v8olmtld1"
-path="res://.godot/imported/appartement.glb-5186bbc5181b630abc2082c6a721fd09.scn"
+path="res://.godot/imported/appartement.glb-1c08d6b552ad07281046a7abae1d8de5.scn"
 
 [deps]
 
-source_file="res://modelos 3d casa leo/appartement.glb"
-dest_files=["res://.godot/imported/appartement.glb-5186bbc5181b630abc2082c6a721fd09.scn"]
+source_file="res://mundo/casa_leo/modelo/appartement.glb"
+dest_files=["res://.godot/imported/appartement.glb-1c08d6b552ad07281046a7abae1d8de5.scn"]
 
 [params]
 

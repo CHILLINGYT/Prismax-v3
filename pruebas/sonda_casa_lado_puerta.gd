@@ -4,7 +4,7 @@ extends Node
 ## (cápsula r 0.25 h 1.9, la que usa dentro de casa) y qué hay en el suelo.
 ## Sirve para decidir de qué lado va el punto de aparición y el Area3D.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 
 var _casa: Node3D
 

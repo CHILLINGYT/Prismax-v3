@@ -1,7 +1,7 @@
 extends Node3D
 ## SONDA DE LA CASA DE LEO (Fase 1).
 ##
-## Mide el modelo REAL `res://modelos 3d casa leo/appartement.glb` y lo dibuja como
+## Mide el modelo REAL `res://mundo/casa_leo/modelo/appartement.glb` y lo dibuja como
 ## PLANO DE PLANTA en la consola, para poder colocar el punto de aparición, la
 ## salida, las colisiones y las vistas de las ventanas con coordenadas exactas (no
 ## a ojo).
@@ -23,7 +23,7 @@ extends Node3D
 ##   · al final se mide el coste de crear la colisión triangle-mesh de cada malla
 ##     (para decidir si es viable como solución de física).
 
-const CASA := "res://modelos 3d casa leo/appartement.glb"
+const CASA := "res://mundo/casa_leo/modelo/appartement.glb"
 const CELDA := 0.15
 const BANDA_A := Vector2(0.25, 1.75)
 const BANDA_B := Vector2(1.30, 1.90)

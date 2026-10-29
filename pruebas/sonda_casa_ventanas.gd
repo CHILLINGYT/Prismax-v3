@@ -3,7 +3,7 @@ extends Node
 ## desde dentro, a la altura de los ojos, para ver si detrás del cristal hay
 ## paisaje urbano o algo tapándolo. Una foto por ventana, de día y de noche.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const CARPETA := "res://pruebas/capturas"
 
 var _casa: Node3D

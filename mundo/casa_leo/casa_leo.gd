@@ -3,7 +3,7 @@ extends Node3D
 ## =============================================================================
 ##  INTERIOR DE LA CASA DE LEO
 ## =============================================================================
-##  Escena propia (res://casa_leo/casa_leo.tscn) con el modelo de interior
+##  Escena propia (res://mundo/casa_leo/casa_leo.tscn) con el modelo de interior
 ##  importado, sus colisiones reales, el cielo y la ciudad de verdad fuera de las
 ##  ventanas, y el JUGADOR DE VERDAD dentro (la misma escena de Leo, con sus
 ##  transformaciones, su HUD y sus controles).
@@ -26,7 +26,7 @@ extends Node3D
 ##  reloj: es la única cifra que viaja (ver `EstadoCasaLeo`).
 ##
 ##  Los puntos del modelo (medidos con res://pruebas/sonda_casa.gd sobre
-##  res://modelos 3d casa leo/appartement.glb):
+##  res://mundo/casa_leo/modelo/appartement.glb):
 ##   · la caja mide 7,05 × 2,51 × 10,66 m y el suelo está a y = -0,01;
 ##   · el PASILLO va de x = -4,96 a x = -3,91 (1,05 m de ancho), en z de -5,1 a 0,3;
 ##   · el VANO del dormitorio (el de la primera captura: la puerta por la que se ve

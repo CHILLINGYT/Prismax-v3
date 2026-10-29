@@ -10,7 +10,7 @@ extends SceneTree
 ##   Godot --headless --path . --script res://pruebas/probe_nuevos.gd
 
 const MODELOS := {
-	"CASA": "res://modelos 3d casa leo/appartement.glb",
+	"CASA": "res://mundo/casa_leo/modelo/appartement.glb",
 	"MOTO": "res://modelos 3d autos/vespa.glb",
 	"AUTO": "res://modelos 3d autos/free_1972_datsun_240k_gt.glb",
 	"CAMIONETA": "res://modelos 3d autos/free_zuk_3d_model.glb",

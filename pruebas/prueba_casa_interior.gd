@@ -13,7 +13,7 @@ extends Node3D
 ##      radio y fuera del bloqueo anti-bucle;
 ##   5. no se entra solo: sin pulsar nada la escena no cambia (no hay bucles).
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 const TEXTO_SALIDA := "Presiona E para salir a la ciudad"
 
 var _ok := 0

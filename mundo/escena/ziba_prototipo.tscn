@@ -38,7 +38,7 @@
 [ext_resource type="Script" uid="uid://b7n1qdcwflb3c" path="res://mundo/entorno/streaming/gestor_streaming_mundo.gd" id="45_streaming"]
 [ext_resource type="PackedScene" path="res://ui/scenes/PanelMision.tscn" id="46_mision"]
 [ext_resource type="Script" path="res://mundo/entorno/vehiculos.gd" id="47_vehiculos"]
-[ext_resource type="Script" path="res://casa_leo/puerta_casa_leo.gd" id="48_casa"]
+[ext_resource type="Script" path="res://mundo/casa_leo/puerta_casa_leo.gd" id="48_casa"]
 [ext_resource type="Script" uid="uid://dumpmnjjb6o4s" path="res://ui/scripts/cartel_objetivo.gd" id="46_cartel"]
 [ext_resource type="Theme" path="res://ui/tema/tema_juego.tres" id="91_tema"]
 

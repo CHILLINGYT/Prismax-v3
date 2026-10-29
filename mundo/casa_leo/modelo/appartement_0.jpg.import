@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4ilys3rspp7n"
-path.s3tc="res://.godot/imported/appartement_0.jpg-7024bac70faf0d07186afb6ab24a7cb1.s3tc.ctex"
+path.s3tc="res://.godot/imported/appartement_0.jpg-3604e6241a16369c5a591d73fd9c85bc.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -14,8 +14,8 @@ generator_parameters={
 
 [deps]
 
-source_file="res://modelos 3d casa leo/appartement_0.jpg"
-dest_files=["res://.godot/imported/appartement_0.jpg-7024bac70faf0d07186afb6ab24a7cb1.s3tc.ctex"]
+source_file="res://mundo/casa_leo/modelo/appartement_0.jpg"
+dest_files=["res://.godot/imported/appartement_0.jpg-3604e6241a16369c5a591d73fd9c85bc.s3tc.ctex"]
 
 [params]
 

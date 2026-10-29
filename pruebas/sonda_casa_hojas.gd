@@ -11,7 +11,7 @@ extends Node3D
 ##
 ## No modifica nada: sólo mide.
 
-const MODELO := "res://modelos 3d casa leo/appartement.glb"
+const MODELO := "res://mundo/casa_leo/modelo/appartement.glb"
 
 ## Cajas a medir, en coordenadas del MODELO (las del GLB). Son los vanos
 ## detectados con las sondas de paso.

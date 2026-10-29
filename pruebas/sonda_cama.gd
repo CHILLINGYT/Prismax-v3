@@ -3,7 +3,7 @@ extends Node3D
 ## Rayos verticales cada 0,1 m; la altura de lo primero que tocan bajo el techo.
 ##   '.' suelo (<0,12)  'b' superficie de cama/mueble bajo (0,30–0,75)
 ##   'm' mueble medio (0,12–0,30)  '#' alto (>0,75)
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 
 func _ready() -> void:
 	var casa := (load(CASA) as PackedScene).instantiate() as Node3D

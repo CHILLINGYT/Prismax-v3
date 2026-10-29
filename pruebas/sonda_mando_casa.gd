@@ -3,7 +3,7 @@ extends Node3D
 ## giros cada medio segundo mientras se pulsan los mandos. Sirve para medir qué hace
 ## exactamente cada mando (y con qué cámara), sin adivinar.
 
-const CASA := "res://casa_leo/casa_leo.tscn"
+const CASA := "res://mundo/casa_leo/casa_leo.tscn"
 
 var _jug: CharacterBody3D
 var _pivote: Node3D
