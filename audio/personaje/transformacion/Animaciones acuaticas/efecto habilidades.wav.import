@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://ulli546nmi0a"
+path="res://.godot/imported/efecto habilidades.wav-7e93e13ff7f1e03ce0a065ea6ee20591.sample"
+
+[deps]
+
+source_file="res://audio/personaje/transformacion/Animaciones acuaticas/efecto habilidades.wav"
+dest_files=["res://.godot/imported/efecto habilidades.wav-7e93e13ff7f1e03ce0a065ea6ee20591.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

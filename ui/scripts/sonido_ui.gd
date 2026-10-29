@@ -18,9 +18,9 @@ extends Node
 ## El reproductor es PROCESS_MODE_ALWAYS: los sonidos suenan también con el árbol
 ## pausado (el menú de pausa se abre con get_tree().paused = true).
 
-const RUTA_CLICK := "res://Audio/UI/click.wav"
-const RUTA_CURSOR := "res://Audio/UI/cursor.wav"
-const RUTA_SIYNO := "res://Audio/UI/siyno.wav"
+const RUTA_CLICK := "res://audio/UI/click.wav"
+const RUTA_CURSOR := "res://audio/UI/cursor.wav"
+const RUTA_SIYNO := "res://audio/UI/siyno.wav"
 
 var _click: AudioStream
 var _cursor: AudioStream

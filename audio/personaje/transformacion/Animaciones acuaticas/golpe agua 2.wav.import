@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://clgjjrqvv71u4"
+path="res://.godot/imported/golpe agua 2.wav-4a7e3511e36b954c3e1f0a0352e69544.sample"
+
+[deps]
+
+source_file="res://audio/personaje/transformacion/Animaciones acuaticas/golpe agua 2.wav"
+dest_files=["res://.godot/imported/golpe agua 2.wav-4a7e3511e36b954c3e1f0a0352e69544.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

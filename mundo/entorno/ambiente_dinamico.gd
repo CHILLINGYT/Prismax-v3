@@ -37,8 +37,8 @@ extends Node
 ##
 ##  No forma parte de ningún sistema previo: `SonidoUI` es sólo para la interfaz.
 
-const RUTA_CIUDAD := "res://Audio/Ambiente/ciudad.wav"
-const RUTA_PLAYA := "res://Audio/Ambiente/playa.wav"
+const RUTA_CIUDAD := "res://audio/Ambiente/ciudad.wav"
+const RUTA_PLAYA := "res://audio/Ambiente/playa.wav"
 ## Bus de mezcla: los ambientes son una capa continua (como la música), así que
 ## van al bus "Musica" (existe en default_bus_layout.tres). No usa "Efectos"
 ## (reservado a los efectos puntuales, p. ej. la transformación).

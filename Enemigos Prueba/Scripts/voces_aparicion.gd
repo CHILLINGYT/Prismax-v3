@@ -3,7 +3,7 @@ extends AudioStreamPlayer3D
 
 ## VOZ DE APARICIÓN de los enemigos.
 ##
-## La carpeta `res://Audio/enemigos/` trae varias grabaciones cortas de alerta
+## La carpeta `res://audio/enemigos/` trae varias grabaciones cortas de alerta
 ## (frases de aviso). Este nodo se instala UNA vez en cada enemigo REALMENTE
 ## creado — desde el único embudo de aparición del gerente (teclas G/H/J y la API
 ## de eventos) — y reproduce UNA voz aleatoria:
@@ -22,8 +22,8 @@ extends AudioStreamPlayer3D
 ## carpeta se queda sin grabaciones importables, lo dice por consola (con el
 ## nombre del archivo y el formato que Godot puede importar) y no reproduce nada.
 
-## Carpeta REAL de las grabaciones (se mueve con Tarea 12 a la estructura Audio/).
-const CARPETA := "res://Audio/enemigos"
+## Carpeta REAL de las grabaciones (se mueve con Tarea 12 a la estructura audio/).
+const CARPETA := "res://audio/enemigos"
 ## Volumen propio de la voz (el bus "Efectos" sigue mandando por encima).
 const VOLUMEN_DB := -6.0
 ## Bus PROPIO de las voces de enemigos (ver res://default_bus_layout.tres): lleva un

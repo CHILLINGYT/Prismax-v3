@@ -29,9 +29,9 @@ extends Node3D
 ## mano. Lo único que hace por sí misma es el DISPARO (Tarea 3): el sonido real del
 ## proyecto y un fogonazo pequeño, y siempre por petición del tirador.
 
-## Sonido REAL de disparo (el único archivo de `Audio/disparo/`, usado tal cual:
+## Sonido REAL de disparo (el único archivo de `audio/disparo/`, usado tal cual:
 ## dura 2,216 s e incluye la cola del disparo; es UN disparo, no una ráfaga).
-const AUD_DISPARO := "res://Audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav"
+const AUD_DISPARO := "res://audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav"
 ## Volumen (dB) del disparo de los enemigos a distancia. Afecta SÓLO a este
 ## AudioStreamPlayer3D (el bus "Efectos" lo comparten otros sonidos y no se toca).
 ## Antes -4 dB; bajado 8 dB a -12 dB porque tapaba al resto de la escena.

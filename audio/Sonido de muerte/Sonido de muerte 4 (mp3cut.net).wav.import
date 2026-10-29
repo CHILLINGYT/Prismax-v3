@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://c7om6rc1q1vmu"
+path="res://.godot/imported/Sonido de muerte 4 (mp3cut.net).wav-1ba92a24662c343cc4e8247ce8351f80.sample"
+
+[deps]
+
+source_file="res://audio/Sonido de muerte/Sonido de muerte 4 (mp3cut.net).wav"
+dest_files=["res://.godot/imported/Sonido de muerte 4 (mp3cut.net).wav-1ba92a24662c343cc4e8247ce8351f80.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

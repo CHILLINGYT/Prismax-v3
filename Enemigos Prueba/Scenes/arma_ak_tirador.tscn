@@ -18,7 +18,7 @@
 
 [ext_resource type="Script" path="res://Enemigos Prueba/Scripts/arma_ak_tirador.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://modelos 3d armas/akmn.glb" id="2_ak"]
-[ext_resource type="AudioStream" path="res://Audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav" id="3_disparo"]
+[ext_resource type="AudioStream" path="res://audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav" id="3_disparo"]
 
 [node name="ArmaAKTirador" type="Node3D"]
 script = ExtResource("1_script")

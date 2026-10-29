@@ -1,7 +1,7 @@
 extends Node3D
 ## PRUEBAS de las VOCES DE APARICIÓN de los enemigos (Tarea 4 de esta tanda:
 ## UNA SOLA VOZ POR APARICIÓN GRUPAL):
-##  1. los archivos reales de res://Audio/enemigos se cargan;
+##  1. los archivos reales de res://audio/enemigos se cargan;
 ##  2. un grupo de N enemigos creado de golpe suena UNA vez, no N: sólo el PRIMER
 ##     enemigo del grupo recibe el nodo de voz y los demás no reciben nada;
 ##  3. la voz es audio 3D pegado a un enemigo real del grupo (bus "Efectos");

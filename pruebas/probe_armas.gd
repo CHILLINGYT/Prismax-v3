@@ -2,7 +2,7 @@ extends SceneTree
 
 ## SONDA (no es una suite): comprueba que los recursos REALES de las armas
 ## cargan desde su ubicación definitiva (Tarea 7, "modelos 3d armas/" y
-## "Audio/disparo/") y mide la geometría que necesitan las tareas 1 y 2:
+## "audio/disparo/") y mide la geometría que necesitan las tareas 1 y 2:
 ##   · el AK real: nº de mallas/materiales y su caja envolvente compuesta;
 ##   · el cartucho: caja envolvente (eje largo y largo real del modelo);
 ##   · el audio de disparo: duración y formato importados.
@@ -18,7 +18,7 @@ func _init() -> void:
 			["comp_low_barrel_0", "wStock.001_low_wStock_0", "bGrip_low_receiver_0",
 			"akmMag.001_low.003_akmMag_0", "barrel.001_low_barrel_0"])
 	_caja("res://modelos 3d armas/bullet_6.5x55mm_swedish.glb", "CARTUCHO", [])
-	var st := load("res://Audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav") as AudioStream
+	var st := load("res://audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav") as AudioStream
 	if st == null:
 		print("[Audio] NO carga el disparo")
 	else:

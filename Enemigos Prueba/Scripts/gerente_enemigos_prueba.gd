@@ -22,7 +22,7 @@ extends Node3D
 ## nunca por una ruta de nodo rígida: la escena se puede reordenar sin romperlo.
 ##
 ## VOCES DE APARICIÓN: cada enemigo que se crea de verdad (por G/H/J o por la API
-## de eventos) recibe UNA voz aleatoria de `res://Audio/enemigos` en audio 3D
+## de eventos) recibe UNA voz aleatoria de `res://audio/enemigos` en audio 3D
 ## (`VocesAparicion`), con las simultáneas repartidas. Los dos embudos de creación
 ## llaman al MISMO helper, así que la misma aparición nunca suena dos veces.
 
@@ -95,7 +95,7 @@ const TECLAS := {
 @export var radio_cerco: float = 2.5
 
 @export_group("Voces de aparición")
-## Reproduce UNA voz aleatoria (`res://Audio/enemigos`, audio 3D pegado al
+## Reproduce UNA voz aleatoria (`res://audio/enemigos`, audio 3D pegado al
 ## enemigo) al confirmarse cada aparición: vale igual para la tecla G/H/J y para
 ## los enemigos que crea el DirectorEventos. Una voz por aparición; las
 ## apariciones casi simultáneas se reparten solas para no sonar todas a la vez.

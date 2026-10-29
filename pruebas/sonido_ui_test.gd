@@ -3,7 +3,7 @@ extends Node
 # Arnés de prueba de los SONIDOS DE INTERFAZ (autoload SonidoUI).
 #
 # Comprueba, con el sistema REAL:
-#   1. Los tres WAV de res://Audio/UI/ se cargan y son AudioStreamWAV.
+#   1. Los tres WAV de res://audio/UI/ se cargan y son AudioStreamWAV.
 #   2. Nada suena solo al iniciar (no autoplay).
 #   3. Menú principal: hover en otra opción -> cursor; confirmar -> click.
 #   4. Menú de pausa: navegar (teclado/mando) -> cursor; hover -> cursor;
