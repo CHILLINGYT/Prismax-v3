@@ -172,8 +172,8 @@ const JOBS_AIR := [
 ]
 
 const DIR_HBM := "res://NPCs/Animations/HumanBasic/"
-const DIR_UAL1 := "res://NPCs/Animations/UAL1/UAL1_Standard.glb"
-const DIR_UAL2 := "res://NPCs/Animations/UAL2/UAL2_Standard.glb"
+const DIR_UAL1 := "res://personaje/transformaciones/vuelo/animations/UAL1/UAL1_Standard.glb"
+const DIR_UAL2 := "res://personaje/transformaciones/vuelo/animations/UAL2/UAL2_Standard.glb"
 
 ## Clips a hornear. "map" elige el mapa de huesos según el rig de origen y "kind" clasifica
 ## cada clip (idle / walk / run / jog / turn) para que el ciudadano sepa cómo usarlo.

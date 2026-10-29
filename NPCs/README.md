@@ -94,8 +94,8 @@ de 80×80 con unos bloques para tener referencia de tamaño, el mismo cielo y la
 |---|---|---|
 | Characters_psx_1.1 | 50 ciudadanos rigueados (29 M + 21 F, incl. policía y sheriff) + 49 texturas | `NPCs/Characters/PSX/` |
 | Human Basic Motions FREE | 12 clips de locomoción humana (idle, walk, run y giros, M y F) | `NPCs/Animations/HumanBasic/` |
-| Universal Animation Library 1 | Librería GLB (rig UE) | `NPCs/Animations/UAL1/` |
-| Universal Animation Library 2 | Librería GLB (rig UE) | `NPCs/Animations/UAL2/` |
+| Universal Animation Library 1 | Librería GLB (rig UE) | `personaje/transformaciones/vuelo/animations/UAL1/` (compartida con Vuelo) |
+| Universal Animation Library 2 | Librería GLB (rig UE) | `personaje/transformaciones/vuelo/animations/UAL2/` (compartida con Vuelo) |
 | City Folks (PolyMate) | Deportista, Dough Sensei y Muscle Man: humanos vestidos y rigueados (Auto-Rig Pro, 59 huesos) con piezas modulares (cabezas, torsos, manos, piernas y pies sueltos) | `Assets NPCS/CityFolks_PolyMate_alstrainfinite/` |
 | Urban Man (PolyMate) | Ciudadano urbano con ropa informal (mismo rig Auto-Rig Pro) | `Assets NPCS/UrbanMan_PolyMate_alstrainfinite/` |
 | RPG Animations GLB FREE | 64 clips sobre un rig *Biped* de 53 huesos (andar, correr, girar, agacharse…) | `Assets NPCS/RPG_Animations_GLB_FREE/` |

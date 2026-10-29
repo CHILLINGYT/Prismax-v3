@@ -31,7 +31,6 @@ Enemigos Prueba/
 ├── Animations/
 │   ├── enemigo_animaciones_mixamo.tres       Librería NATIVA (14 clips) para enemigocombate
 │   ├── enemigo_animaciones_mixamo_arma.tres  Librería NATIVA (14 clips) para enemigoconarma
-│   └── enemigo_animations.tres  Librería antigua retargeteada al proxy de Fuerza (se conserva)
 ├── Materials/                 Materiales de la cápsula y de la barra de vida
 │   ├── enemigo_capsula.tres   Cápsula (el destello de daño usa su emisión)
 │   ├── barra_vida.gdshader    Barra de vida de una sola pieza (fondo + relleno)
@@ -50,7 +49,6 @@ Enemigos Prueba/
 │   ├── Tools/                 Bakers (retargeting / nativo), religador de pistas y verificador de skins
 │   └── gerente_enemigos_prueba.gd  GerenteEnemigosPrueba: aparición (G/H/J), cerco y coordinación
 └── Tests/
-    ├── verificacion_animaciones.*         Vista previa de los clips horneados
     ├── verificacion_enemigos_esqueleto.*  Verificación en vivo (G/H/J)
     └── prueba_enemigos_esqueleto.*        Suite headless (57 comprobaciones, incluye la tecla G)
 ```
@@ -93,7 +91,7 @@ media pantalla y no aporta nada), y reaparece pasados 2,6 m para no parpadear.
 ## Enemigos con esqueleto (H y J)
 
 Dos enemigos que comparten base y esqueleto retargetado
-(`Animations/enemigo_animations.tres`, 14 clips horneados desde los FBX de Mixamo) pero con
+(`Animations/enemigo_animaciones_mixamo*.tres`, 14 clips nativos de Mixamo) pero con
 IA distinta:
 
 - **Cuerpo a cuerpo (`enemigo_melee.tscn`, tecla H):** persigue por el anillo de cerco y,
