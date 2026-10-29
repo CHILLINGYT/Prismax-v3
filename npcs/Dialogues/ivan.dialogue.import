@@ -1,0 +1,16 @@
+[remap]
+
+importer="dialogue_manager"
+importer_version=18
+type="Resource"
+uid="uid://rnh2fjrc62at"
+path="res://.godot/imported/ivan.dialogue-f6fd4032cbdff35d9120e39d184d8649.tres"
+
+[deps]
+
+source_file="res://npcs/Dialogues/ivan.dialogue"
+dest_files=["res://.godot/imported/ivan.dialogue-f6fd4032cbdff35d9120e39d184d8649.tres"]
+
+[params]
+
+defaults=true

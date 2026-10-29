@@ -10,8 +10,8 @@ extends Node3D
 ##        AudioStreamPlayer3D pegado a la boca del arma, y sin duplicarse.
 ## Mide con el esqueleto REAL las alineaciones (no estima a ojo).
 
-const TIRADOR := "res://Enemigos Prueba/Scenes/enemigo_tirador.tscn"
-const GERENTE := "res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd"
+const TIRADOR := "res://enemigos/Scenes/enemigo_tirador.tscn"
+const GERENTE := "res://enemigos/Scripts/gerente_enemigos_prueba.gd"
 const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
 const LARGO_MODELO := 0.4482
 
@@ -87,7 +87,7 @@ func _ready() -> void:
 					ap.get_animation_list().size() if ap != null else -1, claves])
 
 	# ---------- T2: cartucho real como malla del proyectil -----------------
-	var proy := (load("res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn") as PackedScene).instantiate() as Node3D
+	var proy := (load("res://enemigos/Scenes/proyectil_enemigo.tscn") as PackedScene).instantiate() as Node3D
 	add_child(proy)
 	await get_tree().physics_frame
 	var municion := proy.get_node_or_null("Municion") as Node3D

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://pruebas/prueba_sonidos_vuelo.gd" id="1_prueba"]
 [ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jugador"]
-[ext_resource type="PackedScene" path="res://Enemigos Prueba/Scenes/enemigo_prueba.tscn" id="3_enemigo"]
+[ext_resource type="PackedScene" path="res://enemigos/Scenes/enemigo_prueba.tscn" id="3_enemigo"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
 size = Vector3(120, 1, 120)

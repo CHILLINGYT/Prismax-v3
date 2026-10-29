@@ -12,7 +12,7 @@ extends Node3D
 ##  6. al cerrarse la conversación, si el jugador sigue cerca el aviso vuelve (es una
 ##     invitación a hablar) y al alejarse se oculta otra vez.
 
-const NPC := "res://NPCs/Scenes/NPC_Estatico_Obrero.tscn"
+const NPC := "res://npcs/Scenes/NPC_Estatico_Obrero.tscn"
 const CARTEL := "res://ui/scripts/cartel_objetivo.gd"
 const DISTANCIA_CERCA := 2.0
 const DISTANCIA_LEJOS := 40.0

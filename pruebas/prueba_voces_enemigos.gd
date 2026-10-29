@@ -12,7 +12,7 @@ extends Node3D
 ##  8. la rueda de grabaciones sigue sin repetir la misma dos veces seguidas.
 
 const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
-const GERENTE := "res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd"
+const GERENTE := "res://enemigos/Scripts/gerente_enemigos_prueba.gd"
 ## Separación (s) entre grupos de prueba: mayor que VocesAparicion.VENTANA_GRUPO.
 const SEPARACION_GRUPOS := 0.45
 

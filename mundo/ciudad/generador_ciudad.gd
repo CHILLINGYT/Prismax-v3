@@ -394,8 +394,8 @@ var prueba_esquinas_dir: Array[Vector3] = []
 ## de la ciudad, del mundo instanciado, del RNG ni de ningún ajuste: sólo se adelanta
 ## su carga para que no bloquee el hilo principal al instalar el director, que sigue
 ## llamando a `load()` como siempre y encuentra los recursos ya en caché.
-const DIRECTOR_PEATONES := preload("res://NPCs/Scripts/director_peatones.gd")
-const ESCENA_CIUDADANO := "res://NPCs/Scenes/NPC_Citizen.tscn"
+const DIRECTOR_PEATONES := preload("res://npcs/Scripts/director_peatones.gd")
+const ESCENA_CIUDADANO := "res://npcs/Scenes/NPC_Citizen.tscn"
 
 
 func _precargar_recursos_peatones() -> void:
@@ -825,7 +825,7 @@ func _generar_peatones() -> void:
 		return
 	var jefe := Node3D.new()
 	jefe.name = "Peatones"
-	jefe.set_script(load("res://NPCs/Scripts/director_peatones.gd"))
+	jefe.set_script(load("res://npcs/Scripts/director_peatones.gd"))
 	raiz.add_child(jefe)
 	jefe.set("cantidad_total", peatones_total)
 	jefe.set("cantidad_playa", mini(peatones_playa, peatones_total))

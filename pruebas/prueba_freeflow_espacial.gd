@@ -15,7 +15,7 @@ const GestorCombate := preload("res://personaje/transformaciones/transformacion 
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
 const PlayerAtaque := preload("res://personaje/transformaciones/transformacion ataque/scripts/player.gd")
 const LIB_ATAQUE := "res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres"
-const ENEMIGO := "res://Enemigos Prueba/Scenes/enemigo_prueba.tscn"
+const ENEMIGO := "res://enemigos/Scenes/enemigo_prueba.tscn"
 
 const FORMA_COMBATE := 4
 const C_LIBRE := 0

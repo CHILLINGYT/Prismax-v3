@@ -97,7 +97,7 @@ seguimiento): si retiras P10 entero, se borra con su guía (`P10_RETIRADA.md`).
 ## 5) Estado de Git registrado
 - Rama: `p10-streaming-integracion`.
 - 8 archivos modificados PREEXISTENTES (intactos, NO revertir):
-  `Enemigos Prueba/Scripts/proyectil_enemigo.gd`, `NPCs/Scripts/director_peatones.gd`,
+  `enemigos/Scripts/proyectil_enemigo.gd`, `npcs/Scripts/director_peatones.gd`,
   `pruebas/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
   `ui/scenes/MainMenu.tscn`, `ui/scripts/ajustes_graficos.gd`,
   `ui/scripts/main_menu.gd`, `ui/scripts/menu_option.gd`.

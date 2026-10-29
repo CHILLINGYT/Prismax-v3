@@ -31,8 +31,8 @@ extends Node3D
 const JUGADOR := preload("res://personaje/base/escenas/leo_jugador.tscn")
 const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
-const GerenteScript := preload("res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd")
-const ClaseEnemigo := preload("res://Enemigos Prueba/Scripts/enemigo_prueba.gd")
+const GerenteScript := preload("res://enemigos/Scripts/gerente_enemigos_prueba.gd")
+const ClaseEnemigo := preload("res://enemigos/Scripts/enemigo_prueba.gd")
 
 const ESCENA_MUNDO := "res://mundo/escena/ziba_prototipo.tscn"
 const ESCENA_PRINCIPAL := "res://ui/scenes/IntroVideo.tscn"

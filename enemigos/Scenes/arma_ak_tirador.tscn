@@ -1,0 +1,38 @@
+[gd_scene load_steps=4 format=3]
+
+; ARMA REAL del enemigo tirador: el AKM importado (`akmn.glb`) con la MISMA
+; convención que tenía el arma provisional (origen en el punto de agarre de la
+; empuñadura, cañón hacia -Z, +Y vertical): así el anclaje a la mano derecha que ya
+; estaba ajustado en `enemigo_tirador.tscn` sigue valiendo, sin tocar animaciones.
+;
+; Transformaciones calculadas con las medidas reales del modelo (probe_armas.gd):
+;   · empuñadura `bGrip_low`: centro (0, -0.003, -0.268)  ->  se lleva al origen
+;     girando el modelo 180° sobre Y y desplazándolo (0, 0.0034, -0.2685);
+;   · boca `comp_low`: z 0.320..0.351, eje del cañón y 0.085  ->  tras el giro,
+;     BocaArma en (0, 0.089, -0.620), donde estaba la boca del arma provisional.
+;
+; Nodos:
+;   · Modelo        : el GLB real (64 mallas, materiales importados).
+;   · BocaArma      : marcador que usa `enemigo_tirador.gd` para lanzar el proyectil.
+;   · SonidoDisparo : AudioStreamPlayer3D posicional en la boca (Tarea 3), bus Efectos.
+
+[ext_resource type="Script" path="res://enemigos/Scripts/arma_ak_tirador.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://enemigos/armas/akmn.glb" id="2_ak"]
+[ext_resource type="AudioStream" path="res://audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav" id="3_disparo"]
+
+[node name="ArmaAKTirador" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Modelo" parent="." instance=ExtResource("2_ak")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.0034, -0.2685)
+
+[node name="BocaArma" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.089, -0.62)
+
+[node name="SonidoDisparo" type="AudioStreamPlayer3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.089, -0.62)
+stream = ExtResource("3_disparo")
+volume_db = -12.0
+unit_size = 9.0
+max_distance = 60.0
+bus = &"Efectos"

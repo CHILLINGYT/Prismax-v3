@@ -117,7 +117,7 @@ git status --porcelain --untracked-files=all | grep -E 'streaming_ciudad|gestor_
 
 - Rama: `backup/mi-trabajo` · HEAD: `104c798037b1b5884c1320e875766a953ac47c86`
 - 8 archivos modificados preexistentes (NO tocados por esta fase):
-  `Enemigos Prueba/Scripts/proyectil_enemigo.gd`, `NPCs/Scripts/director_peatones.gd`,
+  `enemigos/Scripts/proyectil_enemigo.gd`, `npcs/Scripts/director_peatones.gd`,
   `pruebas/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
   `ui/scenes/MainMenu.tscn`, `ui/scripts/ajustes_graficos.gd`,
   `ui/scripts/main_menu.gd`, `ui/scripts/menu_option.gd`.

@@ -13,7 +13,7 @@ extends Node3D
 ##   + el daño reducido nunca es 0, la curación saca del efecto, el escudo sigue
 ##     absorbiendo igual, y la integración con un PROYECTIL ENEMIGO real.
 
-const PROYECTIL := preload("res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn")
+const PROYECTIL := preload("res://enemigos/Scenes/proyectil_enemigo.tscn")
 const FORMAS: Array[StringName] = [&"humano", &"velocista", &"pes", &"tanque", &"combate", &"aguila"]
 const EPS := 0.0001
 

@@ -19,7 +19,7 @@ extends Node3D
 #
 # Se ejecuta desde el editor con la escena abierta y pulsando G en el juego.
 
-const ClaseEnemigo := preload("res://Enemigos Prueba/Scripts/enemigo_prueba.gd")
+const ClaseEnemigo := preload("res://enemigos/Scripts/enemigo_prueba.gd")
 const GRUPO_ENEMIGOS := &"enemigos_prueba"
 const GRUPO_GESTOR := &"combat_manager"
 const NOMBRES_ESTADO := ["CERCO", "ATURDIDO", "PREPARAR", "GOLPEAR", "RECUPERAR", "MUERTO"]

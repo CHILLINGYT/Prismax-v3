@@ -21,7 +21,7 @@ extends Node3D
 const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
 const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
-const ENEMIGO := "res://Enemigos Prueba/Scenes/enemigo_prueba.tscn"
+const ENEMIGO := "res://enemigos/Scenes/enemigo_prueba.tscn"
 
 const FORMA_COMBATE := 4
 const C_LIBRE := 0

@@ -126,7 +126,7 @@ git diff --stat -- ziba/escenas/ziba_prototipo.tscn   # debe quedar vacío
   (HEAD `104c798037b1b5884c1320e875766a953ac47c86`, mismo commit que
   `backup/mi-trabajo`).
 - 8 archivos modificados PREEXISTENTES (NO tocados por P10):
-  `Enemigos Prueba/Scripts/proyectil_enemigo.gd`, `NPCs/Scripts/director_peatones.gd`,
+  `enemigos/Scripts/proyectil_enemigo.gd`, `npcs/Scripts/director_peatones.gd`,
   `pruebas/auditoria_rendimiento/arnes_auditoria.gd`, `generador_ciudad.gd`,
   `ui/scenes/MainMenu.tscn`, `ui/scripts/ajustes_graficos.gd`,
   `ui/scripts/main_menu.gd`, `ui/scripts/menu_option.gd`.

@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jug"]
 [ext_resource type="Script" path="res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd" id="3_gestor"]
 [ext_resource type="Resource" path="res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres" id="4_config"]
-[ext_resource type="Script" path="res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd" id="5_gerente"]
+[ext_resource type="Script" path="res://enemigos/Scripts/gerente_enemigos_prueba.gd" id="5_gerente"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
 size = Vector3(60, 1, 60)

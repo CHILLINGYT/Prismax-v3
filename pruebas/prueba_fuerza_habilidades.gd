@@ -26,7 +26,7 @@ extends Node3D
 # También se puede abrir y ejecutar desde el editor (F6).
 
 const JUGADOR := preload("res://personaje/base/escenas/leo_jugador.tscn")
-const ESCENA_ENEMIGO := preload("res://Enemigos Prueba/Scenes/enemigo_prueba.tscn")
+const ESCENA_ENEMIGO := preload("res://enemigos/Scenes/enemigo_prueba.tscn")
 
 const FORMA_HUMANO := 0
 const FORMA_VELOCISTA := 1

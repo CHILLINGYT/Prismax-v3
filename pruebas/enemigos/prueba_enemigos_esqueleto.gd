@@ -10,9 +10,9 @@ extends Node3D
 # enemigos, el proyectil, y que el gerente genera/retira cada tipo sin tocar la
 # tecla G de las cápsulas.
 
-const ESCENA_MELEE := preload("res://Enemigos Prueba/Scenes/enemigo_melee.tscn")
-const ESCENA_TIRADOR := preload("res://Enemigos Prueba/Scenes/enemigo_tirador.tscn")
-const ESCENA_PROYECTIL := preload("res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn")
+const ESCENA_MELEE := preload("res://enemigos/Scenes/enemigo_melee.tscn")
+const ESCENA_TIRADOR := preload("res://enemigos/Scenes/enemigo_tirador.tscn")
+const ESCENA_PROYECTIL := preload("res://enemigos/Scenes/proyectil_enemigo.tscn")
 const GRUPO_GESTOR := &"combat_manager"
 
 var _ok := 0
@@ -159,9 +159,9 @@ func _ejecutar() -> void:
 		var sc := (n as Node).get_script() as Script
 		if sc != null:
 			ruta = sc.resource_path
-		if ruta == "res://Enemigos Prueba/Scripts/enemigo_melee.gd":
+		if ruta == "res://enemigos/Scripts/enemigo_melee.gd":
 			g_melee += 1
-		elif ruta == "res://Enemigos Prueba/Scripts/enemigo_tirador.gd":
+		elif ruta == "res://enemigos/Scripts/enemigo_tirador.gd":
 			g_armas += 1
 		else:
 			g_otras += 1

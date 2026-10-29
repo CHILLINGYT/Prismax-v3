@@ -7,7 +7,7 @@ extends Node3D
 ##   · hacia dónde apunta la boca del cañón (debe ir hacia el frente del enemigo).
 ## Las medidas quedan en consola para contrastarlas con la foto.
 
-const TIRADOR := "res://Enemigos Prueba/Scenes/enemigo_tirador.tscn"
+const TIRADOR := "res://enemigos/Scenes/enemigo_tirador.tscn"
 const ANGULOS := [0.0, PI * 0.5, PI, PI * 1.5]
 const SEPARACION := 1.7
 

@@ -6,7 +6,7 @@ extends Node3D
 #   A) un proyectil lanzado directo al pecho del jugador, sin obstáculos;
 #   B) un tirador REAL disparando por su cuenta durante varios segundos.
 
-const ESCENA_PROYECTIL := preload("res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn")
+const ESCENA_PROYECTIL := preload("res://enemigos/Scenes/proyectil_enemigo.tscn")
 
 var _danios := 0
 

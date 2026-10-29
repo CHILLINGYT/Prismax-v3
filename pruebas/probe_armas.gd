@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## SONDA (no es una suite): comprueba que los recursos REALES de las armas
-## cargan desde su ubicación definitiva (Tarea 7, "modelos 3d armas/" y
+## cargan desde su ubicación definitiva (Tarea 7, "enemigos/armas/" y
 ## "audio/disparo/") y mide la geometría que necesitan las tareas 1 y 2:
 ##   · el AK real: nº de mallas/materiales y su caja envolvente compuesta;
 ##   · el cartucho: caja envolvente (eje largo y largo real del modelo);
@@ -14,10 +14,10 @@ func _init() -> void:
 	print("=== PROBE ARMAMENTO (Tareas 1, 2 y 3) ===")
 	# Piezas del AK cuya posición se quiere comprobar (nombres reales del glTF): la
 	# boca del cañón, la empuñadura y el cargador son las referencias de la Tarea 1.
-	_caja("res://modelos 3d armas/akmn.glb", "AK",
+	_caja("res://enemigos/armas/akmn.glb", "AK",
 			["comp_low_barrel_0", "wStock.001_low_wStock_0", "bGrip_low_receiver_0",
 			"akmMag.001_low.003_akmMag_0", "barrel.001_low_barrel_0"])
-	_caja("res://modelos 3d armas/bullet_6.5x55mm_swedish.glb", "CARTUCHO", [])
+	_caja("res://enemigos/armas/bullet_6.5x55mm_swedish.glb", "CARTUCHO", [])
 	var st := load("res://audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav") as AudioStream
 	if st == null:
 		print("[Audio] NO carga el disparo")

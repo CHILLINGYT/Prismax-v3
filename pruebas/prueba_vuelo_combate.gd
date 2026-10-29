@@ -2,7 +2,7 @@ extends Node3D
 
 # Suite automática (se ejecuta como ESCENA) del COMBATE de la forma VUELO (águila)
 # integrada en el mundo real: jugador REAL (leo_jugador), enemigos REALES de
-# "Enemigos Prueba" con su gerente y el CombatManager del módulo FreeFlow.
+# "enemigos/" con su gerente y el CombatManager del módulo FreeFlow.
 #
 # Objetivo (P1 del encargo): los enemigos deben detectar la posición REAL del
 # jugador (cuerpo activo) en TODAS las situaciones, y los ataques del águila deben
@@ -26,7 +26,7 @@ extends Node3D
 const JUGADOR := preload("res://personaje/base/escenas/leo_jugador.tscn")
 const GestorCombate := preload("res://personaje/transformaciones/transformacion ataque/scripts/combat/combat_manager.gd")
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
-const GerenteScript := preload("res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd")
+const GerenteScript := preload("res://enemigos/Scripts/gerente_enemigos_prueba.gd")
 
 const FORMA_HUMANO := 0
 const FORMA_VUELO := 5

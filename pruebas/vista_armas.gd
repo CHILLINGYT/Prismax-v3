@@ -6,9 +6,9 @@ extends Node3D
 ##   · una instancia del proyectil real, orientada como vuela (mira hacia su -Z).
 ## Deja en consola las medidas de las cajas para contrastarlas con la foto.
 
-const ARMA := "res://Enemigos Prueba/Scenes/arma_ak_tirador.tscn"
-const MUNICION := "res://modelos 3d armas/bullet_6.5x55mm_swedish.glb"
-const PROYECTIL := "res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn"
+const ARMA := "res://enemigos/Scenes/arma_ak_tirador.tscn"
+const MUNICION := "res://enemigos/armas/bullet_6.5x55mm_swedish.glb"
+const PROYECTIL := "res://enemigos/Scenes/proyectil_enemigo.tscn"
 const LARGO_MODELO := 0.4482
 
 func _ready() -> void:

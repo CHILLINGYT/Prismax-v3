@@ -15,9 +15,9 @@ const GestorCombate := preload("res://personaje/transformaciones/transformacion 
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
 ## Enemigo de la PARTE A: el de cuerpo a cuerpo (librería horneada con la
 ## animación de reacción).
-const ENEMIGO := "res://Enemigos Prueba/Scenes/enemigo_melee.tscn"
+const ENEMIGO := "res://enemigos/Scenes/enemigo_melee.tscn"
 ## Enemigo de la PARTE B: el mismo que usan las suites de combate ya probadas.
-const ENEMIGO_COMBATE := "res://Enemigos Prueba/Scenes/enemigo_prueba.tscn"
+const ENEMIGO_COMBATE := "res://enemigos/Scenes/enemigo_prueba.tscn"
 
 var _ok := 0
 var _fallos := 0

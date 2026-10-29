@@ -15,7 +15,7 @@ const BUS := &"VocesEnemigos"
 const BUS_PADRE := &"Efectos"
 const TONO_MIN := 0.90
 const TONO_MAX := 0.95
-const ESCENA_ARMA := "res://Enemigos Prueba/Scenes/arma_ak_tirador.tscn"
+const ESCENA_ARMA := "res://enemigos/Scenes/arma_ak_tirador.tscn"
 
 var _ok := 0
 var _fallos := 0

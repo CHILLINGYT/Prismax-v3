@@ -17,7 +17,7 @@ extends Node3D
 ## juego: `Input.action_press`/`release` dentro de fotogramas distintos.
 
 const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
-const ENEMIGO := "res://Enemigos Prueba/Scenes/enemigo_prueba.tscn"
+const ENEMIGO := "res://enemigos/Scenes/enemigo_prueba.tscn"
 
 var _ok := 0
 var _fallos := 0

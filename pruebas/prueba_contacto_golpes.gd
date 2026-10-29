@@ -14,8 +14,8 @@ extends Node3D
 ##      esfera física real).
 
 const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
-const ENEMIGO := "res://Enemigos Prueba/Scenes/enemigo_prueba.tscn"
-const GERENTE := "res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd"
+const ENEMIGO := "res://enemigos/Scenes/enemigo_prueba.tscn"
+const GERENTE := "res://enemigos/Scripts/gerente_enemigos_prueba.gd"
 const CONFIG_ATAQUE := "res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres"
 const GROUND_COMBAT := "res://personaje/transformaciones/vuelo/scripts/ground_combat.gd"
 

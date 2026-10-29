@@ -11,8 +11,8 @@ extends Node3D
 ##   F. (Tarea 2) cartucho visible durante el vuelo, orientado a lo largo del
 ##      recorrido, con una estela que lo acompaña y que se libera con la bala.
 
-const TIRADOR := preload("res://Enemigos Prueba/Scenes/enemigo_tirador.tscn")
-const PROYECTIL := preload("res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn")
+const TIRADOR := preload("res://enemigos/Scenes/enemigo_tirador.tscn")
+const PROYECTIL := preload("res://enemigos/Scenes/proyectil_enemigo.tscn")
 
 var _ok := 0
 var _fallos := 0

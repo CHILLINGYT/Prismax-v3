@@ -2,7 +2,7 @@ extends Node3D
 ## VISTA (no suite): balas reales del tirador cruzando de lado delante de una cámara
 ## fija, a la velocidad real, para ver el cartucho y su estela en pantalla.
 
-const PROYECTIL := preload("res://Enemigos Prueba/Scenes/proyectil_enemigo.tscn")
+const PROYECTIL := preload("res://enemigos/Scenes/proyectil_enemigo.tscn")
 
 var _t := 0.0
 
