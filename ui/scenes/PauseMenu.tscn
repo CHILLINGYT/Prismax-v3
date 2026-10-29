@@ -984,6 +984,102 @@ theme_override_font_sizes/font_size = 22
 text = ">"
 flat = true
 
+[node name="HabilidadesFila" type="HBoxContainer" parent="Root/ConfigPanel/JugabilidadContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/JugabilidadContent/HabilidadesFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "MOSTRAR GUÍA DE CONTROLES"
+vertical_alignment = 1
+
+[node name="HabilidadesIzq" type="Button" parent="Root/ConfigPanel/JugabilidadContent/HabilidadesFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+flat = true
+
+[node name="HabilidadesValor" type="Label" parent="Root/ConfigPanel/JugabilidadContent/HabilidadesFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "SÍ"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HabilidadesDer" type="Button" parent="Root/ConfigPanel/JugabilidadContent/HabilidadesFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+flat = true
+
+[node name="TamanoHabilidadesFila" type="HBoxContainer" parent="Root/ConfigPanel/JugabilidadContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "TAMAÑO DE LA GUÍA"
+vertical_alignment = 1
+
+[node name="TamanoHabilidadesIzq" type="Button" parent="Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+flat = true
+
+[node name="TamanoHabilidadesValor" type="Label" parent="Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "GRANDE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TamanoHabilidadesDer" type="Button" parent="Root/ConfigPanel/JugabilidadContent/TamanoHabilidadesFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+flat = true
+
 [node name="ControlsContent" type="VBoxContainer" parent="Root/ConfigPanel" unique_id=1371313248]
 unique_name_in_owner = true
 visible = false

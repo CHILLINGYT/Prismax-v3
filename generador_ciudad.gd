@@ -2231,6 +2231,8 @@ func _generar_paseo_costero() -> void:
 		var nor: Vector2 = lado["nor"]
 		# Cada lado costero es una cadena propia de paseo para la red peatonal.
 		_paseo_datos.append([])
+		# PRIMERA PASADA: se mide cuánto se puede pavimentar en cada tramo.
+		var anchos: Array[float] = []
 		var d := 0.0
 		while d <= largo_lado:
 			var borde: Vector2 = base + dir * d
@@ -2238,10 +2240,23 @@ func _generar_paseo_costero() -> void:
 			var hasta_arena := _distancia_a_arena(rel, borde, nor)
 			# Se pavimenta SÓLO dejando delante la franja de pasto: el resto es
 			# terreno natural. Así vuelve a verse ciudad -> paseo -> pasto -> arena.
-			var ancho := clampf(hasta_arena - paseo_pasto_min, 0.0, paseo_ancho_max)
-			if ancho >= 2.0:
-				_poner_tramo_paseo(rel, padre, borde, dir, nor, ancho, paso)
+			anchos.append(clampf(hasta_arena - paseo_pasto_min, 0.0, paseo_ancho_max))
 			d += paso
+		# SEGUNDA PASADA: TODA la costa se pavimenta con el MISMO ancho, el MÍNIMO
+		# de los tramos costeros. Antes cada tramo usaba su propio ancho y, como la
+		# distancia a la arena cambia a lo largo de la orilla, el borde exterior
+		# quedaba DENTADO (una fila de bloques escalonados sobre la arena que
+		# parecían geometría a medias). Con un ancho único la línea del paseo es
+		# recta y paralela a la costa, sin dientes ni escalones, y en ningún punto
+		# se invade la franja de pasto/arena que hay que respetar.
+		var ancho_recto := paseo_ancho_max
+		for a in anchos:
+			if a >= 2.0:
+				ancho_recto = minf(ancho_recto, a)
+		for i in anchos.size():
+			if anchos[i] >= 2.0:
+				_poner_tramo_paseo(rel, padre, base + dir * (paso * float(i)), dir, nor,
+						ancho_recto, paso)
 
 
 ## Distancia (m) del borde urbano a la ARENA (donde el terreno baja de la cota de

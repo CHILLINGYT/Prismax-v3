@@ -1,0 +1,71 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+WARNING: res://personaje/base/escenas/leo_jugador.tscn:43 - ext_resource, invalid UID: uid://scndx4m2k3no - using text path instead: res://Audio/personaje/transformacion/transformacion.mp3
+   at: load (scene/resources/resource_format_text.cpp:501)
+=== PRUEBA: AJUSTES DE ESTAMINA + PANEL DE CONTROLES ===
+UAL2 loader: GuardiaAlas generada (cruce en X; perillas en el Inspector).
+UAL2 loader: PatadaGarra generada (doble patada de garras).
+UAL2 loader: clips completos -> [&"BackFlip", &"DoubleJump", &"GuardiaAlas", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"PatadaGarra", &"Swim_Fwd", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: clips de torso+brazos -> [&"BackFlip", &"DoubleJump", &"Idle_Shield", &"Kick", &"LiftAir_Idle", &"Melee_Knee", &"Melee_Knee_Rec", &"Melee_Uppercut", &"Sword_Light_A", &"Sword_Light_A_M", &"Sword_Light_A_Rec", &"Sword_Light_A_Rec_M", &"Sword_Light_B", &"Sword_Light_B_Rec"]
+UAL2 loader: Jump_Planeo generado (piernas recogidas para el avance).
+UAL2 loader: Planeo generado (pose congelada de alas).
+UAL2 loader: AleteoAlas generado (golpe de ala hacia abajo).
+UAL2 loader: PosePicado generada (brazos al costado, piernas juntas).
+UAL2 loader: VueloHeroe generado (superman: puño al frente, piernas rectas).
+UAL2 loader: PalmazoPush generado (solo torso+brazos; partes: ["Enter", "Push", "Exit"]).
+UAL2 loader: CaidaLibre generada (brazos hacia arriba).
+[GroundCombat] Cadena: Punch_Jab=OK, Punch_Cross=OK, Kick=OK, Melee_Uppercut=OK
+[GroundCombat] Guardia: UAL2/GuardiaAlas
+[Apuntado] Listo (OTS + mira).
+[Garras] Listo (agarre SOLO volando). PatadaGarra: OK
+[CamFX] Listo. Camera: Camera3D | Flight: FlightController | Anim: AnimationPlayer
+[OK]    jugador y estadísticas listos
+--- 1. Tablas ---
+[OK]    1. Volar NO cuesta (volar = 0.0) — 0.00
+[OK]    1. El boost del vuelo NO cuesta (0.0) — 0.00
+[OK]    1. La picada NO cuesta (0.0) — 0.00
+[OK]    1. El esprint del águila en TIERRA sí cuesta (5.5) — 5.50
+[OK]    1. La carga del supersalto tiene coste por SEGUNDO — 7.15/s
+[OK]    1. El dash del velocista cuesta la MITAD (5.0, era 10.0) — 5.00
+[OK]    1. El golpe del velocista mantiene su coste (5.0) — 5.00
+--- 2. Vuelo ---
+[OK]    2. Volar 2 s NO gasta nada — 50.000 -> 50.000
+[OK]    2. Picar 1 s NO gasta nada — 50.000
+[OK]    2. Con 0 de estamina se sigue volando (no gasta ni bloquea) — 0.000
+--- 3. Golpe del velocista ---
+[OK]    3. Con 0 de estamina el golpe NO sale (10 intentos) — estamina=0.000
+[OK]    3. Con 0 de estamina no hay gasto ni gasto negativo — 0.000
+[OK]    3. Con estamina el golpe SÍ sale
+[OK]    3. El golpe cobra UNA vez (5.0, no 10) — 45.000
+[OK]    3. Un segundo golpe vuelve a cobrar 5 (40.0) — 40.000
+[OK]    3. Con 4.9 (menos que el coste) el golpe NO sale — estamina=4.900
+--- 4. Dash ---
+[OK]    4. El dash cuesta 5.0 UNA vez (50 -> 45) — 45.000
+[OK]    4. El dash sigue cambiando de estado (no se rompió) — estado=1
+[OK]    4. Sin estamina el dash NO arranca — estado=0 estamina=1.000
+--- 5. Carga del supersalto (Fuerza) ---
+[OK]    5. Mantener ESPACIO empieza la carga
+[OK]    5. La carga gasta ~7.15/s de forma progresiva (no de golpe) — gastado=7.15 esperado≈7.15
+[OK]    5. Un tramo parcial cuesta MENOS que la activación vieja (10.0) — gastado=7.15
+[OK]    5. Durante la carga la estamina NO se regenera (sólo baja)
+[OK]    5. Al soltar, la carga termina
+[OK]    5. Tras soltar no hay cobro extra (el gasto se corta) — 88.083 -> 88.083
+[OK]    5. Si la estamina se agota, la carga se corta de forma segura — cargando=false estamina=10.967
+[OK]    5. El personaje sigue vivo y controlable (sin bloqueos)
+--- 6. Panel de controles ---
+[OK]    6. El panel encuentra al jugador del mundo
+[OK]    6. Tras una transformación REAL el panel sigue al personaje equipado — forma=velocista contexto=velocista
+[OK]    6. Cada personaje muestra SÓLO sus habilidades, con la tecla real
+        filas de FUERZA: ["ESPACIO = Saltar / supersalto", "CLIC IZQ. = Puñetazo / lanzar", "SHIFT = Correr", "CTRL = Agacharse", "CLIC DER. = Patada", "R = Embestida", "E = Pisotón", "Q = Levantar roca"]
+[OK]    6. La tecla mostrada es la REAL del InputMap (Q = levantar roca) — filas=["ESPACIO = Saltar / supersalto", "CLIC IZQ. = Puñetazo / lanzar", "SHIFT = Correr", "CTRL = Agacharse", "CLIC DER. = Patada", "R = Embestida", "E = Pisotón", "Q = Levantar roca"]
+[OK]    6. El supersalto sale con su matiz de mantener y soltar — filas=["ESPACIO = Saltar / supersalto", "CLIC IZQ. = Puñetazo / lanzar", "SHIFT = Correr", "CTRL = Agacharse", "CLIC DER. = Patada", "R = Embestida", "E = Pisotón", "Q = Levantar roca"]
+[OK]    6. El pisotón aéreo (E) sale con su condición — filas=["ESPACIO = Saltar / supersalto", "CLIC IZQ. = Puñetazo / lanzar", "SHIFT = Correr", "CTRL = Agacharse", "CLIC DER. = Patada", "R = Embestida", "E = Pisotón", "Q = Levantar roca"]
+[OK]    6. Las habilidades de OTROS personajes no aparecen — filas=["ESPACIO = Saltar / supersalto", "CLIC IZQ. = Puñetazo / lanzar", "SHIFT = Correr", "CTRL = Agacharse", "CLIC DER. = Patada", "R = Embestida", "E = Pisotón", "Q = Levantar roca"]
+[OK]    6. Está en el cuadrante inferior IZQUIERDO — x=24.0 de 1152.0
+[OK]    6. No está pegado al borde inferior (margen visible) — margen inferior=118.0 px
+[OK]    6. Ocultar el HUD general NO apaga este panel (independiente)
+[OK]    6. El ajuste del panel lo apaga por completo — visible=false
+[OK]    6. Al volver a encenderlo muestra el personaje ACTUAL — filas=8
+[OK]    6. El tamaño cambia SÓLO el panel y es coherente — grande=1.60 pequeño=0.60
+[OK]    6. Los dos ajustes del panel se guardan en las preferencias — error=0
+=== FIN: 42 OK, 0 FALLOS ===

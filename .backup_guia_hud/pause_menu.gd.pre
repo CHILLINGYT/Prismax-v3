@@ -1,0 +1,635 @@
+class_name PauseMenu
+extends CanvasLayer
+
+## Menu de pausa. Reutiliza la identidad visual del menu principal (panel,
+## tipografia, indicador de seleccion, descripcion) pero SIN el video de fondo:
+## el fondo es el mundo actual, desenfocado por un shader de pantalla.
+##
+## El nodo vive dentro de la escena del mundo (ziba_prototipo.tscn) y su
+## process_mode es ALWAYS, de modo que sigue recibiendo entrada aunque el arbol
+## este pausado (get_tree().paused = true).
+##
+## ESC funciona como interruptor: abre la pausa durante la partida y la cierra
+## cuando esta abierta.
+
+const MenuOptionRes := preload("res://ui/scripts/menu_option.gd")
+
+## Escena del mundo que se reinicia con NEW GAME.
+const ESCENA_MUNDO := "res://ziba/escenas/ziba_prototipo.tscn"
+
+## Escena de carga: misma que usa el menu principal, para no duplicar la logica
+## de carga del mundo (un unico flujo).
+const ESCENA_CARGA := "res://ui/scenes/LoadingScreen.tscn"
+
+## Velocidad de la transicion visual (abrir/cerrar). No es una animacion
+## exagerada: solo un fundido breve del panel y del desenfoque.
+const VELOCIDAD_TRANSICION := 7.0
+
+## Titulos de las dos paginas del menu: la lista de pausa y la configuracion.
+const TITULO_PAUSA := "PAUSA"
+const TITULO_CONFIG := "CONFIGURACIÓN"
+
+## Emitida al reanudar, para que el mundo pueda reaccionar si lo necesita.
+signal resumed
+
+@onready var _root: Control = $Root
+@onready var _blur: ColorRect = $Blur
+@onready var _title: Label = %Title
+@onready var _items: VBoxContainer = %Items
+@onready var _config_items: VBoxContainer = %ConfigItems
+@onready var _config_panel: Control = $Root/ConfigPanel
+@onready var _config_title: Label = %ConfigTitle
+@onready var _indicator: ColorRect = %Indicator
+@onready var _description: Label = %Description
+# Contenido de la categoria GRÁFICOS (mismo panel derecho, sin duplicarlo).
+@onready var _config_content: VBoxContainer = %ConfigContent
+@onready var _calidad_izq: Button = %CalidadIzq
+@onready var _calidad_der: Button = %CalidadDer
+@onready var _calidad_valor: Label = %CalidadValor
+@onready var _modo_izq: Button = %ModoIzq
+@onready var _modo_der: Button = %ModoDer
+@onready var _modo_valor: Label = %ModoValor
+@onready var _res_izq: Button = %ResolucionIzq
+@onready var _res_der: Button = %ResolucionDer
+@onready var _res_valor: Label = %ResolucionValor
+@onready var _fps_izq: Button = %FpsIzq
+@onready var _fps_der: Button = %FpsDer
+@onready var _fps_valor: Label = %FpsValor
+@onready var _dist_barra: BarraValor = %DistanciaBarra
+@onready var _dist_valor: Label = %DistanciaValor
+# P10-B: streaming dinámico del mundo (opción OPCIONAL del jugador).
+@onready var _opt_valor: Label = %OptimizacionValor
+@onready var _opt_izq: Button = %OptimizacionIzq
+@onready var _opt_der: Button = %OptimizacionDer
+@onready var _opt_dependientes: VBoxContainer = %OptimizacionDependientes
+@onready var _carga_barra: BarraValor = %CargaBarra
+@onready var _carga_valor: Label = %CargaValor
+@onready var _precarga_barra: BarraValor = %PrecargaBarra
+@onready var _precarga_valor: Label = %PrecargaValor
+@onready var _diag_valor: Label = %DiagnosticoValor
+@onready var _diag_izq: Button = %DiagnosticoIzq
+@onready var _diag_der: Button = %DiagnosticoDer
+# Contenido de la categoría JUGABILIDAD (mismo panel derecho, sin duplicarlo).
+@onready var _jugabilidad_content: VBoxContainer = %JugabilidadContent
+@onready var _sens_barra: BarraValor = %SensibilidadBarra
+@onready var _sens_valor: Label = %SensibilidadValor
+@onready var _invertir_izq: Button = %InvertirIzq
+@onready var _invertir_der: Button = %InvertirDer
+@onready var _invertir_valor: Label = %InvertirValor
+@onready var _ayudas_izq: Button = %AyudasIzq
+@onready var _ayudas_der: Button = %AyudasDer
+@onready var _ayudas_valor: Label = %AyudasValor
+@onready var _hud_izq: Button = %HudIzq
+@onready var _hud_der: Button = %HudDer
+@onready var _hud_valor: Label = %HudValor
+# Panel de CONTROLES DE HABILIDADES: encendido/apagado y tamaño, ambos SÓLO de
+# ese panel (independientes del resto del HUD).
+@onready var _habilidades_izq: Button = %HabilidadesIzq
+@onready var _habilidades_der: Button = %HabilidadesDer
+@onready var _habilidades_valor: Label = %HabilidadesValor
+@onready var _tam_habilidades_izq: Button = %TamanoHabilidadesIzq
+@onready var _tam_habilidades_der: Button = %TamanoHabilidadesDer
+@onready var _tam_habilidades_valor: Label = %TamanoHabilidadesValor
+# Contenido de la categoría CONTROLES (mismo panel derecho, sin duplicarlo).
+@onready var _controles_content: PanelControles = %ControlsContent
+# Contenido de la categoría AUDIO (mismo panel derecho, sin duplicarlo).
+@onready var _audio_content: VBoxContainer = %AudioContent
+@onready var _vol_general_barra: BarraValor = %VolumenGeneralBarra
+@onready var _vol_general_valor: Label = %VolumenGeneralValor
+@onready var _vol_musica_barra: BarraValor = %VolumenMusicaBarra
+@onready var _vol_musica_valor: Label = %VolumenMusicaValor
+@onready var _vol_efectos_barra: BarraValor = %VolumenEfectosBarra
+@onready var _vol_efectos_valor: Label = %VolumenEfectosValor
+@onready var _dialogos_izq: Button = %DialogosIzq
+@onready var _dialogos_der: Button = %DialogosDer
+@onready var _dialogos_valor: Label = %DialogosValor
+
+var _selected: int = 0
+var _move_tween: Tween
+var _fade_tween: Tween
+var _abierto: bool = false
+# Pagina activa: false = lista de pausa, true = pantalla de configuracion.
+var _en_config: bool = false
+# Categoria de configuracion cuyo panel de contenido esta abierto (indice en
+# ConfigItems), o -1 si el panel secundario esta oculto.
+var _categoria_abierta: int = -1
+# Progreso de la transicion: 0 = cerrado (sin blur), 1 = abierto.
+var _transicion: float = 0.0
+# Indice de la opcion destructiva pendiente de confirmacion (-1 = ninguna).
+var _pendiente: int = -1
+
+func _ready() -> void:
+	visible = false
+	_blur.material.set_shader_parameter("cantidad", 0.0)
+	_root.modulate.a = 0.0
+	_conectar_lista(_items)
+	_conectar_lista(_config_items)
+	_conectar_opciones_graficos()
+	_conectar_opciones_jugabilidad()
+	_conectar_opciones_audio()
+	AjustesGraficos.cambiado.connect(_actualizar_opciones_graficos)
+	AjustesJugabilidad.cambiado.connect(_actualizar_opciones_jugabilidad)
+	AjustesAudio.cambiado.connect(_actualizar_opciones_audio)
+	_en_config = false
+	_title.text = TITULO_PAUSA
+	_items.visible = true
+	_config_items.visible = false
+	_config_panel.visible = false
+	_config_content.visible = false
+	_jugabilidad_content.visible = false
+	_controles_content.visible = false
+	_audio_content.visible = false
+	_categoria_abierta = -1
+	_selected = 0
+	_refresh(true)
+
+## Conecta hovering y clic de cada fila de una lista (lista de pausa o la de
+## configuracion). Se les pasa la lista porque ahora hay dos paginas.
+func _conectar_lista(lista: VBoxContainer) -> void:
+	for i in lista.get_child_count():
+		var row := lista.get_child(i) as MenuOptionRes
+		if row == null:
+			continue
+		row.mouse_entered.connect(_on_row_hovered.bind(lista, i))
+		row.gui_input.connect(_on_row_gui_input.bind(lista, i))
+
+## Lista de filas de la pagina activa.
+func _filas_activas() -> VBoxContainer:
+	return _config_items if _en_config else _items
+
+## Anima el desenfoque y el fundido del panel. Corre en process_mode ALWAYS,
+## por lo que sigue avanzando con el arbol pausado.
+func _process(delta: float) -> void:
+	var objetivo := 1.0 if _abierto else 0.0
+	if is_equal_approx(_transicion, objetivo):
+		return
+	_transicion = move_toward(_transicion, objetivo, VELOCIDAD_TRANSICION * delta)
+	_blur.material.set_shader_parameter("cantidad", _transicion)
+	_root.modulate.a = _transicion
+	if _transicion <= 0.0:
+		visible = false
+
+func esta_abierto() -> bool:
+	return _abierto
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Mientras el panel CONTROLES espera una tecla, su _input ya ha consumido el
+	# evento: aquí no hay nada que hacer (ni cerrar la pausa ni mover la lista).
+	if _controles_content.visible and _controles_content.esta_capturando():
+		return
+
+	# ESC: interruptor. En la lista de pausa abre/cierra la pausa; en la pantalla
+	# de configuracion vuelve a la lista de pausa (no reanuda la partida).
+	if event.is_action_pressed("ui_cancel"):
+		if _abierto and _en_config:
+			_salir_config()
+		elif _abierto:
+			cerrar()
+		else:
+			abrir()
+		get_viewport().set_input_as_handled()
+		return
+
+	if not _abierto:
+		return
+
+	# Con el panel CONTROLES a la vista, las flechas cambian de transformación y
+	# arriba/abajo recorren SU lista (manteniendo el foco dentro del panel).
+	if _controles_content.visible and _en_config:
+		if event.is_action_pressed("ui_left"):
+			_controles_content.cambiar_forma(-1)
+		elif event.is_action_pressed("ui_right"):
+			_controles_content.cambiar_forma(1)
+		elif event.is_action_pressed("menu_up"):
+			_controles_content.mover_seleccion(-1)
+		elif event.is_action_pressed("menu_down"):
+			_controles_content.mover_seleccion(1)
+		elif event.is_action_pressed("menu_accept"):
+			_controles_content.confirmar()
+		else:
+			return
+		get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("menu_up"):
+		_move(-1)
+	elif event.is_action_pressed("menu_down"):
+		_move(1)
+	elif event.is_action_pressed("menu_accept"):
+		_activate(_selected)
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+## Abre la pausa: detiene el mundo, muestra el menu y libera el raton.
+func abrir() -> void:
+	if _abierto:
+		return
+	_abierto = true
+	_pendiente = -1
+	visible = true
+	# Al abrir la pausa siempre se empieza en la lista de pausa, nunca a medias
+	# en la pantalla de configuracion.
+	_en_config = false
+	_title.text = TITULO_PAUSA
+	_items.visible = true
+	_config_items.visible = false
+	_config_panel.visible = false
+	_config_content.visible = false
+	_jugabilidad_content.visible = false
+	_controles_content.visible = false
+	_audio_content.visible = false
+	_controles_content.desactivar()
+	_categoria_abierta = -1
+	_selected = 0
+	_refresh(true)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().paused = true
+
+## Cierra la pausa: reanuda el mundo, oculta el menu y recaptura el raton.
+func cerrar() -> void:
+	if not _abierto:
+		return
+	_abierto = false
+	_pendiente = -1
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	resumed.emit()
+
+func _move(step: int) -> void:
+	var count: int = _filas_activas().get_child_count()
+	if count == 0:
+		return
+	# Cualquier movimiento cancela una confirmacion pendiente.
+	_pendiente = -1
+	# Sonido de navegación: solo si el movimiento cambia de opción.
+	if count > 1:
+		SonidoUI.reproducir_cursor()
+	_selected = wrapi(_selected + step, 0, count)
+	_refresh(false)
+
+func _refresh(instant: bool) -> void:
+	var rows: Array[Node] = _filas_activas().get_children()
+	if _selected < 0 or _selected >= rows.size():
+		return
+	for i in rows.size():
+		var row := rows[i] as MenuOptionRes
+		if row != null:
+			row.set_highlight(i == _selected)
+
+	var target := rows[_selected] as Control
+	if target != null:
+		_slide_indicator(target, instant)
+
+	var current := rows[_selected] as MenuOptionRes
+	if current != null:
+		# El panel de contenido NO depende del resaltado (hover/seleccion): se
+		# abre y cierra al PULSAR una categoria (ver _toggle_categoria). Aqui solo
+		# se actualiza la descripcion de la fila.
+		_description.text = current.description
+		if not instant:
+			if _fade_tween != null and _fade_tween.is_valid():
+				_fade_tween.kill()
+			_description.modulate.a = 0.0
+			_fade_tween = create_tween()
+			_fade_tween.tween_property(_description, "modulate:a", 1.0, 0.15)
+
+func _slide_indicator(row: Control, instant: bool) -> void:
+	var target_y: float = row.position.y
+	if instant:
+		_indicator.position.y = target_y
+		return
+	if _move_tween != null and _move_tween.is_valid():
+		_move_tween.kill()
+	_move_tween = create_tween()
+	_move_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_move_tween.tween_property(_indicator, "position:y", target_y, 0.12)
+
+func _activate(index: int) -> void:
+	var rows: Array[Node] = _filas_activas().get_children()
+	if index < 0 or index >= rows.size():
+		return
+	var row := rows[index] as MenuOptionRes
+	if row == null:
+		return
+	SonidoUI.reproducir_click()
+	match row.action:
+		MenuOptionRes.Action.CONTINUE:
+			cerrar()
+		MenuOptionRes.Action.NEW_GAME:
+			if _pendiente == index:
+				_nueva_partida.call_deferred()
+			else:
+				_pedir_confirmacion(index, "NUEVA PARTIDA: pulsa de nuevo para confirmar.")
+		MenuOptionRes.Action.QUIT:
+			if _pendiente == index:
+				get_tree().quit()
+			else:
+				_pedir_confirmacion(index, "SALIR DEL JUEGO: pulsa de nuevo para confirmar.")
+		MenuOptionRes.Action.CONFIG:
+			_entrar_config()
+		MenuOptionRes.Action.BACK:
+			_salir_config()
+		MenuOptionRes.Action.CATEGORY:
+			# Interruptor por activacion: pulsar una categoria abre su panel;
+			# volver a pulsarla lo cierra; pulsar otra cambia el titulo.
+			_toggle_categoria(index, row)
+
+## Entra en la pantalla de configuracion: misma pausa, misma escena, solo se
+## alternan los nodos visibles y el titulo. No reanuda ni reinicia nada.
+func _entrar_config() -> void:
+	_en_config = true
+	_pendiente = -1
+	_selected = 0
+	_items.visible = false
+	_config_items.visible = true
+	# El panel de contenido empieza OCULTO: solo aparece al pulsar una categoria.
+	_config_panel.visible = false
+	_config_content.visible = false
+	_jugabilidad_content.visible = false
+	_controles_content.visible = false
+	_audio_content.visible = false
+	_categoria_abierta = -1
+	_title.text = TITULO_CONFIG
+	_refresh(true)
+
+## Vuelve de la configuracion a la lista de pausa. La partida sigue pausada.
+func _salir_config() -> void:
+	_en_config = false
+	_pendiente = -1
+	_selected = 0
+	_config_items.visible = false
+	_items.visible = true
+	# Se oculta el panel y se restablece la categoria, para que al volver a
+	# entrar en CONFIGURACIÓN el panel no aparezca abierto.
+	_config_panel.visible = false
+	_config_content.visible = false
+	_jugabilidad_content.visible = false
+	_controles_content.visible = false
+	_audio_content.visible = false
+	_controles_content.desactivar()
+	_categoria_abierta = -1
+	_title.text = TITULO_PAUSA
+	_refresh(true)
+
+## Interruptor del panel de contenido (SIEMPRE el mismo nodo, nunca se duplica):
+## - pulsar la categoria ya abierta -> oculta el panel;
+## - pulsar otra categoria        -> mantiene el panel y cambia solo el titulo.
+func _toggle_categoria(index: int, row: MenuOptionRes) -> void:
+	if _categoria_abierta == index:
+		_categoria_abierta = -1
+		_config_panel.visible = false
+		_config_content.visible = false
+		_jugabilidad_content.visible = false
+		_controles_content.visible = false
+		_audio_content.visible = false
+		_controles_content.desactivar()
+		return
+	_categoria_abierta = index
+	_config_title.text = _titulo_categoria(row)
+	_config_panel.visible = true
+	_actualizar_contenido_categoria()
+
+## Nombre de la categoria para el titulo del panel de contenido. Se toma de la
+## propia etiqueta de la fila (p. ej. "> AUDIO" -> "AUDIO"), de modo que el titulo
+## del panel y el boton nunca se desincronizan.
+func _titulo_categoria(row: MenuOptionRes) -> String:
+	var etiqueta := row.get_node_or_null("Label") as Label
+	if etiqueta == null:
+		return ""
+	return etiqueta.text.trim_prefix("> ").strip_edges()
+
+# ---------------------------------------------------------------- GRÁFICOS
+## Conecta los controles del panel de GRÁFICOS. Se hace UNA sola vez (en _ready),
+## así no hay señales duplicadas. Todos los cambios se aplican/guardan a través
+## del singleton AjustesGraficos.
+func _conectar_opciones_graficos() -> void:
+	_calidad_izq.pressed.connect(_on_calidad_paso.bind(-1))
+	_calidad_der.pressed.connect(_on_calidad_paso.bind(1))
+	_modo_izq.pressed.connect(_on_pantalla_paso)
+	_modo_der.pressed.connect(_on_pantalla_paso)
+	_res_izq.pressed.connect(_on_resolucion_paso.bind(-1))
+	_res_der.pressed.connect(_on_resolucion_paso.bind(1))
+	_fps_izq.pressed.connect(_on_fps_paso)
+	_fps_der.pressed.connect(_on_fps_paso)
+	# Barra de DISTANCIA: es un slider, NO reproduce ningún sonido de interfaz.
+	_dist_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia)
+	# P10-B: optimización agresiva del mundo (toggle) y sus barras dependientes.
+	_opt_izq.pressed.connect(_on_optimizacion_paso)
+	_opt_der.pressed.connect(_on_optimizacion_paso)
+	_carga_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia_carga)
+	_precarga_barra.valor_cambiado.connect(AjustesGraficos.poner_distancia_precarga)
+	_diag_izq.pressed.connect(_on_diagnostico_paso)
+	_diag_der.pressed.connect(_on_diagnostico_paso)
+
+## Selectores de GRÁFICOS: sonido `siyno` UNA vez por cambio EFECTIVO de valor.
+## Si la flecha no consigue cambiar el valor (p. ej. resolución en pantalla
+## completa), no suena nada.
+func _on_pantalla_paso() -> void:
+	var antes := AjustesGraficos.pantalla_completa
+	AjustesGraficos.alternar_pantalla()
+	if AjustesGraficos.pantalla_completa != antes:
+		SonidoUI.reproducir_siyno()
+
+func _on_resolucion_paso(paso: int) -> void:
+	var antes := AjustesGraficos.resolucion_idx
+	AjustesGraficos.poner_resolucion(antes + paso)
+	if AjustesGraficos.resolucion_idx != antes:
+		SonidoUI.reproducir_siyno()
+
+## Cambia el perfil de calidad gráfica (Baja / Media / Alta). Todo el trabajo lo
+## hace el singleton: aquí sólo se pide el paso.
+func _on_calidad_paso(paso: int) -> void:
+	AjustesGraficos.pasar_calidad(paso)
+
+func _on_fps_paso() -> void:
+	var antes := AjustesGraficos.mostrar_fps
+	AjustesGraficos.poner_mostrar_fps(not antes)
+	if AjustesGraficos.mostrar_fps != antes:
+		SonidoUI.reproducir_siyno()
+
+## P10-B: enciende/apaga la optimización agresiva del mundo. Al apagarla, el gestor
+## restaura de forma segura todos los sectores descargados.
+func _on_optimizacion_paso() -> void:
+	AjustesGraficos.alternar_optimizacion_agresiva()
+	SonidoUI.reproducir_siyno()
+
+## P10-B: interruptor del modo de diagnóstico (sólo para pruebas).
+func _on_diagnostico_paso() -> void:
+	AjustesGraficos.alternar_diagnostico_stream()
+	SonidoUI.reproducir_siyno()
+
+## Refleja en la interfaz el estado REAL que vive en AjustesGraficos.
+func _actualizar_opciones_graficos() -> void:
+	_calidad_valor.text = AjustesGraficos.texto_calidad()
+	_modo_valor.text = "PANTALLA COMPLETA" if AjustesGraficos.pantalla_completa else "VENTANA"
+	_res_valor.text = AjustesGraficos.texto_resolucion()
+	_fps_valor.text = "SÍ" if AjustesGraficos.mostrar_fps else "NO"
+	_dist_barra.poner_valor(AjustesGraficos.distancia)
+	_dist_valor.text = str(AjustesGraficos.distancia)
+	# P10-B: opción de streaming + controles dependientes (sólo visibles si está ON).
+	_opt_valor.text = AjustesGraficos.texto_optimizacion()
+	_opt_dependientes.visible = AjustesGraficos.optimizacion_agresiva
+	_carga_barra.poner_valor(AjustesGraficos.distancia_carga)
+	_carga_valor.text = AjustesGraficos.texto_carga()
+	_precarga_barra.poner_valor(AjustesGraficos.distancia_precarga)
+	_precarga_valor.text = AjustesGraficos.texto_precarga()
+	_diag_valor.text = AjustesGraficos.texto_diagnostico_stream()
+
+## Muestra el contenido de GRÁFICOS o JUGABILIDAD solo cuando ESA categoría está
+## abierta; las demás categorías mantienen su área vacía. Siempre son los MISMOS
+## nodos: no se duplica ni se recrea nada.
+func _actualizar_contenido_categoria() -> void:
+	if _categoria_abierta < 0:
+		_config_content.visible = false
+		_jugabilidad_content.visible = false
+		_controles_content.visible = false
+		_audio_content.visible = false
+		return
+	var row := _config_items.get_child(_categoria_abierta) as MenuOptionRes
+	var nombre := String(row.name) if row != null else ""
+	var es_graficos := nombre == "GraficosOption"
+	var es_jugabilidad := nombre == "JugabilidadOption"
+	var es_controles := nombre == "ControlesOption"
+	var es_audio := nombre == "AudioOption"
+	_config_content.visible = es_graficos
+	_jugabilidad_content.visible = es_jugabilidad
+	_controles_content.visible = es_controles
+	_audio_content.visible = es_audio
+	if es_graficos:
+		AjustesGraficos.sincronizar_estado_ventana()
+		_actualizar_opciones_graficos()
+	elif es_jugabilidad:
+		_actualizar_opciones_jugabilidad()
+	elif es_controles:
+		# Abrir CONTROLES no transforma nada: el panel vuelve a Humano y genera la
+		# lista de esa forma. Cerrarlo cancela cualquier captura en curso.
+		_controles_content.activar()
+	elif es_audio:
+		_actualizar_opciones_audio()
+	else:
+		_controles_content.desactivar()
+
+# ---------------------------------------------------------------- JUGABILIDAD
+## Conecta los controles del panel de JUGABILIDAD. Se hace UNA sola vez (en
+## _ready), así no hay señales duplicadas. Todos los cambios se aplican/guardan
+## a través del singleton AjustesJugabilidad.
+func _conectar_opciones_jugabilidad() -> void:
+	# Barra de SENSIBILIDAD: es un slider, NO reproduce ningún sonido de interfaz.
+	_sens_barra.valor_cambiado.connect(AjustesJugabilidad.poner_sensibilidad)
+	_invertir_izq.pressed.connect(_on_invertir_paso)
+	_invertir_der.pressed.connect(_on_invertir_paso)
+	_ayudas_izq.pressed.connect(_on_ayudas_paso)
+	_ayudas_der.pressed.connect(_on_ayudas_paso)
+	_hud_izq.pressed.connect(_on_hud_paso)
+	_hud_der.pressed.connect(_on_hud_paso)
+	# Panel de CONTROLES DE HABILIDADES: encendido/apagado y tamaño, suyos.
+	_habilidades_izq.pressed.connect(_on_habilidades_paso)
+	_habilidades_der.pressed.connect(_on_habilidades_paso)
+	_tam_habilidades_izq.pressed.connect(_on_tam_habilidades_paso.bind(-1))
+	_tam_habilidades_der.pressed.connect(_on_tam_habilidades_paso.bind(1))
+
+## Selectores SÍ/NO de JUGABILIDAD: sonido `siyno` en cada cambio efectivo.
+func _on_invertir_paso() -> void:
+	AjustesJugabilidad.alternar_invertir_eje_vertical()
+	SonidoUI.reproducir_siyno()
+
+func _on_ayudas_paso() -> void:
+	AjustesJugabilidad.alternar_mostrar_ayudas()
+	SonidoUI.reproducir_siyno()
+
+func _on_hud_paso() -> void:
+	AjustesJugabilidad.alternar_ocultar_hud()
+	SonidoUI.reproducir_siyno()
+
+## Enciende/apaga el panel de controles de habilidades (ajuste PROPIO, no toca el
+## resto del HUD). El sonido suena sólo si el valor cambió de verdad.
+func _on_habilidades_paso() -> void:
+	var antes := AjustesJugabilidad.hud_controles_visible
+	AjustesJugabilidad.alternar_hud_controles_visible()
+	if AjustesJugabilidad.hud_controles_visible != antes:
+		SonidoUI.reproducir_siyno()
+
+## Cambia el TAMAÑO de ese panel (nivel a nivel). Suena sólo si cambió.
+func _on_tam_habilidades_paso(paso: int) -> void:
+	var antes := AjustesJugabilidad.hud_controles_escala
+	AjustesJugabilidad.pasar_hud_controles_escala(paso)
+	if AjustesJugabilidad.hud_controles_escala != antes:
+		SonidoUI.reproducir_siyno()
+
+## Refleja en la interfaz el estado REAL que vive en AjustesJugabilidad.
+func _actualizar_opciones_jugabilidad() -> void:
+	_sens_barra.poner_valor(AjustesJugabilidad.sensibilidad)
+	_sens_valor.text = str(AjustesJugabilidad.sensibilidad)
+	_invertir_valor.text = "SÍ" if AjustesJugabilidad.invertir_eje_vertical else "NO"
+	_ayudas_valor.text = "SÍ" if AjustesJugabilidad.mostrar_ayudas else "NO"
+	_hud_valor.text = "SÍ" if AjustesJugabilidad.ocultar_hud else "NO"
+	_habilidades_valor.text = "SÍ" if AjustesJugabilidad.hud_controles_visible else "NO"
+	_tam_habilidades_valor.text = AjustesJugabilidad.texto_hud_controles_escala()
+
+# ---------------------------------------------------------------- AUDIO
+## Conecta los controles del panel de AUDIO. Se hace UNA sola vez (en _ready),
+## así no hay señales duplicadas. Todos los cambios se aplican/guardan a través
+## del singleton AjustesAudio.
+##
+## ETAPA ACTUAL SIN SONIDO: mover las barras o cambiar SÍ/NO solo actualiza y
+## guarda la preferencia; AjustesAudio no modifica ningún bus todavía. La
+## estructura para conectarlo en el futuro ya está lista (ver ajustes_audio.gd).
+func _conectar_opciones_audio() -> void:
+	# Barras de VOLUMEN: son sliders, NO reproducen ningún sonido de interfaz.
+	_vol_general_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_general)
+	_vol_musica_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_musica)
+	_vol_efectos_barra.valor_cambiado.connect(AjustesAudio.poner_volumen_efectos)
+	_dialogos_izq.pressed.connect(_on_dialogos_paso)
+	_dialogos_der.pressed.connect(_on_dialogos_paso)
+
+## Selector SÍ/NO de diálogos: sonido `siyno` en cada cambio efectivo.
+func _on_dialogos_paso() -> void:
+	AjustesAudio.alternar_desactivar_dialogos()
+	SonidoUI.reproducir_siyno()
+
+## Refleja en la interfaz el estado REAL que vive en AjustesAudio.
+func _actualizar_opciones_audio() -> void:
+	_vol_general_barra.poner_valor(AjustesAudio.volumen_general)
+	_vol_general_valor.text = str(AjustesAudio.volumen_general)
+	_vol_musica_barra.poner_valor(AjustesAudio.volumen_musica)
+	_vol_musica_valor.text = str(AjustesAudio.volumen_musica)
+	_vol_efectos_barra.poner_valor(AjustesAudio.volumen_efectos)
+	_vol_efectos_valor.text = str(AjustesAudio.volumen_efectos)
+	_dialogos_valor.text = "SÍ" if AjustesAudio.desactivar_dialogos else "NO"
+
+## Marca una accion destructiva como pendiente: el segundo accept la ejecuta.
+## Evita perder la partida por una pulsacion accidental.
+func _pedir_confirmacion(index: int, texto: String) -> void:
+	_pendiente = index
+	_description.text = texto
+
+func _nueva_partida() -> void:
+	# Se reanuda antes de cambiar de escena para que la carga arranque sin el
+	# arbol pausado. La partida nueva pasa por la MISMA pantalla de carga que el
+	# menu principal: un unico flujo responsable de cargar el mundo.
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	LoadingScreen.destino = ESCENA_MUNDO
+	get_tree().change_scene_to_file(ESCENA_CARGA)
+
+func _on_row_hovered(lista: VBoxContainer, index: int) -> void:
+	if lista != _filas_activas():
+		return
+	if index == _selected:
+		return
+	# El cursor entró en OTRA opción: un único sonido de navegación.
+	SonidoUI.reproducir_cursor()
+	_pendiente = -1
+	_selected = index
+	_refresh(false)
+
+func _on_row_gui_input(event: InputEvent, lista: VBoxContainer, index: int) -> void:
+	if lista != _filas_activas():
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if index != _selected:
+			_pendiente = -1
+			_selected = index
+			_refresh(false)
+		_activate(index)

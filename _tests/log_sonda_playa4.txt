@@ -1,0 +1,93 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+D3D12 12_0 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060
+
+[SONDA] generando la ciudad…
+[GeneradorCiudad] Colisiones de vegetación: 652 cilindros (427 troncos de árbol/palmera + 225 canteros) en capa 1
+[Peatones] puertas usables: 55 de 70 (descartadas: 15 sin acceso en la red, 0 por mobiliario, 0 mal orientadas, 0 sobre la calzada)
+[Peatones] modelos Mixamo cargados: 7
+WARNING: [Peatones] no hay CicloDiaNoche: se asume de día
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _buscar_ciclo (res://NPCs/Scripts/director_peatones.gd:581)
+       [1] instalar (res://NPCs/Scripts/director_peatones.gd:181)
+       [2] _generar_peatones (res://generador_ciudad.gd:834)
+       [3] generar_ciudad (res://generador_ciudad.gd:627)
+       [4] _correr (res://_tests/sonda_playa.gd:59)
+[Peatones] red: 668 vértices { "acera": 325, "plaza": 55, "parque": 15, "paseo": 162, "arena": 111 } | 49 ciudadanos (playa 16) | bancos 62 asientos libres 18 | reposeras 18 libres 11 | obstáculos 955 | puertas 55 usables de 70
+[Peatones] reparto por sectores: { "B00": 2, "B01": 2, "B02": 2, "B03": 2, "B10": 2, "B11": 2, "B12": 2, "B13": 2, "B20": 1, "B21": 1, "B22": 1, "B23": 1, "B30": 1, "B31": 1, "B32": 0, "B33": 1, "costa": 16, "P-4_-4": 0, "P-4_-5": 0, "P-5_-3": 0, "P-4_-3": 0, "P-4_1": 0, "P-4_0": 0, "P-4_3": 0, "P-4_2": 0, "P-5_3": 0, "P-2_-5": 0, "P-2_-4": 0, "P-3_-5": 0, "P1_-4": 0, "P0_-4": 0, "P1_3": 0, "P1_2": 0, "P0_3": 0, "P1_4": 0, "P1_5": 0, "P4_1": 1, "P4_0": 1, "P5_1": 0, "P4_4": 1, "P4_5": 1, "P-1_-1": 1, "P-1_0": 0, "P0_-1": 1, "P-1_1": 1, "P0_1": 1, "P1_-1": 1, "P1_0": 1 }
+[GeneradorCiudad] ------------------------------------------------
+[GeneradorCiudad] Carpeta: res://Exports/glTF (Godot)/  (semilla 5257702364384985290)
+[GeneradorCiudad] Semilla del mundo: SEMILLA=20260215 (fija) | ediciones a mano: sin ediciones (ciudad 100% procedural)
+[GeneradorCiudad] Modelos escaneados: 153
+[GeneradorCiudad]   modulos_edificio 106  | Brick_90Angle_L, Brick_90Angle_R, Brick_BottomTrim, Brick_Column_RedBricks, Brick_Column_Small, Brick_Column_TrimBricks, Brick_CornerColumn_Bottom, Brick_CornerColumn_Cap ... (106)
+[GeneradorCiudad]   edificios        3  | Building_Large_2, Building_Medium_2_001, Building_Small_1
+[GeneradorCiudad]   marcas_viales   17  | Decal_ArrowForwardLeft, Decal_ArrowForwardRight, Decal_ArrowStraight, Decal_ArrowTurnLeft, Decal_ArrowTurnRight, Decal_Bikelane, Decal_BrokenLine_Straight, Decal_Crosswalk ... (17)
+[GeneradorCiudad]   props            4  | Prop_ACUnit, Prop_Bollard, Prop_Drain, Prop_ManholeCover
+[GeneradorCiudad]   vegetacion       2  | Prop_Planter_Single, Sidewalk_Planter
+[GeneradorCiudad]   aceras           7  | Sidewalk_Corner_Flat_3m, Sidewalk_Corner_Flat_3m_Stripe, Sidewalk_Corner_Round_3m, Sidewalk_Corner_Round_3m_Stripe, Sidewalk_NoCurb_3m, Sidewalk_Straight_3m, Sidewalk_Straight_3m_Stripe
+[GeneradorCiudad]   calles          14  | Street_2Lane, Street_2Lane_noSidewalk, Street_4Lane, Street_4Lane_noSidewalk, Street_4WayIntersection, Street_Asphalt_6x6, Street_Asphalt_9x9, Street_Asphalt_Curve_2Lane ... (14)
+[GeneradorCiudad] Trama: 6x6 manzanas de 24 m | calle 18 m (calzada 12 + aceras 3/3)
+[GeneradorCiudad] Suelos: 34 | tramos de calle: 840 | marcas: 1093
+[GeneradorCiudad] Parques: 3 | árboles: 375 | arbustos y jardineras: 114
+[GeneradorCiudad] Bancos en parques y plazas: 31
+[GeneradorCiudad] Macetas (árboles sobre pavimento): 225
+[GeneradorCiudad] Playa: palmeras 52 | sombrillas 19 | reposeras 36
+[GeneradorCiudad] Prado costero: árboles 96 | arbustos 23 (césped, sin macetas)
+[GeneradorCiudad] Ventanas nocturnas: 2048 encendidas de 5488 ventanas (70 edificios)
+[GeneradorCiudad] Parcelas: 81 = edificios 70 + plazas 11 (fallbacks: 0)
+[GeneradorCiudad] Edificios: 70 (0 prefabricados + 70 modulares) | props: 286 | vegetación: 114
+[GeneradorCiudad] Portales: 70 | puertas colocadas: 70
+[GeneradorCiudad] Fachadas: familias B7 M5 T8 | piezas sin modelo: 0 OK (todo cerrado)
+[GeneradorCiudad] MultiMeshInstance3D: 765 | nodos instanciados: 958 | tiempo: 1.66 s
+[GeneradorCiudad] Contenedores en nodo 'CiudadGenerada'.
+[GeneradorCiudad] Peatones: 49 ciudadanos | caminando 0 · sentados 0 · tumbados 0 | bancos libres 62/62 reposeras libres 18/36 | cruces pintados 141
+[SONDA] borde urbano: x=137.0  z=137.0  (terreno [P: (-137.0, -0.16, -137.0), S: (274.0, 0.005, 274.0)])
+[SONDA] arena a 9 m del borde en +X (cota arena=-0.45)
+[SONDA] piezas por contenedor en la banda del borde +X: { "Suelo": 118, "Calles": 152, "Props": 102, "Edificios": 26 }
+[SONDA] piezas CLARAS (lum >= 0.35) y con volumen en esa banda: 193
+[SONDA]   CLARA Edificios | Azotea | pos=(105.0, 12.08, -111.0) | tam=(24.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(105.0, 18.08, -99.0) | tam=(24.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(105.0, 18.08, 57.0) | tam=(24.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(105.0, 9.08, 69.0) | tam=(24.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(111.0, 15.08, -21.0) | tam=(12.00, 0.24, 24.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(111.0, 18.08, -63.0) | tam=(12.00, 0.24, 24.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(111.0, 6.08, 105.0) | tam=(12.00, 0.24, 24.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(69.0, 21.08, 111.0) | tam=(12.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(69.0, 21.08, 99.0) | tam=(12.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(69.0, 6.08, -111.0) | tam=(12.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(69.0, 6.08, -99.0) | tam=(12.00, 0.24, 12.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(99.0, 15.08, -63.0) | tam=(12.00, 0.24, 24.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Azotea | pos=(99.0, 9.08, -21.0) | tam=(12.00, 0.24, 24.00) | albedo=0.78 0.78 0.80 (lum 0.78)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(105.0, 4.25, 69.0) | tam=(21.50, 8.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(105.0, 5.75, -111.0) | tam=(21.50, 11.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(105.0, 8.75, -99.0) | tam=(21.50, 17.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(105.0, 8.75, 57.0) | tam=(21.50, 17.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(111.0, 2.75, 105.0) | tam=(9.50, 5.50, 21.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(111.0, 7.25, -21.0) | tam=(9.50, 14.50, 21.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(111.0, 8.75, -63.0) | tam=(9.50, 17.50, 21.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(69.0, 10.25, 111.0) | tam=(9.50, 20.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(69.0, 10.25, 99.0) | tam=(9.50, 20.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(69.0, 2.75, -111.0) | tam=(9.50, 5.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(69.0, 2.75, -99.0) | tam=(9.50, 5.50, 9.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(99.0, 4.25, -21.0) | tam=(9.50, 8.50, 21.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Edificios | Relleno_interior | pos=(99.0, 7.25, -63.0) | tam=(9.50, 14.50, 21.50) | albedo=0.58 0.53 0.45 (lum 0.53)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(101.0, 18.20, 58.9) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(101.6, 15.20, -55.7) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(103.0, 15.20, -69.9) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(103.6, 12.20, -108.2) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(105.6, 12.20, -112.1) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(106.5, 18.20, 56.3) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(110.1, 18.20, -100.8) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(110.2, 18.20, -66.0) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(110.3, 6.20, 102.1) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(114.1, 9.20, 67.6) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(114.4, 15.20, -18.4) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(114.8, 18.20, -68.6) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(68.2, 21.20, 108.4) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA]   CLARA Props | Prop_ACUnit | pos=(68.8, 15.20, -22.7) | tam=(0.89, 0.60, 0.35) | albedo=1.00 1.00 1.00 (lum 1.00)
+[SONDA] arena construida del relieve real: x 77..207  z -70..70
+[SONDA] captura: res://_tests/capturas_playa/01_borde_este.png
+[SONDA] captura: res://_tests/capturas_playa/02_desde_la_ciudad.png
+[SONDA] captura: res://_tests/capturas_playa/03_cenital_borde.png
+WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)

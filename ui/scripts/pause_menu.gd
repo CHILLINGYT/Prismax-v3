@@ -85,6 +85,14 @@ signal resumed
 @onready var _hud_izq: Button = %HudIzq
 @onready var _hud_der: Button = %HudDer
 @onready var _hud_valor: Label = %HudValor
+# Panel de CONTROLES DE HABILIDADES: encendido/apagado y tamaño, ambos SÓLO de
+# ese panel (independientes del resto del HUD).
+@onready var _habilidades_izq: Button = %HabilidadesIzq
+@onready var _habilidades_der: Button = %HabilidadesDer
+@onready var _habilidades_valor: Label = %HabilidadesValor
+@onready var _tam_habilidades_izq: Button = %TamanoHabilidadesIzq
+@onready var _tam_habilidades_der: Button = %TamanoHabilidadesDer
+@onready var _tam_habilidades_valor: Label = %TamanoHabilidadesValor
 # Contenido de la categoría CONTROLES (mismo panel derecho, sin duplicarlo).
 @onready var _controles_content: PanelControles = %ControlsContent
 # Contenido de la categoría AUDIO (mismo panel derecho, sin duplicarlo).
@@ -526,6 +534,11 @@ func _conectar_opciones_jugabilidad() -> void:
 	_ayudas_der.pressed.connect(_on_ayudas_paso)
 	_hud_izq.pressed.connect(_on_hud_paso)
 	_hud_der.pressed.connect(_on_hud_paso)
+	# Panel de CONTROLES DE HABILIDADES: encendido/apagado y tamaño, suyos.
+	_habilidades_izq.pressed.connect(_on_habilidades_paso)
+	_habilidades_der.pressed.connect(_on_habilidades_paso)
+	_tam_habilidades_izq.pressed.connect(_on_tam_habilidades_paso.bind(-1))
+	_tam_habilidades_der.pressed.connect(_on_tam_habilidades_paso.bind(1))
 
 ## Selectores SÍ/NO de JUGABILIDAD: sonido `siyno` en cada cambio efectivo.
 func _on_invertir_paso() -> void:
@@ -540,6 +553,22 @@ func _on_hud_paso() -> void:
 	AjustesJugabilidad.alternar_ocultar_hud()
 	SonidoUI.reproducir_siyno()
 
+## Enciende/apaga el panel de controles de habilidades (ajuste PROPIO, no toca el
+## resto del HUD). El sonido suena sólo si el valor cambió de verdad.
+func _on_habilidades_paso() -> void:
+	var antes := AjustesJugabilidad.hud_controles_visible
+	AjustesJugabilidad.alternar_hud_controles_visible()
+	if AjustesJugabilidad.hud_controles_visible != antes:
+		SonidoUI.reproducir_siyno()
+
+## Cambia el TAMAÑO de la guía (GRANDE -> MEDIANO -> CHICO y vuelta). Suena sólo
+## si cambió de verdad.
+func _on_tam_habilidades_paso(paso: int) -> void:
+	var antes := AjustesJugabilidad.hud_controles_tamano
+	AjustesJugabilidad.pasar_hud_controles_tamano(paso)
+	if AjustesJugabilidad.hud_controles_tamano != antes:
+		SonidoUI.reproducir_siyno()
+
 ## Refleja en la interfaz el estado REAL que vive en AjustesJugabilidad.
 func _actualizar_opciones_jugabilidad() -> void:
 	_sens_barra.poner_valor(AjustesJugabilidad.sensibilidad)
@@ -547,6 +576,8 @@ func _actualizar_opciones_jugabilidad() -> void:
 	_invertir_valor.text = "SÍ" if AjustesJugabilidad.invertir_eje_vertical else "NO"
 	_ayudas_valor.text = "SÍ" if AjustesJugabilidad.mostrar_ayudas else "NO"
 	_hud_valor.text = "SÍ" if AjustesJugabilidad.ocultar_hud else "NO"
+	_habilidades_valor.text = "SÍ" if AjustesJugabilidad.hud_controles_visible else "NO"
+	_tam_habilidades_valor.text = AjustesJugabilidad.texto_hud_controles_tamano()
 
 # ---------------------------------------------------------------- AUDIO
 ## Conecta los controles del panel de AUDIO. Se hace UNA sola vez (en _ready),

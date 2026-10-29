@@ -1,0 +1,293 @@
+class_name PanelHabilidadesHUD
+extends CanvasLayer
+
+## =============================================================================
+##  PANEL DE CONTROLES DE HABILIDADES (inferior izquierda del HUD de partida)
+## =============================================================================
+##  Muestra, SÓLO del personaje equipado, la tecla y la acción de sus habilidades.
+##  NO inventa ni duplica la información de controles: la lee del catálogo REAL
+##  del juego (`AjustesControles`: acciones por forma, etiqueta, nota y TEXTO DE
+##  LA TECLA YA ASIGNADA). Así, si el jugador reasigna una tecla desde los
+##  ajustes, el panel se actualiza solo (escucha `cambiado`) y los textos nunca
+##  quedan desfasados respecto al InputMap.
+##
+##  La forma actual la da el propio jugador (`ControladorLeo.forma_cambiada` /
+##  `id_forma()`), la MISMA señal que usa el resto del HUD: al transformarse, el
+##  panel se reconstruye con las habilidades del nuevo personaje, y las del
+##  anterior desaparecen.
+##
+##  Es una capa VISUAL pura: no toca controles, movimiento, combate ni estamina.
+##  Todo su mouse_filter es IGNORE, de modo que nunca intercepta la entrada.
+##
+##  Ajustes propios (independientes del resto del HUD): encendido/apagado y
+##  tamaño, en `AjustesJugabilidad` (`hud_controles_visible`,
+##  `hud_controles_escala`). Con el panel apagado no ocupa nada ni intercepta
+##  nada; al volver a encenderlo muestra los controles del personaje actual.
+## =============================================================================
+
+## id de forma del CONTROLADOR (id_forma()) -> contexto del catálogo de
+## `AjustesControles`. El controlador usa los ids internos del sistema de estamina
+## (&"pes"/&"tanque"/&"aguila"); el catálogo, los nombres legibles de las formas.
+const CONTEXTO := {
+	&"humano": &"humano",
+	&"velocista": &"velocista",
+	&"pes": &"acuatico",
+	&"tanque": &"fuerza",
+	&"combate": &"combate",
+	&"aguila": &"vuelo",
+}
+
+## Acciones que NO se listan en este panel de ayuda: el movimiento (las cuatro
+## direcciones, que son las mismas en todas las formas, siempre a la vista en
+## pantalla) y el botón de menús. Se OMITE su fila, pero la tecla sigue saliendo
+## del catálogo para las que sí se muestran: aquí no se duplica ningún dato.
+const OMITIDAS: Array[StringName] = [
+	&"mover_adelante", &"mover_atras", &"mover_izquierda", &"mover_derecha",
+	&"menu_transformaciones",
+]
+
+# --- Aspecto (mismo lenguaje visual que el resto del HUD: fondo oscuro traslúcido
+# con esquinas redondeadas y tipografía clara, construido en código) ------------
+const COLOR_FONDO := Color(0.05, 0.06, 0.09, 0.72)
+const COLOR_BORDE := Color(1.0, 1.0, 1.0, 0.14)
+const COLOR_TITULO := Color(0.72, 0.76, 0.84, 1.0)
+const COLOR_TECLA := Color(0.94, 0.96, 1.0, 1.0)
+const COLOR_ACCION := Color(0.88, 0.90, 0.94, 1.0)
+const COLOR_NOTA := Color(0.62, 0.66, 0.73, 1.0)
+const COLOR_CHIP_FONDO := Color(1.0, 1.0, 1.0, 0.08)
+const COLOR_CHIP_BORDE := Color(1.0, 1.0, 1.0, 0.24)
+
+const ANCHO_CHIP := 74.0
+const ALTO_FILA := 30.0
+const FUENTE_TITULO := 11
+const FUENTE_TECLA := 12
+const FUENTE_ACCION := 13
+const FUENTE_NOTA := 10
+
+## Separación del panel a los bordes: a la IZQUIERDA y —lo importante— por ENCIMA
+## del borde inferior, para que no quede pegado a la esquina. El panel crece hacia
+## arriba (grow_vertical = BEGIN), así que el margen inferior se respeta siempre,
+## tenga las filas que tenga.
+const MARGEN_IZQ := 24.0
+const MARGEN_INFERIOR := 118.0
+
+var _caja: VBoxContainer
+var _filas: VBoxContainer
+var _jugador: ControladorLeo
+var _contexto_actual: StringName = &"humano"
+
+func _ready() -> void:
+	# Capa propia, por encima del cartel de objetivo y por debajo de los avisos
+	# contextuales: no tapa la mira ni los indicadores de juego.
+	layer = 75
+	_construir()
+	_aplicar_ajustes()
+	# El jugador y los avisos de forma pueden no existir todavía en el primer
+	# fotograma del mundo: se busca en diferido, sin bloquear la carga.
+	_conectar.call_deferred()
+
+# ------------------------------------------------------------------ montaje
+## Construye el panel entero en código (como el resto del HUD): un título pequeño
+## y una fila por habilidad: [ tecla ] acción + nota corta.
+func _construir() -> void:
+	_caja = VBoxContainer.new()
+	_caja.name = "Caja"
+	_caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_caja.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_caja.anchor_right = 0.0
+	_caja.anchor_top = 1.0
+	_caja.anchor_bottom = 1.0
+	_caja.offset_left = MARGEN_IZQ
+	_caja.offset_right = MARGEN_IZQ
+	_caja.offset_top = -MARGEN_INFERIOR
+	_caja.offset_bottom = -MARGEN_INFERIOR
+	# Crece hacia ARRIBA desde su borde inferior: el margen de abajo se mantiene
+	# aunque el personaje tenga muchas habilidades.
+	_caja.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_caja.grow_horizontal = Control.GROW_DIRECTION_END
+	_caja.add_theme_constant_override("separation", 0)
+	# Al cambiar de tamaño (otra forma con más o menos filas, u otro tamaño de
+	# panel) el pivote se recoloca en su esquina inferior izquierda: la escala
+	# crece hacia arriba y hacia la derecha sin mover ese punto.
+	_caja.resized.connect(_actualizar_pivote)
+	add_child(_caja)
+
+	var marco := PanelContainer.new()
+	marco.name = "Marco"
+	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = COLOR_FONDO
+	estilo.border_color = COLOR_BORDE
+	estilo.set_border_width_all(1)
+	estilo.set_corner_radius_all(8)
+	estilo.content_margin_left = 10
+	estilo.content_margin_right = 12
+	estilo.content_margin_top = 8
+	estilo.content_margin_bottom = 9
+	marco.add_theme_stylebox_override("panel", estilo)
+	_caja.add_child(marco)
+
+	var contenido := VBoxContainer.new()
+	contenido.name = "Contenido"
+	contenido.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	contenido.add_theme_constant_override("separation", 2)
+	marco.add_child(contenido)
+
+	var titulo := Label.new()
+	titulo.name = "Titulo"
+	titulo.text = "CONTROLES"
+	titulo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	titulo.add_theme_color_override("font_color", COLOR_TITULO)
+	titulo.add_theme_font_size_override("font_size", FUENTE_TITULO)
+	contenido.add_child(titulo)
+
+	_filas = VBoxContainer.new()
+	_filas.name = "Filas"
+	_filas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_filas.add_theme_constant_override("separation", 0)
+	contenido.add_child(_filas)
+
+# ------------------------------------------------------------------ jugador
+## Busca al jugador (ControladorLeo) del mundo actual y se engancha a su señal de
+## transformación. Reintenta unos fotogramas porque el panel puede entrar en el
+## árbol antes que el jugador.
+func _conectar() -> void:
+	var intentos := 0
+	while _jugador == null and intentos < 120:
+		_jugador = _buscar_jugador(get_tree().root)
+		if _jugador == null:
+			intentos += 1
+			await get_tree().process_frame
+	if _jugador == null:
+		return
+	if not _jugador.forma_cambiada.is_connected(_on_forma_cambiada):
+		_jugador.forma_cambiada.connect(_on_forma_cambiada)
+	if not AjustesControles.cambiado.is_connected(_reconstruir):
+		AjustesControles.cambiado.connect(_reconstruir)
+	if not AjustesJugabilidad.cambiado.is_connected(_aplicar_ajustes):
+		AjustesJugabilidad.cambiado.connect(_aplicar_ajustes)
+	_contexto_actual = _contexto_de(_jugador.id_forma())
+	_reconstruir()
+
+## Primer nodo del árbol con la interfaz del controlador (id_forma + la señal de
+## transformación). Se busca por CAPACIDAD, no por nombre de nodo, para no
+## depender de cómo se llame en la escena.
+func _buscar_jugador(raiz: Node) -> ControladorLeo:
+	var pila: Array[Node] = [raiz]
+	while not pila.is_empty():
+		var n: Node = pila.pop_back()
+		if n is ControladorLeo:
+			var j := n as ControladorLeo
+			if j.forma_cambiada != null:
+				return j
+		for c in n.get_children():
+			pila.append(c)
+	return null
+
+func _contexto_de(id_forma: StringName) -> StringName:
+	return CONTEXTO.get(id_forma, &"humano")
+
+func _on_forma_cambiada(id: StringName) -> void:
+	_contexto_actual = _contexto_de(id)
+	if AjustesJugabilidad.hud_controles_visible:
+		_reconstruir()
+
+# ------------------------------------------------------------------ ajustes
+## Encendido/apagado y tamaño, SÓLO de este panel. Apagado no ocupa nada ni
+## intercepta entrada; al encenderlo vuelve con los controles del personaje
+## actual (se reconstruye).
+func _aplicar_ajustes() -> void:
+	visible = AjustesJugabilidad.hud_controles_visible
+	if not visible:
+		return
+	var f: float = AjustesJugabilidad.factor_hud_controles()
+	_caja.scale = Vector2(f, f)
+	_actualizar_pivote()
+	_reconstruir()
+
+func _actualizar_pivote() -> void:
+	if _caja == null:
+		return
+	# Pivote en la esquina INFERIOR izquierda: escalar crece hacia arriba y a la
+	# derecha, así el margen inferior y el izquierdo no se mueven.
+	_caja.pivot_offset = Vector2(0.0, _caja.size.y)
+
+# ------------------------------------------------------------------ contenido
+## Reconstruye las filas con las habilidades del personaje equipado. Las teclas
+## salen SIEMPRE del catálogo real (`AjustesControles.texto_de`), así que reflejan
+## lo que el jugador tenga asignado en ese momento.
+func _reconstruir() -> void:
+	if _filas == null or not AjustesJugabilidad.hud_controles_visible:
+		return
+	for hijo in _filas.get_children():
+		# Se QUITA del contenedor antes de liberarlo: así no conviven las filas
+		# viejas y las nuevas durante el fotograma del recambio (el panel nunca
+		# aparece con las dos listas a la vez).
+		_filas.remove_child(hijo)
+		hijo.queue_free()
+	for accion_v in AjustesControles.acciones_para(_contexto_actual):
+		var accion: StringName = accion_v
+		if OMITIDAS.has(accion):
+			continue
+		_crear_fila(accion)
+
+func _crear_fila(accion: StringName) -> void:
+	var fila := HBoxContainer.new()
+	fila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fila.custom_minimum_size = Vector2(0, ALTO_FILA)
+	fila.add_theme_constant_override("separation", 10)
+	_filas.add_child(fila)
+
+	# Recuadro de la TECLA (mismo aspecto de "botón" que el panel de ajustes).
+	var marco := PanelContainer.new()
+	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marco.custom_minimum_size = Vector2(ANCHO_CHIP, 0)
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = COLOR_CHIP_FONDO
+	estilo.border_color = COLOR_CHIP_BORDE
+	estilo.set_border_width_all(1)
+	estilo.set_corner_radius_all(4)
+	estilo.content_margin_left = 6
+	estilo.content_margin_right = 6
+	estilo.content_margin_top = 2
+	estilo.content_margin_bottom = 2
+	marco.add_theme_stylebox_override("panel", estilo)
+	fila.add_child(marco)
+
+	var tecla := Label.new()
+	tecla.text = AjustesControles.texto_de(accion)
+	tecla.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tecla.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tecla.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tecla.clip_text = true
+	tecla.add_theme_color_override("font_color", COLOR_TECLA)
+	tecla.add_theme_font_size_override("font_size", FUENTE_TECLA)
+	marco.add_child(tecla)
+
+	# Acción (una línea) + nota corta (segunda línea): el matiz de "mantener",
+	# "en el aire", "sólo volando"… sale del propio catálogo, no de aquí.
+	var caja := VBoxContainer.new()
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caja.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	caja.add_theme_constant_override("separation", 0)
+	fila.add_child(caja)
+
+	var nombre := Label.new()
+	nombre.text = AjustesControles.etiqueta_de(accion, _contexto_actual)
+	nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	nombre.add_theme_color_override("font_color", COLOR_ACCION)
+	nombre.add_theme_font_size_override("font_size", FUENTE_ACCION)
+	caja.add_child(nombre)
+
+	var nota_texto := AjustesControles.nota_de(accion, _contexto_actual)
+	if nota_texto != "":
+		var nota := Label.new()
+		nota.text = nota_texto
+		nota.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		nota.add_theme_color_override("font_color", COLOR_NOTA)
+		nota.add_theme_font_size_override("font_size", FUENTE_NOTA)
+		caja.add_child(nota)
+
+	# El pivote depende del tamaño final: se recalcula al terminar el fotograma.
+	_actualizar_pivote.call_deferred()
