@@ -3,7 +3,7 @@
 ; Cielo ESTÁTICO del perfil BAJA.
 ;
 ; Es un recurso PROPIO y nuevo: el cielo dinámico del juego
-; (res://Cielo/cielo_ciudad.tres + Cielo/shader/main.gdshader) no se toca ni se
+; (res://mundo/cielo/cielo_ciudad.tres + Cielo/shader/main.gdshader) no se toca ni se
 ; modifica en ningún momento. MEDIA y ALTA siguen usando el original.
 ;
 ; Coste: PanoramaSkyMaterial es una lectura de textura mapeada a la esfera

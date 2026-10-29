@@ -9,8 +9,8 @@ extends Node3D
 ##
 ##  Mide, alternando en PARES (ALTA,BAJA / BAJA,ALTA / …) para cancelar la deriva
 ##  térmica, el tiempo de fotograma con:
-##      · dinámico : res://Cielo/cielo_ciudad.tres (ShaderMaterial del addon)
-##      · estatico : res://Cielo/cielo_panorama_baja.tres (PanoramaSkyMaterial)
+##      · dinámico : res://mundo/cielo/cielo_ciudad.tres (ShaderMaterial del addon)
+##      · estatico : res://mundo/cielo/cielo_panorama_baja.tres (PanoramaSkyMaterial)
 ##
 ##  Uso:
 ##    XDG_DATA_HOME=/tmp/prismax_audit/xdg \
@@ -19,8 +19,8 @@ extends Node3D
 ##             PRISMAX_CIELO_WARMUP=<s> (4) · PRISMAX_CIELO_CAPTURA=1
 ## =============================================================================
 
-const CIELO_DINAMICO := "res://Cielo/cielo_ciudad.tres"
-const CIELO_ESTATICO := "res://Cielo/cielo_panorama_baja.tres"
+const CIELO_DINAMICO := "res://mundo/cielo/cielo_ciudad.tres"
+const CIELO_ESTATICO := "res://mundo/cielo/cielo_panorama_baja.tres"
 const DIR_CAPTURAS := "res://pruebas/auditoria_rendimiento/_capturas"
 
 var _env: Environment

@@ -483,7 +483,7 @@ func _entorno() -> void:
 	if we.environment == null:
 		var env := Environment.new()
 		env.background_mode = Environment.BG_SKY
-		env.sky = load("res://Cielo/cielo_ciudad.tres") as Sky
+		env.sky = load("res://mundo/cielo/cielo_ciudad.tres") as Sky
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 		env.ambient_light_sky_contribution = 0.6
 		env.tonemap_mode = Environment.TONE_MAPPER_FILMIC

@@ -1,10 +1,10 @@
 [gd_resource type="Sky" format=3 uid="uid://deitn65yn8r6c"]
 
-[ext_resource type="Shader" uid="uid://kgjsu8n7pyom" path="res://Cielo/shader/main.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" uid="uid://dy4tvvd6jbv0g" path="res://Cielo/textures/clouds/clouds_01.tres" id="2_cloud1"]
-[ext_resource type="Texture2D" uid="uid://bb5calsl3axsd" path="res://Cielo/textures/clouds/clouds_02.tres" id="3_cloud2"]
-[ext_resource type="Texture2D" uid="uid://bkj2o2i076mw4" path="res://Cielo/textures/stars/stars_01.tres" id="4_stars"]
-[ext_resource type="Texture2D" uid="uid://bc4crfwd14w5r" path="res://Cielo/textures/stars/sky_noise_02.tres" id="5_skynoise"]
+[ext_resource type="Shader" uid="uid://kgjsu8n7pyom" path="res://mundo/cielo/shader/main.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dy4tvvd6jbv0g" path="res://mundo/cielo/textures/clouds/clouds_01.tres" id="2_cloud1"]
+[ext_resource type="Texture2D" uid="uid://bb5calsl3axsd" path="res://mundo/cielo/textures/clouds/clouds_02.tres" id="3_cloud2"]
+[ext_resource type="Texture2D" uid="uid://bkj2o2i076mw4" path="res://mundo/cielo/textures/stars/stars_01.tres" id="4_stars"]
+[ext_resource type="Texture2D" uid="uid://bc4crfwd14w5r" path="res://mundo/cielo/textures/stars/sky_noise_02.tres" id="5_skynoise"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_cielo"]
 shader = ExtResource("1_shader")

@@ -46,7 +46,7 @@ enum Calidad { BAJA, MEDIA, ALTA }
 const CALIDAD_NOMBRES: Array[String] = ["BAJA", "MEDIA", "ALTA"]
 ## Cielo ESTÁTICO que usa sólo el perfil BAJA (recurso aparte: el cielo
 ## dinámico del juego no se modifica). Se carga de forma perezosa.
-const RUTA_CIELO_BAJA := "res://Cielo/cielo_panorama_baja.tres"
+const RUTA_CIELO_BAJA := "res://mundo/cielo/cielo_panorama_baja.tres"
 
 ## Tabla por perfil. `ALTA` == configuración original del proyecto (escala 1.0,
 ## SSAO encendido, sombras del sol sin recortar, sin tocar la vegetación).

@@ -12,7 +12,7 @@ extends Node3D
 ##    * la iluminación ambiental y el color de la niebla del WorldEnvironment,
 ##    * el color de las nubes del cielo.
 ##
-##  El cielo (res://Cielo/cielo_ciudad.tres -> Cielo/shader/main.gdshader) deriva
+##  El cielo (res://mundo/cielo/cielo_ciudad.tres -> Cielo/shader/main.gdshader) deriva
 ##  su mezcla de día/noche del `LIGHT0_DIRECTION` de ESTA luz, así que cielo e
 ##  iluminación quedan siempre en fase sin sincronizar nada a mano.
 ##
