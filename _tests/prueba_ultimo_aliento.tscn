@@ -1,0 +1,28 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://_tests/prueba_ultimo_aliento.gd" id="1_suite"]
+[ext_resource type="PackedScene" path="res://personaje/base/escenas/leo_jugador.tscn" id="2_jug"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_suelo"]
+size = Vector3(80, 1, 80)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_pista"]
+size = Vector2(80, 80)
+
+[node name="PruebaUltimoAliento" type="Node3D"]
+script = ExtResource("1_suite")
+
+[node name="Suelo" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.5, 0)
+
+[node name="Forma" type="CollisionShape3D" parent="Suelo"]
+shape = SubResource("BoxShape3D_suelo")
+
+[node name="Pista" type="MeshInstance3D" parent="Suelo"]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("PlaneMesh_pista")
+
+[node name="Luz" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866, 0, -0.866, 0.5, 0, 6, 0)
+
+[node name="Jugador" parent="." instance=ExtResource("2_jug")]

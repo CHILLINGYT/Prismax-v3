@@ -87,6 +87,16 @@ const UMBRAL_AGOTADA := 0.5
 ## 0.5 = exactamente la mitad (regla de diseño).
 @export_range(0.0, 1.0, 0.01) var factor_inactivo: float = 0.5
 
+@export_group("Último aliento")
+## ÚLTIMO ALIENTO: con la vida en esta fracción de su máximo O MENOS (0.10 = 10 %),
+## el daño que llega a la VIDA se reduce. Vale para todas las formas (cada una con
+## su propio máximo) y para todo tipo de daño, porque se aplica aquí, en el único
+## punto de entrada (`recibir_danio`).
+@export_range(0.0, 1.0, 0.01) var ultimo_aliento_umbral: float = 0.10
+## Fracción del daño que se QUITA dentro de la zona (0.5 = la mitad). Se limita a
+## 0.9 como máximo: el daño reducido nunca llega a 0 (no es invulnerabilidad).
+@export_range(0.0, 0.9, 0.01) var ultimo_aliento_reduccion: float = 0.5
+
 @export_group("Estamina")
 ## ESTAMINA: recurso de energía de las acciones (movimiento, ataques y
 ## habilidades). Igual que la vida y la resistencia, CADA personaje guarda la
@@ -170,6 +180,7 @@ func recibir_danio(cantidad: float) -> void:
 		_sincronizar_activa()
 		resistencia_cambiada.emit(resistencia, resistencia_max)
 
+	a_vida = _con_ultimo_aliento(float(est["vida"]), _vida_max_de(_forma_actual), a_vida)
 	est["vida"] = maxf(0.0, float(est["vida"]) - a_vida)
 	_sincronizar_activa()
 	vida_cambiada.emit(vida, vida_max)
@@ -187,6 +198,25 @@ func recibir_danio(cantidad: float) -> void:
 		est["muerto"] = true
 		_sincronizar_activa()
 		murio.emit()
+
+## ÚLTIMO ALIENTO: daño que llega de verdad a la vida. La parte del golpe que cae
+## POR ENCIMA del umbral entra entera; sólo la parte que cae DENTRO de la zona
+## (vida <= umbral) se reduce. Así un golpe grande que cruza el umbral (p. ej. del
+## 15 % al 3 %) no se salta el efecto, y uno que no lo toca queda igual que antes.
+## Se calcula UNA vez por golpe y nunca devuelve 0 para un daño positivo.
+func _con_ultimo_aliento(vida_actual: float, vida_maxima: float, a_vida: float) -> float:
+	if a_vida <= 0.0:
+		return a_vida
+	var umbral := vida_maxima * clampf(ultimo_aliento_umbral, 0.0, 1.0)
+	var reduccion := clampf(ultimo_aliento_reduccion, 0.0, 0.9)
+	var normal := minf(a_vida, maxf(0.0, vida_actual - umbral))
+	var en_zona := a_vida - normal
+	return normal + en_zona * (1.0 - reduccion)
+
+## ¿El personaje ACTIVO está en la zona de ÚLTIMO ALIENTO? (pruebas/diagnóstico;
+## se deriva de la vida actual, así que al curarse por encima del umbral se apaga).
+func en_ultimo_aliento() -> bool:
+	return not muerto and vida <= vida_max * clampf(ultimo_aliento_umbral, 0.0, 1.0)
 
 ## Cura vida del personaje ACTIVO (no afecta a la resistencia).
 func curar(cantidad: float) -> void:
