@@ -40,7 +40,7 @@
 [ext_resource type="PackedScene" uid="uid://d04ufek57sqe8" path="res://personaje/transformaciones/transformacion ataque/animations/pose t.fbx" id="38_ataque_model"]
 [ext_resource type="AnimationLibrary" uid="uid://d3rj3sqsndim" path="res://personaje/transformaciones/transformacion ataque/animations/player_anim_library.tres" id="39_ataque_anims"]
 [ext_resource type="AnimationLibrary" path="res://personaje/base/animations/combos_acuaticos.tres" id="40_combo_agua"]
-[ext_resource type="AudioStream" uid="uid://scndx4m2k3no" path="res://Audio/personaje/transformacion/transformacion.mp3" id="40_transf_audio"]
+[ext_resource type="AudioStream" uid="uid://t3unse4y5q2l" path="res://Audio/personaje/transformacion/transformacion.mp3" id="40_transf_audio"]
 [ext_resource type="AudioStream" uid="uid://bkwmfd3unvcws" path="res://Audio/personaje/transformacion/velocidad/carga.wav" id="41_aud_carga"]
 [ext_resource type="AudioStream" uid="uid://c3xht8kdoshve" path="res://Audio/personaje/transformacion/velocidad/trazado.wav" id="42_aud_trazado"]
 [ext_resource type="AudioStream" uid="uid://b3anpaybog0ln" path="res://Audio/personaje/transformacion/velocidad/dash.wav" id="43_aud_dash"]

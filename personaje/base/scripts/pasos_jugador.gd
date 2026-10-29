@@ -263,12 +263,14 @@ func _variantes_de(carpeta: String) -> Array:
 	if _variantes.has(carpeta):
 		return _variantes[carpeta]
 	var lista: Array = []
-	var dir := DirAccess.open("%s/%s" % [RUTA_PASOS, carpeta])
-	if dir == null:
+	var ruta_carpeta := "%s/%s" % [RUTA_PASOS, carpeta]
+	if not DirAccess.dir_exists_absolute(ruta_carpeta):
 		push_warning("[Pasos] Sin carpeta de recortes: %s/%s" % [RUTA_PASOS, carpeta])
 		_variantes[carpeta] = lista
 		return lista
-	var nombres := dir.get_files()
+	# `ResourceLoader.list_directory`: en el juego EXPORTADO los .tres se remapean
+	# (.remap) y DirAccess no los vería; en el editor la lista es la misma.
+	var nombres := ResourceLoader.list_directory(ruta_carpeta)
 	nombres.sort()
 	for n in nombres:
 		var s := String(n)

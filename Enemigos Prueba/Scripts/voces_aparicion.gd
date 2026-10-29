@@ -87,11 +87,13 @@ var _archivo: String = ""
 static func streams_disponibles() -> Array[AudioStream]:
 	if not _streams.is_empty():
 		return _streams
-	var dir := DirAccess.open(CARPETA)
-	if dir == null:
+	if not DirAccess.dir_exists_absolute(CARPETA):
 		_informar_una_vez("[VocesAparicion] No existe la carpeta %s: los enemigos aparecerán sin voz." % CARPETA)
 		return _streams
-	var nombres := dir.get_files()
+	# `ResourceLoader.list_directory` y no `DirAccess.get_files`: en el juego
+	# EXPORTADO los audios importados sólo quedan como `.import`/remapeados y
+	# DirAccess no los encontraría (en el editor ambas listas son idénticas).
+	var nombres := ResourceLoader.list_directory(CARPETA)
 	nombres.sort()
 	for n in nombres:
 		var archivo := String(n)

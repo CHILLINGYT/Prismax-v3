@@ -66,8 +66,10 @@ func intentar_usar() -> bool:
 	_t_espera = ESPERA
 	if not EstadoCasaLeo.hay_vuelta():
 		# Sin punto de vuelta (por ejemplo, si se abrió la casa por su cuenta para
-		# probarla) se vuelve igual: el mundo coloca a Leo donde pueda.
-		EstadoCasaLeo.marcar_vuelta(global_position + Vector3(0.0, 0.0, 1.5), Vector3.FORWARD)
+		# probarla) se vuelve igual: el mundo coloca a Leo donde pueda (su aparición
+		# normal). Antes se inventaba un punto con coordenadas del INTERIOR, que en
+		# la ciudad no significan nada. Sólo se mantiene el bloqueo breve de la E.
+		EstadoCasaLeo.bloquear()
 	print("[casa] saliendo a la ciudad desde la puerta interior")
 	EstadoCasaLeo.salir(self)
 	return true

@@ -548,7 +548,8 @@ func _cargar_modelos_psx() -> void:
 	for par: Array in carpetas:
 		var dir: String = par[0]
 		var sexo: String = par[1]
-		var archivos := DirAccess.get_files_at(dir)
+		# list_directory (no DirAccess): funciona también en el juego exportado.
+		var archivos := ResourceLoader.list_directory(dir)
 		var nombres: Array[String] = []
 		for f in archivos:
 			if f.ends_with(".fbx") and not excluidos.has(f):

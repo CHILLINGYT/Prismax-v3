@@ -680,12 +680,14 @@ func generar_ciudad_por_etapas() -> bool:
 	_categorias.clear()
 	_con_decal.clear()
 	_mallas_limpias.clear()
-	var carpeta_dir := DirAccess.open(_carpeta)
-	if carpeta_dir == null:
+	if not DirAccess.dir_exists_absolute(_carpeta):
 		push_error("[GeneradorCiudad] No se pudo abrir la carpeta %s." % _carpeta)
 		return false
 	var nombres: Array[String] = []
-	for f in carpeta_dir.get_files():
+	# `ResourceLoader.list_directory` y no `DirAccess.get_files`: en el juego
+	# EXPORTADO los .gltf/.glb sólo quedan como `.import` y DirAccess no los
+	# encontraría (la ciudad saldría vacía). En el editor la lista es idéntica.
+	for f in ResourceLoader.list_directory(_carpeta):
 		if f.get_extension().to_lower() in ["gltf", "glb"]:
 			nombres.append(f)
 	nombres.sort()
@@ -1008,11 +1010,11 @@ func _escanear(carpeta: String) -> void:
 	_categorias.clear()
 	_con_decal.clear()
 	_mallas_limpias.clear()
-	var d := DirAccess.open(carpeta)
-	if d == null:
+	if not DirAccess.dir_exists_absolute(carpeta):
 		return
 	var nombres: Array[String] = []
-	for f in d.get_files():
+	# list_directory: funciona también en el juego exportado (ver arriba).
+	for f in ResourceLoader.list_directory(carpeta):
 		if f.get_extension().to_lower() in ["gltf", "glb"]:
 			nombres.append(f)
 	nombres.sort()

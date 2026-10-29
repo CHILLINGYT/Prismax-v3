@@ -132,4 +132,9 @@ static func _cargar(desde: Node, destino: String) -> void:
 	if desde == null or not desde.is_inside_tree():
 		return
 	LoadingScreen.destino = destino
-	desde.get_tree().change_scene_to_file(CARGA)
+	# DIFERIDO: la E se atiende en mitad del `_physics_process` de Leo, y
+	# `change_scene_to_file` saca la escena del árbol en el acto; el resto de ese
+	# paso de física seguía corriendo con Leo ya fuera del árbol (errores
+	# "!is_inside_tree()" en la cámara y en move_and_slide). Así el cambio ocurre
+	# al terminar el fotograma, con el mismo resultado.
+	desde.get_tree().change_scene_to_file.call_deferred(CARGA)
