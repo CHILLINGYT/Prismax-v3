@@ -1,6 +1,6 @@
 shader_type spatial;
 // =============================================================================
-//  SUPERFICIE DEL OCÉANO  (adaptación de res://Agua/Shaders/water_surface.gdshader)
+//  SUPERFICIE DEL OCÉANO  (adaptación de res://mundo/agua/Shaders/water_surface.gdshader)
 // =============================================================================
 //  El shader original NO se modifica: este archivo es su adaptación al tamaño
 //  real del mundo. Se conservan tal cual los colores, la transparencia, el

@@ -23,7 +23,7 @@
 [ext_resource type="Script" uid="uid://4oqk8xkyuyxf" path="res://world/farolas.gd" id="25_farolas"]
 [ext_resource type="Script" uid="uid://cgg5chg1c4qf7" path="res://mundo/cielo/sky3d_puente.gd" id="24_cielo3d"]
 [ext_resource type="Script" path="res://world/terreno3d.gd" id="19_isla"]
-[ext_resource type="PackedScene" path="res://Agua/Scenes/Ocean.tscn" id="21_oceano"]
+[ext_resource type="PackedScene" path="res://mundo/agua/Scenes/Ocean.tscn" id="21_oceano"]
 [ext_resource type="Script" path="res://world/bosque.gd" id="22_bosque"]
 [ext_resource type="PackedScene" path="res://world/LimitesMundo.tscn" id="23_limites"]
 [ext_resource type="PackedScene" path="res://world/barco.tscn" id="26_barco"]

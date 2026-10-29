@@ -82,7 +82,7 @@ const PROFUNDIDAD_VADEO := 0.55
 ## caminando por la playa (vadea antes de ponerse a nadar).
 const PROFUNDIDAD_NADO := 0.95
 ## Cota (m) de la superficie VISIBLE del océano: es la del plano de
-## res://Agua/Scenes/Ocean.tscn (-2.05), 5 cm por debajo de Relieve.NIVEL_MAR para
+## res://mundo/agua/Scenes/Ocean.tscn (-2.05), 5 cm por debajo de Relieve.NIVEL_MAR para
 ## que la línea de costa no quede coplanaria con la malla del terreno. El nado usa
 ## ESTA cota, de modo que el cuerpo flota donde se ve el agua.
 const SUPERFICIE_MAR := -2.05

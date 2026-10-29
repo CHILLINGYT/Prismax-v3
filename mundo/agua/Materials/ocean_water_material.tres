@@ -1,7 +1,7 @@
 [gd_resource type="ShaderMaterial" load_steps=3 format=3]
 
-[ext_resource type="Shader" path="res://Agua/Shaders/ocean_water.gdshader" id="1_oceano"]
-[ext_resource type="Texture2D" path="res://Agua/Textures/water_ripples.tres" id="2_ondulacion"]
+[ext_resource type="Shader" path="res://mundo/agua/Shaders/ocean_water.gdshader" id="1_oceano"]
+[ext_resource type="Texture2D" path="res://mundo/agua/Textures/water_ripples.tres" id="2_ondulacion"]
 
 [resource]
 shader = ExtResource("1_oceano")

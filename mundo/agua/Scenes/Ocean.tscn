@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Material" path="res://Agua/Materials/ocean_water_material.tres" id="1_agua"]
+[ext_resource type="Material" path="res://mundo/agua/Materials/ocean_water_material.tres" id="1_agua"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_oceano"]
 size = Vector2(24000, 24000)
