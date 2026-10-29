@@ -81,7 +81,6 @@ func _impactar(golpeado: Object) -> void:
 	var nodo := golpeado as Node
 	if nodo != null and (nodo.is_in_group("maniqui") or nodo.is_in_group("damageable")):
 		if VueloDano.aplicar(golpeado, danio, _direction, empujon):
-			print("[Pluma] Impacto: %d de daño a %s" % [danio, nodo.name])
 			return
 	if golpeado is RigidBody3D:
 		(golpeado as RigidBody3D).apply_central_impulse(

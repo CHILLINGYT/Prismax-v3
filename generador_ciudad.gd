@@ -1483,11 +1483,11 @@ func _datos_desde_estado(escena: PackedScene) -> Dictionary:
 		var ruta := String(st.get_node_path(i))
 		if st.is_node_instance_placeholder(i):
 			return {}               ## sub-escena instanciada: no inspeccionable aquí
-		var tr := Transform3D.IDENTITY
+		var xf := Transform3D.IDENTITY
 		for p in st.get_node_property_count(i):
 			if String(st.get_node_property_name(i, p)) == "transform":
-				tr = st.get_node_property_value(i, p) as Transform3D
-		trans[ruta] = tr
+				xf = st.get_node_property_value(i, p) as Transform3D
+		trans[ruta] = xf
 		if String(st.get_node_type(i)) != "MeshInstance3D":
 			continue
 		## Transformación relativa: se compone por la ruta del nodo (la raíz se omite).
@@ -2775,7 +2775,6 @@ func _poner_modular(rect: Rect2, id_solar: String = "", ed: Dictionary = {}) -> 
 	# ir al lote compartido: así la edición no toca a las demás del mismo tipo.
 	var cont_ed: Node3D = null
 	var cont_comun: Node3D = _cont["Modulares"]
-	var padre_piezas: Node3D = cont_comun
 	if id_solar != "":
 		cont_ed = Node3D.new()
 		cont_ed.name = id_solar
@@ -2785,7 +2784,6 @@ func _poner_modular(rect: Rect2, id_solar: String = "", ed: Dictionary = {}) -> 
 		var piezas := Node3D.new()
 		piezas.name = "Piezas"
 		cont_ed.add_child(piezas)
-		padre_piezas = piezas
 		_cont["Modulares"] = piezas
 
 	# --- Perímetro: muros de 2x3 m (y bloques de esquina, si la familia los trae)
@@ -4107,8 +4105,8 @@ func _hash_transformaciones(raiz: Node, excluir: Array = []) -> Array:
 			saltados += 1
 			continue
 		if n is Node3D:
-			var tr := (n as Node3D).transform
-			cuerpo += "%s|%s|%s;" % [str(n.get_path()), str(tr.origin), str(tr.basis)]
+			var xf := (n as Node3D).transform
+			cuerpo += "%s|%s|%s;" % [str(n.get_path()), str(xf.origin), str(xf.basis)]
 			nodos += 1
 		if n is MultiMeshInstance3D:
 			var mm := (n as MultiMeshInstance3D).multimesh

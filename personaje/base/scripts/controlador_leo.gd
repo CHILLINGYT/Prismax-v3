@@ -966,7 +966,6 @@ var _f_mira: Control = null
 
 # --- Estado velocista ---
 var _dir_dash: Vector3 = Vector3.ZERO
-var _pos_dash_inicio: Vector3 = Vector3.ZERO
 var _objetivo_dash: Vector3 = Vector3.ZERO
 var _t_dash: float = 0.0
 var _t_carga: float = 0.0
@@ -5394,7 +5393,6 @@ func _iniciar_dash(dir: Vector3) -> void:
 	_orientar_instant(dir)
 	_objetivo_dash = global_position + dir * distancia_objetivo_dash
 	_objetivo_dash.y = global_position.y
-	_pos_dash_inicio = global_position
 	_t_dash = 0.0
 	_bloqueo_anim = 0.0
 	efectos.iniciar_dash(dir)
@@ -5417,7 +5415,6 @@ func _procesar_dash(delta: float) -> void:
 func _terminar_dash() -> void:
 	estado = Estado.NORMAL
 	velocity = _dir_dash * velocidad_max
-	print("[Leo] dash recorrido: ", snappedf((global_position - _pos_dash_inicio).length(), 0.01), " m")
 	efectos.terminar_dash()
 
 func _procesar_caida_dash() -> void:

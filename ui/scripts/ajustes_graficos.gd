@@ -605,11 +605,11 @@ var _env_minimapa: Environment = null
 
 func _sincronizar_minimapa() -> void:
 	if _cam_minimapa == null or not is_instance_valid(_cam_minimapa):
-		_cam_minimapa = null
-		var r := get_tree().root.find_children("CamaraMinimapa", "Camera3D", true, false)
-		if r.is_empty():
+		# Por GRUPO (lo pone minimapa.gd): en modo PS2 esto corre cada fotograma
+		# mientras no haya minimapa, y recorrer todo el árbol de la ciudad era caro.
+		_cam_minimapa = get_tree().get_first_node_in_group(&"camara_minimapa") as Camera3D
+		if _cam_minimapa == null:
 			return
-		_cam_minimapa = r[0] as Camera3D
 	if modo_ambiente != Ambiente.PS2 or _entorno_copia == null:
 		_cam_minimapa.environment = null
 		return

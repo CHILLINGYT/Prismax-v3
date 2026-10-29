@@ -81,11 +81,9 @@ func _gesto() -> void:
 	var ap := _primer_player(_player)
 	if gesto_push and ap != null and ap.has_animation(&"UAL2/PalmazoPush"):
 		ctrl.reproducir_overlay(&"UAL2/PalmazoPush", velocidad_gesto)
-		print("[Palmazo] Gesto: PalmazoPush")
 		return
 	if clip_gesto_fallback != &"":
 		ctrl.reproducir_overlay(clip_gesto_fallback, velocidad_gesto)
-		print("[Palmazo] Gesto: repuesto ", clip_gesto_fallback)
 
 ## Primer AnimationPlayer colgando del Player (el principal del maniqui).
 func _primer_player(nodo: Node) -> AnimationPlayer:
@@ -122,7 +120,6 @@ func _rafaga(dir: Vector3, origen: Vector3) -> void:
 				continue
 			var dir_empuje := hacia.normalized() if hacia.length_squared() > 0.001 else dir
 			_empujar(cuerpo, dir_empuje)
-			print("[Palmazo] Ráfaga pega a ", cuerpo.name)
 
 func _empujar(cuerpo: Node3D, dir_empuje: Vector3) -> void:
 	# Maniquíes de práctica Y enemigos reales del proyecto: daño + empuje por el

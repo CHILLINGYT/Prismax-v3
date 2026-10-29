@@ -232,7 +232,6 @@ func _impacto_melee(indice: int) -> void:
 	var objetivo := _objetivo_valido()
 	if objetivo != null and _en_alcance(objetivo):
 		if VueloDano.aplicar(objetivo, danio, adelante, 4.5):
-			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", objetivo.name)
 			return
 	# 2) Respaldo espacial.
 	var espacio := _body.get_world_3d().direct_space_state
@@ -260,7 +259,6 @@ func _impacto_melee(indice: int) -> void:
 		if not (nodo.is_in_group("maniqui") or nodo.is_in_group("damageable")):
 			continue
 		if VueloDano.aplicar(cuerpo, danio, adelante, 4.5):
-			print("[GroundCombat] 💥 ", cadena[indice], " conecta: ", danio, " de daño a ", nodo.name)
 			return
 
 func _terminar() -> void:
