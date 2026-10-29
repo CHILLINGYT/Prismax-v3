@@ -32,8 +32,11 @@ extends Node3D
 ## Sonido REAL de disparo (el único archivo de `Audio/disparo/`, usado tal cual:
 ## dura 2,216 s e incluye la cola del disparo; es UN disparo, no una ráfaga).
 const AUD_DISPARO := "res://Audio/disparo/freesound_community-ak47-sfx-102801 (mp3cut.net).wav"
-## Volumen en el bus "Efectos" (se entiende sin tapar la música ni las voces).
-const VOLUMEN_DB := -4.0
+## Volumen (dB) del disparo de los enemigos a distancia. Afecta SÓLO a este
+## AudioStreamPlayer3D (el bus "Efectos" lo comparten otros sonidos y no se toca).
+## Antes -4 dB; bajado 8 dB a -12 dB porque tapaba al resto de la escena.
+## Ajustable desde el Inspector de la escena del arma.
+@export var volumen_db: float = -12.0
 ## Alcance del disparo: a qué distancia se oye a plena potencia y hasta dónde llega.
 const TAMANO_UNIDAD := 9.0
 const DISTANCIA_MAX := 60.0
@@ -68,7 +71,7 @@ func _ready() -> void:
 	# escena sin el `.tscn` completo, el disparo sigue saliendo igual.
 	if sonido != null:
 		sonido.bus = &"Efectos"
-		sonido.volume_db = VOLUMEN_DB
+		sonido.volume_db = volumen_db
 		sonido.unit_size = TAMANO_UNIDAD
 		sonido.max_distance = DISTANCIA_MAX
 		if sonido.stream == null:

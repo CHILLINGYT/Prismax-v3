@@ -224,8 +224,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+theme = ExtResource("91_tema")
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 26
+theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
@@ -233,14 +234,30 @@ theme_override_constants/margin_bottom = 16
 mouse_filter = 2
 size_flags_horizontal = 4
 size_flags_vertical = 0
-theme_override_styles/panel = SubResource("StyleBoxFlat_cartel")
+theme_type_variation = &"HudVelo"
 
-[node name="Texto" type="Label" parent="CartelObjetivo/Margen/Cartel"]
+[node name="Columna" type="VBoxContainer" parent="CartelObjetivo/Margen/Cartel"]
 mouse_filter = 2
+theme_override_constants/separation = 3
+
+[node name="Etiqueta" type="Label" parent="CartelObjetivo/Margen/Cartel/Columna"]
+mouse_filter = 2
+theme_type_variation = &"HudEtiqueta"
+text = "OBJETIVO"
+horizontal_alignment = 1
+
+[node name="Acento" type="Panel" parent="CartelObjetivo/Margen/Cartel/Columna"]
+custom_minimum_size = Vector2(46, 2)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_type_variation = &"HudAcento"
+
+[node name="Texto" type="Label" parent="CartelObjetivo/Margen/Cartel/Columna"]
+mouse_filter = 2
+theme_type_variation = &"HudObjetivo"
 text = "habla con el hombre en la plaza"
 horizontal_alignment = 1
-theme_override_colors/font_color = Color(0.96, 0.97, 1, 1)
-theme_override_font_sizes/font_size = 18
 
 [node name="PanelHabilidades" type="CanvasLayer" parent="."]
 script = ExtResource("49_habilidades")

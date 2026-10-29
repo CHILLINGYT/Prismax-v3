@@ -400,6 +400,53 @@ theme_override_font_sizes/font_size = 22
 text = ">"
 flat = true
 
+[node name="AmbienteFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Etiqueta" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/AmbienteFila"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.82, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "MODO DE AMBIENTE"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="AmbienteIzq" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/AmbienteFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "<"
+flat = true
+
+[node name="AmbienteValor" type="Label" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/AmbienteFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "REALISTA"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="AmbienteDer" type="Button" parent="Root/ConfigPanel/ConfigScroll/ConfigContent/AmbienteFila"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_colors/font_pressed_color = Color(0.75, 0.82, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = ">"
+flat = true
+
 [node name="ModoFila" type="HBoxContainer" parent="Root/ConfigPanel/ConfigScroll/ConfigContent" unique_id=632476702]
 layout_mode = 2
 theme_override_constants/separation = 12

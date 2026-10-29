@@ -32,7 +32,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.089, -0.62)
 [node name="SonidoDisparo" type="AudioStreamPlayer3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.089, -0.62)
 stream = ExtResource("3_disparo")
-volume_db = -4.0
+volume_db = -12.0
 unit_size = 9.0
 max_distance = 60.0
 bus = &"Efectos"

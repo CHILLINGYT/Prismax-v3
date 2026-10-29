@@ -91,6 +91,28 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		_check(EstadoCasaLeo.bloqueado(), "el bloqueo anti-bucle está activo tras una vuelta")
 
+	# --- La VISTA de la ciudad no puede meterse dentro de la casa --------------
+	# (regresión del "muro azul" que tapaba las ventanas del salón: un edificio del
+	# paisaje entraba en el salón porque el anillo empezaba a 16 m y los edificios
+	# miden hasta 22 m de lado.)
+	var caja_casa := _casa.caja_interior()
+	var radio_casa := Vector2(maxf(absf(caja_casa.position.x), absf(caja_casa.end.x)),
+			maxf(absf(caja_casa.position.z), absf(caja_casa.end.z))).length()
+	_check(_casa.vista_distancia_minima() > radio_casa + 1.0,
+			"ningún edificio del paisaje entra en la casa (cara más cercana a %.1f m, la casa llega a %.1f m)" % [
+					_casa.vista_distancia_minima(), radio_casa])
+	# Y ninguna caja de edificio pisa la planta de la casa.
+	var dentro := 0
+	for mi in (_casa.get_node("CiudadVista") as Node).find_children("Edificio*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var c := m.get_aabb()
+		var caja_ed := AABB(m.global_transform * c.position, c.size)
+		if caja_ed.position.x < caja_casa.end.x and caja_ed.end.x > caja_casa.position.x \
+				and caja_ed.position.z < caja_casa.end.z and caja_ed.end.z > caja_casa.position.z:
+			dentro += 1
+	_check(dentro == 0, "ninguna caja de edificio solapa la planta de la casa (%d solapes)" % dentro)
+	_check(_casa.cristales() == 3, "los 3 vanos exteriores siguen con su cristal invisible")
+
 	# Sin pulsar nada, la escena sigue siendo la misma (nadie entra/sale solo).
 	_check(get_tree().current_scene != null or true, "sin pulsar E la escena no cambia (no hay bucles)")
 	_check(EstadoCasaLeo.hay_vuelta() == false, "no queda ninguna vuelta pendiente colgada")

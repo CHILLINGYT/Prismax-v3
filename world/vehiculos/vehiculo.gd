@@ -25,6 +25,10 @@ extends StaticBody3D
 ## Alto (m) de la caja de colisión. Negativo = el alto real de la malla.
 @export var alto_colision := -1.0
 
+## Una malla más baja que esto (m, en unidades del modelo) es un plano: sombra
+## horneada o calcomanía. No define el tamaño del vehículo.
+const ALTO_MALLA_PLANA := 0.01
+
 var _modelo: Node3D
 var _largo := 0.0        ## longitud del modelo ya ajustado (m)
 var _ancho := 0.0        ## anchura del modelo ya ajustado (m), perpendicular
@@ -38,7 +42,13 @@ func _ready() -> void:
 	if _modelo == null:
 		push_warning("[vehiculo] '%s' no tiene nodo Modelo: queda sin ajustar." % name)
 		return
-	var caja := _caja_de_malla(_modelo, _modelo.transform)
+	# Primero SIN las mallas planas (sombras horneadas en un plano de grosor 0, como
+	# la del Datsun: 2,37 × 4,75 m, más grande que el propio coche). Si se contaran,
+	# el vehículo se escalaría por su SOMBRA y quedaría pequeño. Si el modelo no
+	# tuviera más que mallas planas, se usa la caja completa.
+	var caja := _caja_de_malla(_modelo, _modelo.transform, true)
+	if caja.size.length() < 0.0001:
+		caja = _caja_de_malla(_modelo, _modelo.transform)
 	if caja.size.length() < 0.0001:
 		push_warning("[vehiculo] '%s': la malla del modelo está vacía." % name)
 		return
@@ -68,19 +78,21 @@ func _ready() -> void:
 
 ## Caja envolvente de la MALLA del modelo, en el espacio del nodo que lo envuelve.
 ## Recorre la jerarquía componiendo transformadas y sólo cuenta MeshInstance3D.
-func _caja_de_malla(nodo: Node, t: Transform3D) -> AABB:
+func _caja_de_malla(nodo: Node, t: Transform3D, sin_planas: bool = false) -> AABB:
 	var caja := AABB()
 	var primero := true
 	if nodo is MeshInstance3D:
 		var mi := nodo as MeshInstance3D
 		if mi.mesh != null:
-			caja = _transformar_aabb(mi.get_aabb(), t)
-			primero = false
+			var propia := _transformar_aabb(mi.get_aabb(), t)
+			if not (sin_planas and propia.size.y < ALTO_MALLA_PLANA):
+				caja = propia
+				primero = false
 	for c in nodo.get_children():
 		var hijo := c as Node3D
 		if hijo == null:
 			continue
-		var caja_hijo := _caja_de_malla(hijo, t * hijo.transform)
+		var caja_hijo := _caja_de_malla(hijo, t * hijo.transform, sin_planas)
 		if caja_hijo.size.length() < 0.0001:
 			continue
 		caja = caja_hijo if primero else caja.merge(caja_hijo)

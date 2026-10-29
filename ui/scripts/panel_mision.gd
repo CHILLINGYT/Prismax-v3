@@ -20,8 +20,8 @@ const COLOR_TEXTO := Color(0.82, 0.86, 0.93, 1.0)
 const COLOR_COMPLETADO := Color(0.95, 0.24, 0.20, 1.0)
 
 @onready var _raiz: Control = $Raiz
-@onready var _titulo: Label = $Raiz/Panel/Columna/Titulo
-@onready var _estado: Label = $Raiz/Panel/Columna/Estado
+@onready var _titulo: Label = $Raiz/Panel/Fila/Columna/Titulo
+@onready var _estado: Label = $Raiz/Panel/Fila/Columna/Estado
 
 func _ready() -> void:
 	_titulo.text = TITULO

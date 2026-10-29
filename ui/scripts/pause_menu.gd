@@ -46,6 +46,9 @@ signal resumed
 @onready var _calidad_izq: Button = %CalidadIzq
 @onready var _calidad_der: Button = %CalidadDer
 @onready var _calidad_valor: Label = %CalidadValor
+@onready var _ambiente_izq: Button = %AmbienteIzq
+@onready var _ambiente_der: Button = %AmbienteDer
+@onready var _ambiente_valor: Label = %AmbienteValor
 @onready var _modo_izq: Button = %ModoIzq
 @onready var _modo_der: Button = %ModoDer
 @onready var _modo_valor: Label = %ModoValor
@@ -406,6 +409,8 @@ func _titulo_categoria(row: MenuOptionRes) -> String:
 func _conectar_opciones_graficos() -> void:
 	_calidad_izq.pressed.connect(_on_calidad_paso.bind(-1))
 	_calidad_der.pressed.connect(_on_calidad_paso.bind(1))
+	_ambiente_izq.pressed.connect(_on_ambiente_paso.bind(-1))
+	_ambiente_der.pressed.connect(_on_ambiente_paso.bind(1))
 	_modo_izq.pressed.connect(_on_pantalla_paso)
 	_modo_der.pressed.connect(_on_pantalla_paso)
 	_res_izq.pressed.connect(_on_resolucion_paso.bind(-1))
@@ -442,6 +447,11 @@ func _on_resolucion_paso(paso: int) -> void:
 func _on_calidad_paso(paso: int) -> void:
 	AjustesGraficos.pasar_calidad(paso)
 
+## Modo de ambiente (REALISTA / PS2), en caliente.
+func _on_ambiente_paso(paso: int) -> void:
+	AjustesGraficos.pasar_modo_ambiente(paso)
+	SonidoUI.reproducir_siyno()
+
 func _on_fps_paso() -> void:
 	var antes := AjustesGraficos.mostrar_fps
 	AjustesGraficos.poner_mostrar_fps(not antes)
@@ -462,6 +472,7 @@ func _on_diagnostico_paso() -> void:
 ## Refleja en la interfaz el estado REAL que vive en AjustesGraficos.
 func _actualizar_opciones_graficos() -> void:
 	_calidad_valor.text = AjustesGraficos.texto_calidad()
+	_ambiente_valor.text = AjustesGraficos.texto_modo_ambiente()
 	_modo_valor.text = "PANTALLA COMPLETA" if AjustesGraficos.pantalla_completa else "VENTANA"
 	_res_valor.text = AjustesGraficos.texto_resolucion()
 	_fps_valor.text = "SÍ" if AjustesGraficos.mostrar_fps else "NO"

@@ -102,7 +102,9 @@ func _ready() -> void:
 			"T2 conserva el tamaño visible de antes (largo %.3f m)" % (esc.x * LARGO_MODELO))
 	var eje := (municion.global_transform.basis * Vector3.UP).normalized() if municion != null else Vector3.ZERO
 	var avance := -proy.global_transform.basis.z
-	_check(absf(eje.dot(avance)) >= 0.99,
+	# SIN valor absoluto: con abs() se aceptaba también el cartucho AL REVÉS (dot -1),
+	# que es justo como volaba hasta la corrección de la orientación en el .tscn.
+	_check(eje.dot(avance) >= 0.99,
 			"T2 la punta del cartucho apunta en la dirección de vuelo (dot %.2f)" % eje.dot(avance))
 	proy.set("escala_visual", 2.0)
 	proy.call("_actualizar_malla")

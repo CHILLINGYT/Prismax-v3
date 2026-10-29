@@ -56,6 +56,26 @@ func _process(_delta: float) -> void:
 	set_process(false)
 	if not _resuelto:
 		visible = true
+		_animar_entrada()
+
+
+## Presentación (no decide nada): el cartel baja unos píxeles y se funde al entrar.
+const ENTRADA_ACTIVA := true
+func _animar_entrada() -> void:
+	var cartel := get_node_or_null("Margen/Cartel") as Control
+	if not ENTRADA_ACTIVA or cartel == null:
+		return
+	cartel.modulate.a = 0.0
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(cartel, "modulate:a", 1.0, 0.45).set_delay(0.25)
+	# El MarginContainer recoloca al hijo: se anima su margen superior.
+	var margen := get_node_or_null("Margen") as MarginContainer
+	if margen != null:
+		var arriba := margen.get_theme_constant("margin_top")
+		margen.add_theme_constant_override("margin_top", arriba - 14)
+		tw.tween_method(func(v: int) -> void: margen.add_theme_constant_override("margin_top", v),
+				arriba - 14, arriba, 0.5).set_delay(0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 ## Busca al NPC del objetivo y se engancha a su señal de conversación iniciada. La

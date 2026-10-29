@@ -94,6 +94,9 @@ const DISTANCIA_INTERACCION := 2.8
 const ACCION_INTERACTUAR := &"interactuar"
 ## Texto del indicador contextual.
 const TEXTO_INDICADOR := "E — Hablar con Iván"
+## Aviso con el estilo nuevo del HUD (componente AvisoInteraccion). `false` = el
+## panel anterior (para comparar).
+const AVISO_ESTILO_NUEVO := true
 ## Archivo de diálogo de Dialogue Manager y cue por el que empieza la conversación.
 const RUTA_DIALOGO := "res://NPCs/Dialogues/ivan.dialogue"
 const CUE_INICIO := "inicio"
@@ -384,6 +387,16 @@ func _crear_indicador() -> void:
 	_capa_indicador.name = "IndicadorInteraccion"
 	_capa_indicador.layer = 80
 	add_child(_capa_indicador)
+	if AVISO_ESTILO_NUEVO:
+		# Mismo componente que el aviso del HUD (tema central + keycap). La capa
+		# sigue siendo la que enciende/apaga `_actualizar_interaccion`.
+		var aviso := AvisoInteraccion.new()
+		aviso.name = "Aviso"
+		_capa_indicador.add_child(aviso)
+		aviso.anclar_abajo_centro(128.0)
+		aviso.seguir_capa(_capa_indicador, TEXTO_INDICADOR)
+		_capa_indicador.visible = false
+		return
 	var caja := PanelContainer.new()
 	caja.name = "Aviso"
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
