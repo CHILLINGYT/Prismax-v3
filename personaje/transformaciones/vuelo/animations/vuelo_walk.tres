@@ -1,4 +1,4 @@
-[gd_resource type="AnimationLibrary" format=3]
+[gd_resource type="AnimationLibrary" format=3 uid="uid://cy0wpfqlv4idk"]
 
 [sub_resource type="Animation" id="Animation_f1kbe"]
 resource_name = "walk"

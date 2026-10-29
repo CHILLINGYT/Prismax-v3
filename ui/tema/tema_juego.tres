@@ -1,10 +1,29 @@
-[gd_resource type="Theme" load_steps=12 format=3]
+[gd_resource type="Theme" format=3 uid="uid://chpyivjccygdk"]
 
-[ext_resource type="FontFile" path="res://assets/ui/fuentes/Barlow-SemiBold.ttf" id="1_barlow_sb"]
-[ext_resource type="FontFile" path="res://assets/ui/fuentes/Barlow-Medium.ttf" id="2_barlow_md"]
-[ext_resource type="FontFile" path="res://assets/ui/fuentes/BarlowCondensed-Bold.ttf" id="3_cond_b"]
-[ext_resource type="FontFile" path="res://assets/ui/fuentes/BarlowCondensed-ExtraBold.ttf" id="4_cond_xb"]
-[ext_resource type="Texture2D" path="res://assets/ui/generadas/velo_lateral.png" id="5_velo_lateral"]
+[ext_resource type="FontFile" uid="uid://bhl8larf2318c" path="res://assets/ui/fuentes/Barlow-SemiBold.ttf" id="1_barlow_sb"]
+[ext_resource type="FontFile" uid="uid://4c8n7whd27xs" path="res://assets/ui/fuentes/Barlow-Medium.ttf" id="2_barlow_md"]
+[ext_resource type="FontFile" uid="uid://7ovxihdgpv8a" path="res://assets/ui/fuentes/BarlowCondensed-Bold.ttf" id="3_cond_b"]
+[ext_resource type="FontFile" uid="uid://ckktxx3421omn" path="res://assets/ui/fuentes/BarlowCondensed-ExtraBold.ttf" id="4_cond_xb"]
+[ext_resource type="Texture2D" uid="uid://cp0cuf000y43e" path="res://assets/ui/generadas/velo_lateral.png" id="5_velo_lateral"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_acento"]
+bg_color = Color(1, 0.72, 0.25, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tecla"]
+content_margin_left = 9.0
+content_margin_top = 1.0
+content_margin_right = 9.0
+content_margin_bottom = 3.0
+bg_color = Color(0.96, 0.97, 1, 1)
+border_width_bottom = 4
+border_color = Color(0.62, 0.66, 0.74, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 3
+shadow_offset = Vector2(0, 2)
 
 [sub_resource type="Gradient" id="Gradient_velo"]
 offsets = PackedFloat32Array(0, 0.55, 1)
@@ -19,37 +38,18 @@ fill_from = Vector2(0.5, 0.5)
 fill_to = Vector2(1, 0.5)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_velo"]
-texture = SubResource("GradientTexture2D_velo")
 content_margin_left = 40.0
 content_margin_top = 14.0
 content_margin_right = 40.0
 content_margin_bottom = 14.0
+texture = SubResource("GradientTexture2D_velo")
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_lateral"]
-texture = ExtResource("5_velo_lateral")
 content_margin_left = 16.0
 content_margin_top = 10.0
 content_margin_right = 28.0
 content_margin_bottom = 10.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tecla"]
-bg_color = Color(0.96, 0.97, 1, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-border_width_bottom = 4
-border_color = Color(0.62, 0.66, 0.74, 1)
-content_margin_left = 9.0
-content_margin_top = 1.0
-content_margin_right = 9.0
-content_margin_bottom = 3.0
-shadow_color = Color(0, 0, 0, 0.45)
-shadow_size = 3
-shadow_offset = Vector2(0, 2)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_acento"]
-bg_color = Color(1, 0.72, 0.25, 1)
+texture = ExtResource("5_velo_lateral")
 
 [resource]
 default_font = ExtResource("1_barlow_sb")
@@ -86,15 +86,15 @@ HudTecla/styles/panel = SubResource("StyleBoxFlat_tecla")
 HudTeclaTexto/base_type = &"Label"
 HudTeclaTexto/colors/font_color = Color(0.07, 0.08, 0.11, 1)
 HudTeclaTexto/colors/font_outline_color = Color(0, 0, 0, 0)
+HudTeclaTexto/colors/font_shadow_color = Color(0, 0, 0, 0)
 HudTeclaTexto/constants/outline_size = 0
 HudTeclaTexto/constants/shadow_outline_size = 0
-HudTeclaTexto/colors/font_shadow_color = Color(0, 0, 0, 0)
 HudTeclaTexto/font_sizes/font_size = 22
 HudTeclaTexto/fonts/font = ExtResource("4_cond_xb")
-HudVeloLateral/base_type = &"PanelContainer"
-HudVeloLateral/styles/panel = SubResource("StyleBoxTexture_lateral")
 HudVelo/base_type = &"PanelContainer"
 HudVelo/styles/panel = SubResource("StyleBoxTexture_velo")
+HudVeloLateral/base_type = &"PanelContainer"
+HudVeloLateral/styles/panel = SubResource("StyleBoxTexture_lateral")
 Label/colors/font_color = Color(0.97, 0.98, 1, 1)
 Label/colors/font_outline_color = Color(0.02, 0.025, 0.045, 0.95)
 Label/colors/font_shadow_color = Color(0, 0, 0, 0.55)
