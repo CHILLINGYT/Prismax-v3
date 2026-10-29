@@ -11,7 +11,7 @@ extends Node3D
 ##   godot --headless --path <proyecto> res://pruebas/probe_trepada.tscn
 
 const JUGADOR := "res://personaje/base/escenas/leo_jugador.tscn"
-const BARCO := "res://world/barco.tscn"
+const BARCO := "res://mundo/entorno/barco.tscn"
 
 var _jug: Node3D
 var _esc: EscaleraBarco

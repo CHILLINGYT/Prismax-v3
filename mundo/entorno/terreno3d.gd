@@ -6,7 +6,7 @@ extends Node3D
 ##  Construye el terreno del mundo con el complemento **Terrain 3D 1.0.2**
 ##  (GDExtension) y le encarga TODO el sistema de terreno: relieve, superficie,
 ##  colisiones y reparto de texturas. No hay ninguna malla propia: la única
-##  entrada es el mapa de altura `res://world/altura_isla.res`, generado con las
+##  entrada es el mapa de altura `res://mundo/entorno/altura_isla.res`, generado con las
 ##  funciones de `Relieve` (bakeado a 2 m por vértice, 1024x1024).
 ##
 ##  Por qué se crea por código y no como nodo de la escena: el nodo Terrain3D lo
@@ -26,7 +26,7 @@ extends Node3D
 ## =============================================================================
 
 ## Mapa de altura horneado (Image FORMAT_RF con las alturas reales en metros).
-const ALTURAS := "res://world/altura_isla.res"
+const ALTURAS := "res://mundo/entorno/altura_isla.res"
 ## Mapa de control horneado. OJO: NO es un mapa de pesos por canal. El canal R
 ## guarda un entero empaquetado por bits (bit 0 = autoshader, bits 14-21 = mezcla,
 ## bits 22-26 = textura de overlay, bits 27-31 = textura base) y se genera con los
@@ -39,7 +39,7 @@ const ALTURAS := "res://world/altura_isla.res"
 ##   * ARENA (textura 2) en la playa y el fondo marino.
 ## Lo hornea `Relieve` igual que el mapa de altura, así que el reparto de
 ## materiales coincide exactamente con el relieve.
-const CONTROL := "res://world/control_isla.res"
+const CONTROL := "res://mundo/entorno/control_isla.res"
 ## Arena de la playa y del fondo marino. Debe medir lo mismo que las texturas del
 ## complemento (1024x1024) y estar importada igual (VRAM + mipmaps): Terrain3D
 ## mete todas las texturas del terreno en un mismo array y exige formatos

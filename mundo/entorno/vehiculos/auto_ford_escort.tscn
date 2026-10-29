@@ -6,7 +6,7 @@
 ; largo_objetivo 4.3 (antes 4.0): con el modelo (3,74 × 1,60 × 1,45 m) da 1,84 m de ancho,
 ; el ancho real del Escort; no se estira ningún eje.
 
-[ext_resource type="Script" path="res://world/vehiculos/vehiculo.gd" id="1_vehiculo"]
+[ext_resource type="Script" path="res://mundo/entorno/vehiculos/vehiculo.gd" id="1_vehiculo"]
 [ext_resource type="PackedScene" path="res://auto profe/Ford_Escort_Wagon_Bordo.glb" id="2_modelo"]
 
 [node name="AutoFordEscort" type="StaticBody3D"]

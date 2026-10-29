@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://world/muelle.gd" id="1_muelle"]
+[ext_resource type="Script" path="res://mundo/entorno/muelle.gd" id="1_muelle"]
 
 [node name="Muelle" type="Node3D"]
 script = ExtResource("1_muelle")

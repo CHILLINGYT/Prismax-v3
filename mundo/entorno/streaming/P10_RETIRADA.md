@@ -53,7 +53,7 @@ esta sesión por presión de memoria** (memoria disponible ~440 MB); ver el info
 2. **Deshaz la integración en la escena** `res://ziba/escenas/ziba_prototipo.tscn`:
    abre el archivo con un editor de texto y borra EXACTAMENTE estas dos partes
    añadidas por P10:
-   - la línea `[ext_resource ... path="res://world/streaming/gestor_streaming_mundo.gd" id="44_streaming"]`
+   - la línea `[ext_resource ... path="res://mundo/entorno/streaming/gestor_streaming_mundo.gd" id="44_streaming"]`
    - el bloque del nodo completo:
      ```
      [node name="StreamingMundo" type="Node" parent="."]

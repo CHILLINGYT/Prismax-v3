@@ -23,11 +23,11 @@ extends Node3D
 ##
 ##  Todo es determinista (sin azar) para que las pruebas puedan comprobarlo.
 
-const ESCENA_MOTO := preload("res://world/vehiculos/moto_vespa.tscn")
-const ESCENA_AUTO := preload("res://world/vehiculos/auto_datsun.tscn")
-const ESCENA_CAMIONETA := preload("res://world/vehiculos/camioneta_zuk.tscn")
+const ESCENA_MOTO := preload("res://mundo/entorno/vehiculos/moto_vespa.tscn")
+const ESCENA_AUTO := preload("res://mundo/entorno/vehiculos/auto_datsun.tscn")
+const ESCENA_CAMIONETA := preload("res://mundo/entorno/vehiculos/camioneta_zuk.tscn")
 ## Ford Escort Wagon de la carpeta "auto profe" (mismo VehiculoAparcado).
-const ESCENA_FORD := preload("res://world/vehiculos/auto_ford_escort.tscn")
+const ESCENA_FORD := preload("res://mundo/entorno/vehiculos/auto_ford_escort.tscn")
 
 const MAX_ESPERA := 8.0         ## s de espera máxima a que el generador cierre la ciudad
 const AIRE_BORDILLO := 0.15     ## m entre el costado del vehículo y el bordillo

@@ -81,7 +81,7 @@ func _construir() -> void:
 	_pivote.scale = Vector3.ONE * escala
 	var malla := _malla_flecha()
 	_mat_flecha = ShaderMaterial.new()
-	_mat_flecha.shader = preload("res://world/marcadores/door_marker_flecha.gdshader")
+	_mat_flecha.shader = preload("res://mundo/entorno/marcadores/door_marker_flecha.gdshader")
 	_flecha = MeshInstance3D.new()
 	_flecha.name = "_DMFlecha"
 	_flecha.mesh = malla
@@ -90,7 +90,7 @@ func _construir() -> void:
 	_pivote.add_child(_flecha)
 	# Contorno: la misma malla, algo mayor alrededor de su centro, sólo por detrás.
 	_mat_contorno = ShaderMaterial.new()
-	_mat_contorno.shader = preload("res://world/marcadores/door_marker_contorno.gdshader")
+	_mat_contorno.shader = preload("res://mundo/entorno/marcadores/door_marker_contorno.gdshader")
 	_contorno = MeshInstance3D.new()
 	_contorno.name = "_DMContorno"
 	_contorno.mesh = malla
@@ -101,7 +101,7 @@ func _construir() -> void:
 	_contorno.transform = Transform3D(Basis.from_scale(s), centro - centro * s)
 	_contorno.visible = contorno
 	_pivote.add_child(_contorno)
-	var sh_halo := preload("res://world/marcadores/door_marker_halo.gdshader")
+	var sh_halo := preload("res://mundo/entorno/marcadores/door_marker_halo.gdshader")
 	_mat_halo = ShaderMaterial.new()
 	_mat_halo.shader = sh_halo
 	_mat_halo.set_shader_parameter("modo", 0)

@@ -3997,7 +3997,7 @@ func _volcar_ventanas() -> void:
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	var material := ShaderMaterial.new()
-	material.shader = load("res://world/ventanas_noche.gdshader")
+	material.shader = load("res://mundo/entorno/ventanas_noche.gdshader")
 	material.set_shader_parameter("noche", 0.0)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -4021,7 +4021,7 @@ func _volcar_ventanas() -> void:
 	if raiz != null:
 		var control := Node.new()
 		control.name = "LucesVentanas"
-		control.set_script(load("res://world/luces_ventanas.gd"))
+		control.set_script(load("res://mundo/entorno/luces_ventanas.gd"))
 		control.set("material", material)
 		control.set("mmi", mmi)
 		raiz.add_child(control)

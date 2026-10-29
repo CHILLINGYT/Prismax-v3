@@ -4,10 +4,10 @@ extends Node3D
 
 const JUG := "res://personaje/base/escenas/leo_jugador.tscn"
 const VEH := {
-	"moto": "res://world/vehiculos/moto_vespa.tscn",
-	"auto": "res://world/vehiculos/auto_datsun.tscn",
-	"camioneta": "res://world/vehiculos/camioneta_zuk.tscn",
-	"ford": "res://world/vehiculos/auto_ford_escort.tscn",
+	"moto": "res://mundo/entorno/vehiculos/moto_vespa.tscn",
+	"auto": "res://mundo/entorno/vehiculos/auto_datsun.tscn",
+	"camioneta": "res://mundo/entorno/vehiculos/camioneta_zuk.tscn",
+	"ford": "res://mundo/entorno/vehiculos/auto_ford_escort.tscn",
 }
 
 

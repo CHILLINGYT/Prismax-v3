@@ -17,7 +17,7 @@ const GestorCombate := preload("res://personaje/transformaciones/transformacion 
 const ConfigCombate := preload("res://personaje/transformaciones/transformacion ataque/resources/combat_config.tres")
 const GerenteScript := preload("res://Enemigos Prueba/Scripts/gerente_enemigos_prueba.gd")
 const DirectorScript := preload("res://sistemas/eventos/director_eventos.gd")
-const ESCENA_BARCO := preload("res://world/barco.tscn")
+const ESCENA_BARCO := preload("res://mundo/entorno/barco.tscn")
 
 var _pasadas := 0
 var _falladas := 0

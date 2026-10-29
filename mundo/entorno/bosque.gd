@@ -7,7 +7,7 @@ extends Node3D
 ##  mapa, igual que el generador de ciudad siembra los suyos.
 ##
 ##  La vegetación es la MISMA que la de la ciudad: las tarjetas cruzadas de
-##  `res://world/vegetacion.gd`, con los dibujos de árbol y arbusto que ya tiene el
+##  `res://mundo/entorno/vegetacion.gd`, con los dibujos de árbol y arbusto que ya tiene el
 ##  proyecto. Así el bosque y los árboles de las calles se ven del mismo tipo y no
 ##  hay que importar ningún modelo nuevo.
 ##
@@ -275,5 +275,5 @@ func _trozo_multi(trozo: Node3D, malla: Mesh, material: Material,
 
 
 ## Las MALLAS y los MATERIALES de las plantas ya no se construyen aquí: los pone
-## `res://world/vegetacion.gd` (tarjetas cruzadas con recorte de alfa), compartidos
+## `res://mundo/entorno/vegetacion.gd` (tarjetas cruzadas con recorte de alfa), compartidos
 ## con la vegetación de la ciudad.
