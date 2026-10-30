@@ -1931,7 +1931,9 @@ func _preparar_para_guardar(nodo: Node, raiz: Node) -> void:
 func _enfocar_vista_editor() -> void:
 	if not Engine.is_editor_hint():
 		return
-	var vista := EditorInterface.get_editor_viewport_3d()
+	# Por singleton y no por nombre: la clase EditorInterface no existe en el juego
+	# exportado y nombrarla impide compilar el script (la ciudad no se generaba).
+	var vista: SubViewport = Engine.get_singleton(&"EditorInterface").get_editor_viewport_3d()
 	if vista == null:
 		return
 	var cam := vista.get_camera_3d()
